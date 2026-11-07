@@ -2,7 +2,7 @@
 
 用法（在 Onion-Map 目錄）：
   python tools/daycard/daycard.py draft   --track daycard/demo-track.json --date 2026-11-07 [--trim 300]
-  python tools/daycard/daycard.py compose --date 2026-11-07 [--painted 路徑/AI畫的.png]
+  python tools/daycard/daycard.py compose --date 2026-11-07 [--painted 路徑/AI畫的.png] [--name 彩鉛] [--no-frame] [--no-icons]
 
 輸出到 daycard/<date>/：
   draft.png / draft_2k.png    無字底稿（給 ChatGPT 照構圖重畫），1024x1536 與 2048x3072
@@ -379,18 +379,65 @@ def pick_names(fr, layers, pts, stops, route_px, green_g, inst_g):
 
 
 # ───────── 加框 ─────────
-def compose(out, painted_path):
+def fit_by_route(src, lay):
+    """AI 畫的圖不一定跟底稿同框（可能拿 map_osm_plain 去畫、被裁、被拉），用紅色路線對位：
+    找圖裡的紅線框住的範圍，對到 layout.json 裡路線的範圍，算出每軸的縮放與位移。對不到就回 None"""
+    a = np.asarray(src).astype(np.int16); R, G, B = a[..., 0], a[..., 1], a[..., 2]
+    red = (R > 110) & (G < 120) & (B < 120) & (R - np.maximum(G, B) > 80)  # 亮紅、暗紅都算；橘色大路（G 高）、褐色屋頂（紅度低）不算
+    lab, n = ndi.label(red)
+    if not n: return None
+    sizes = ndi.sum(red, lab, range(1, n + 1)); keep = np.isin(lab, [i + 1 for i, s in enumerate(sizes) if s >= 0.02 * sizes.max()])
+    def bbox(m):
+        ys, xs = np.nonzero(m); return np.percentile(xs, 0.3), np.percentile(xs, 99.7), np.percentile(ys, 0.3), np.percentile(ys, 99.7)
+    full = bbox(keep)
+    # 線有粗細、端點有圓點：剝兩圈再量比較接近中心線，但虛線太細會被剝光，剝完框縮太多就改用原框往內收一點
+    er = ndi.binary_erosion(keep, iterations=2)
+    use = full
+    if er.sum() > 200:
+        e = bbox(er)
+        if (e[1] - e[0]) > 0.93 * (full[1] - full[0]) and (e[3] - e[2]) > 0.93 * (full[3] - full[2]): use = e
+    if use is full: use = (full[0] + 3, full[1] - 3, full[2] + 3, full[3] - 3)
+    ax0, ax1, ay0, ay1 = use
+    rx = [p[0] for p in lay['route']]; ry = [p[1] for p in lay['route']]
+    rx0, rx1, ry0, ry1 = min(rx), max(rx), min(ry), max(ry)
+    if ax1 - ax0 < 50 or ay1 - ay0 < 50: return None
+    sx, sy = (rx1 - rx0) / (ax1 - ax0), (ry1 - ry0) / (ay1 - ay0)
+    if not 0.88 < sx / sy < 1.08: print(f'  紅線對位：兩軸縮放差太多（{sx:.3f} vs {sy:.3f}），放棄'); return None
+    return sx, sy, rx0 - ax0 * sx, ry0 - ay0 * sy
+
+
+def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', mat=0):
     lay = json.load(open(out / 'layout.json', encoding='utf-8'))
     src = Image.open(painted_path if painted_path else out / 'base_textured.png').convert('RGB')
-    if src.size != (W2, H2): src = src.resize((W2, H2), Image.LANCZOS)
-    card = src.convert('RGBA'); d = ImageDraw.Draw(card)
     paper = Image.fromarray((tex_array('paper', (W2, H2), PAPER) * 255).astype(np.uint8))
+    placed = None
+    if painted_path and fit == 'auto' and 'route' in lay: placed = fit_by_route(src, lay)
+    if placed:
+        sx, sy, ox, oy = placed
+        print(f'  紅線對位：縮放 {sx:.3f} x {sy:.3f}，位移 {ox:.0f},{oy:.0f}（圖 {src.width}x{src.height} → {src.width * sx:.0f}x{src.height * sy:.0f}）')
+        scaled = src.resize((max(1, round(src.width * sx)), max(1, round(src.height * sy))), Image.LANCZOS)
+        card = paper.copy(); card.paste(scaled, (round(ox), round(oy)))
+    else:
+        if painted_path and fit == 'auto': print('  紅線對位失敗，當作跟底稿同框')
+        card = src.resize((W2, H2), Image.LANCZOS) if src.size != (W2, H2) else src.copy()
+    card = card.convert('RGBA'); d = ImageDraw.Draw(card)
+    # 內容框外面鋪回紙，AI 畫到邊的也會被裱起來
+    if frame:  # mat：AI 圖自己畫了撕邊或黑角、落在內容框裡面時，把紙邊再往內裱幾十像素蓋掉
+        band = Image.new('L', (W2, H2), 255); ImageDraw.Draw(band).rectangle([CONTENT[0] + mat, CONTENT[1] + mat, CONTENT[2] - mat, CONTENT[3] - mat], fill=0)
+        card.paste(paper, (0, 0), band)
+    if painted_path and icons:  # AI 從地圖原圖畫的沒有我們的圖示，補上去（從底稿畫的就用 --no-icons）
+        sp = {p.stem: Image.open(p).convert('RGBA') for p in SPRITES.glob('*.png') if not p.name.startswith('_')}
+        for ic in sorted(lay['icons'], key=lambda i: i['y']): paste_sprite(card, sp, ic['sprite'], ic['x'], ic['y'] + 8, ic['size'], False)
+    # 對位檢查圖：我們的路線畫在 AI 圖上，看有沒有對上
+    chk = card.copy(); dc = ImageDraw.Draw(chk); dc.line([tuple(p) for p in lay['route']], fill=(0, 90, 255), width=6)
+    chk.convert('RGB').resize((W2 // 2, H2 // 2), Image.LANCZOS).save(out / f'{name or "card"}_check.png')
     # 邊框：雙線，手抖
     o = M * 0.5
-    pencil_poly(d, [(o, o), (W2 - o, o), (W2 - o, H2 - o), (o, H2 - o)], INK, 5)
-    pencil_poly(d, [(o + 14, o + 14), (W2 - o - 14, o + 14), (W2 - o - 14, H2 - o - 14), (o + 14, H2 - o - 14)], INK, 2)
-    for cx, cy in ((o + 14, o + 14), (W2 - o - 14, o + 14), (o + 14, H2 - o - 14), (W2 - o - 14, H2 - o - 14)):  # 角落小花
-        for k in (18, 30): d.ellipse([cx - k, cy - k, cx + k, cy + k], outline=INK, width=2)
+    if frame:
+        pencil_poly(d, [(o, o), (W2 - o, o), (W2 - o, H2 - o), (o, H2 - o)], INK, 5)
+        pencil_poly(d, [(o + 14, o + 14), (W2 - o - 14, o + 14), (W2 - o - 14, H2 - o - 14), (o + 14, H2 - o - 14)], INK, 2)
+        for cx, cy in ((o + 14, o + 14), (W2 - o - 14, o + 14), (o + 14, H2 - o - 14), (W2 - o - 14, H2 - o - 14)):  # 角落小花
+            for k in (18, 30): d.ellipse([cx - k, cy - k, cx + k, cy + k], outline=INK, width=2)
     boxes = []
     def cartouche(x, y, w, h):
         card.paste(paper.crop((x, y, x + w, y + h)), (x, y))
@@ -456,8 +503,9 @@ def compose(out, painted_path):
     g = tex_array('paper', (W2, H2), PAPER).mean(axis=2); lo, hi = np.percentile(g, 1), np.percentile(g, 99)
     arr = arr * (0.93 + 0.07 * np.clip((g - lo) / (hi - lo + 1e-6), 0, 1))[..., None]
     final = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-    final.save(out / 'card.png'); final.resize((1080, 1620), Image.LANCZOS).save(out / 'card_1080.png')
-    print('card.png / card_1080.png 存好', '（AI 版）' if painted_path else '（程式材質版）')
+    stem = name or 'card'
+    final.save(out / f'{stem}.png'); final.resize((1080, 1620), Image.LANCZOS).save(out / f'{stem}_1080.png')
+    print(f'{stem}.png / {stem}_1080.png 存好', '（AI 版）' if painted_path else '（程式材質版）')
 
 
 # ───────── 主流程 ─────────
@@ -471,10 +519,15 @@ PROMPT = """第一張是地圖底稿，第二張是風格參考。請把第一�
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('cmd', choices=['draft', 'compose']); ap.add_argument('--track'); ap.add_argument('--date')
     ap.add_argument('--trim', type=float, default=300); ap.add_argument('--painted'); ap.add_argument('--out')
+    ap.add_argument('--name', help='輸出檔名（預設 card），同一天比好幾張 AI 圖時用')
+    ap.add_argument('--no-frame', action='store_true', help='不畫我們的邊框、不裱紙邊（AI 圖自己有框時用）')
+    ap.add_argument('--no-icons', action='store_true', help='不補貼紙圖示（AI 是從帶圖示的底稿畫的時用）')
+    ap.add_argument('--fit', default='auto', choices=['auto', 'same'], help='auto：用紅色路線對位；same：當作跟底稿同框')
+    ap.add_argument('--mat', type=int, default=0, help='紙邊再往內裱幾像素（AI 圖自己有撕邊黑角跑進內容框時用，例如 48）')
     args = ap.parse_args()
     if args.cmd == 'compose':
         out = Path(args.out) if args.out else ROOT / 'daycard' / args.date
-        return compose(out, args.painted)
+        return compose(out, args.painted, name=args.name, frame=not args.no_frame, icons=not args.no_icons, fit=args.fit, mat=args.mat)
     date, pts, layer, trimmed = load_day(args.track, args.date, args.trim)
     out = Path(args.out) if args.out else ROOT / 'daycard' / date; out.mkdir(parents=True, exist_ok=True)
     stops = find_stops(pts); st = stats_of(pts, stops)
@@ -498,7 +551,7 @@ def main():
     tex.convert('RGB').save(out / 'base_textured.png')
     dz = datetime.strptime(date, '%Y-%m-%d')
     json.dump({'date': date, 'date_zh': f'{dz.year}.{dz.month:02d}.{dz.day:02d}', 'layer': layer, 'city': city, 'district': district, 'stats': st, 'mpp': fr.mpp,
-               'bounds': fr.bounds, 'icons': icons, 'places': places, 'start': start_px, 'end': end_px, 'trimmed': trimmed, 'route_n': len(thin)},
+               'bounds': fr.bounds, 'icons': icons, 'places': places, 'start': start_px, 'end': end_px, 'trimmed': trimmed, 'route': [[round(x, 1), round(y, 1)] for x, y in thin]},
               open(out / 'layout.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     (out / 'prompt.txt').write_text(PROMPT, encoding='utf-8')
     print('draft.png / draft_2k.png / base_textured.png / layout.json / prompt.txt 存到', out)
