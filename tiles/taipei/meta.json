@@ -9,5 +9,5 @@
  "minzoom": 9,
  "maxzoom": 13,
  "tileSize": 256,
- "source": "painted_v1_source.png"
+ "source": "painted_v2_source.png"
 }
