@@ -1,0 +1,6 @@
+# 字型與 glyph 是二進位，不要做換行轉換
+*.pbf binary
+*.woff2 binary
+*.ttf binary
+*.png binary
+*.jpg binary
