@@ -7,3 +7,4 @@ www/
 docs/drafts/
 sheets/**/*.png
 tools/sheet/cache/
+!sheets/**/painted*.png

@@ -392,9 +392,11 @@ def main():
             name = ['ship', 'sea-serpent', 'whale', 'ship'][k % 4]
             add('sea', name, x, y, sh.m2px(1600), pad=sh.m2px(1500), flip=rng.random() < 0.5)
 
-    # 6. 圖示版
+    # 6. 圖示版。先存一張沒有地名的（給 AI 重畫用，字由程式事後貼，AI 會把字寫錯）
     icons = base.copy()
     for it in sorted(items, key=lambda i: i['y']): paste_sprite(icons, sp, it['name'], it['x'], it['y'], it['w'], it['flip'])  # 由上往下，前排蓋後排
+    icons.convert('RGB').save(out / 'base_icons_nolabel.png')
+    icons.convert('RGB').resize((2048, round(2048 * H / W)), Image.LANCZOS).save(out / 'base_icons_nolabel_2k.png'); print('base_icons_nolabel(_2k).png 存好')
     d = ImageDraw.Draw(icons)
     for lb in label_items:
         f = font(lb['size'])

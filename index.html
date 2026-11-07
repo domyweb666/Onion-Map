@@ -706,13 +706,26 @@ function updateQ() {
       const h = qhash(gx, gy, z);
       const [lng, lat] = unproj((gx + 0.15 + 0.7 * ((h & 255) / 255)) * step, (gy + 0.15 + 0.7 * (((h >> 8) & 255) / 255)) * step);
       if (Math.abs(lat) > 84) continue;
-      if (cells[h3.latLngToCell(lat, lng, CFG.res)]) continue;
+      if (revealSet ? revealSet.has(h3.latLngToCell(lat, lng, revealRes)) : cells[h3.latLngToCell(lat, lng, CFG.res)]) continue;
       feats.push({ type: 'Feature', properties: { r: ((h >> 16) & 63) - 32, s: 0.8 + ((h >> 22) & 15) / 40 }, geometry: { type: 'Point', coordinates: [lng, lat] } });
     }
   }
   map.getSource('fogq').setData({ type: 'FeatureCollection', features: feats });
 }
 const WORLD = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+// 圖幅模式的揭開範圍：紀錄還是 res 12 的細格子，但霧散開的範圍放大。
+// 拉近看：換算成 res 11 再往外擴兩圈（走過的路左右約 100 公尺）；縮小看：res 8 的格子（約 1 公里）走進去整格散開
+let revealSet = null, revealRes = CFG.res;
+function revealTier() { return map.getZoom() < 11 ? 'coarse' : 'fine'; }
+function revealCells(ids) {
+  const fine = revealTier() === 'fine', res = fine ? 11 : 8, set = new Set();
+  for (const c of ids) {
+    const p = h3.cellToParent(c, res);
+    if (fine) for (const d of h3.gridDisk(p, 2)) set.add(d); else set.add(p);
+  }
+  revealSet = set; revealRes = res;
+  return [...set];
+}
 let renderTimer = null;
 function renderSoon() { if (!renderTimer) renderTimer = setTimeout(() => { renderTimer = null; render(); }, 350); }
 function render(force) {
@@ -720,7 +733,8 @@ function render(force) {
   if (!map.getSource('fog')) return;
   if (!engine.takeDirty() && !force) return;
   const s = engine.state(), ids = Object.keys(s.cells);
-  const polys = ids.length ? h3.cellsToMultiPolygon(ids, true) : [];
+  const rid = typeof STYLE !== 'undefined' && STYLE === 'sheet' ? revealCells(ids) : ids;
+  const polys = rid.length ? h3.cellsToMultiPolygon(rid, true) : [];
   const fog = [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon',
     coordinates: [orient(WORLD, true), ...polys.map(p => orient(p[0], false))] } }];
   polys.forEach(p => { for (let i = 1; i < p.length; i++) fog.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [p[i]] } }); });
@@ -958,8 +972,8 @@ $('legend').onclick = e => { if (e.target === $('legend')) $('legend').hidden = 
 // MapLibre 只負責圖資、鏡頭、迷霧的洞與地名；路、水、植被、迷霧排線改用 Rough.js 畫在一層畫布上，
 // 畫布用 multiply 疊在地圖上，底下的地名與「?」照樣看得到。停下來才重畫，拖動時用 CSS 位移讓草稿跟著滑。
 // 草稿模式三種畫法：?sketch=1 色鉛筆排線（pencil）、?style=ink 羊皮紙鋼筆淡彩、?style=wash 水彩草原
-const STYLE = (location.search.match(/[?&]style=(ink|wash|pencil|sprite)/) || [])[1] || 'pencil'; // sprite：用 assets/sprites 的貼紙
-const SKETCH = (/[?&]sketch=1/.test(location.search) || STYLE !== 'pencil') && typeof rough !== 'undefined';
+const STYLE = (location.search.match(/[?&]style=(ink|wash|pencil|sprite|sheet)/) || [])[1] || 'pencil'; // sprite：用 assets/sprites 的貼紙；sheet：先畫好的圖幅
+const SKETCH = (/[?&]sketch=1/.test(location.search) || STYLE !== 'pencil') && STYLE !== 'sheet' && typeof rough !== 'undefined';
 if (SKETCH) {
   const SK = { tol: 5, rough: 1.3, bow: 1.4 }; // 簡化公差（螢幕像素）、抖動、彎曲：草稿要多潦草都在這裡調
   const FANTASY = STYLE !== 'pencil';
@@ -1449,6 +1463,48 @@ if (SKETCH) {
   map.on('sourcedata', e => { if ((e.sourceId === 'omt' || e.sourceId === 'fog') && e.isSourceLoaded) needDraw = true; });
   map.on('idle', () => { if (needDraw) { needDraw = false; drawSketch(); } });
   window.drawSketch = drawSketch; window.SK = SK; window.sketchCanvas = cv;
+}
+
+// ===== 圖幅模式（?style=sheet）：底圖是電腦上先畫好、切成圖磚的圖幅；app 只蓋霧、畫軌跡、放定位點 =====
+// 圖磚由 tools/sheet/cut_tiles.py 產生，bounds 抄 tiles/<sheet>/meta.json
+const SHEETS = [
+  { id: 'taipei', tiles: 'tiles/taipei/{z}/{x}/{y}.webp', bounds: [121.289062, 24.846565, 121.772461, 25.324167], minzoom: 9, maxzoom: 13 }
+];
+function mistImage() { // 黑濛濛的霧：幾個整數頻率的波疊起來，四邊自然接得上，鋪成 pattern 不會有縫
+  const n = 256, c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'), id = g.createImageData(n, n), d = id.data, waves = [];
+  for (let k = 0; k < 9; k++) waves.push({ fx: 1 + (k * 7) % 5, fy: 1 + (k * 3) % 5, ph: k * 1.7, amp: 1 / (1 + k * 0.6) });
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    let v = 0;
+    for (const w of waves) v += w.amp * Math.sin(2 * Math.PI * (w.fx * x / n + w.fy * y / n) + w.ph + 1.6 * Math.sin(2 * Math.PI * (w.fy * x / n - w.fx * y / n)));
+    const t = 0.5 + 0.5 * Math.tanh(v * 0.5), r = (Math.random() - 0.5) * 9, i = (y * n + x) * 4;
+    d[i] = 26 + t * 34 + r; d[i + 1] = 30 + t * 36 + r; d[i + 2] = 40 + t * 44 + r; d[i + 3] = 255;
+  }
+  return { width: n, height: n, data: new Uint8Array(d.buffer) };
+}
+if (STYLE === 'sheet') {
+  for (const id of ['water-name', 'road-name', 'road-shield', 'peak', 'place']) LABEL_LAYERS.splice(LABEL_LAYERS.indexOf(id), 1); // 地名已經寫在圖幅上
+  map.setMaxZoom(14.5); // 區域圖幅只畫到 z13，再拉近只是放大；步行圖幅做好前先擋在這
+  let tier = null;
+  map.on('zoomend', () => { const t = revealTier(); if (tier !== null && t !== tier) render(true); tier = t; }); // 粗細揭開範圍切換時重算霧
+  map.on('load', () => { tier = revealTier(); });
+  map.on('load', () => {
+    for (const l of style.layers) if (l.id !== 'bg' && map.getLayer(l.id)) map.setLayoutProperty(l.id, 'visibility', 'none'); // 向量底圖全藏
+    for (const id of ['hint-water', 'hint-border', 'explored-hatch', 'freq', 'explored-ink', 'fog-hatch', 'gaps']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+    for (const s of SHEETS) {
+      map.addSource('sheet-' + s.id, { type: 'raster', tiles: [s.tiles], tileSize: 256, bounds: s.bounds, minzoom: s.minzoom, maxzoom: s.maxzoom });
+      map.addLayer({ id: 'sheet-' + s.id, type: 'raster', source: 'sheet-' + s.id, paint: { 'raster-fade-duration': 0 } }, 'freq'); // 放在霧的下面
+    }
+    map.addImage('mist', mistImage());
+    map.setPaintProperty('fog', 'fill-pattern', 'mist'); map.setPaintProperty('fog', 'fill-opacity', 0.97);
+    map.setPaintProperty('fog-edge', 'line-color', '#12151C'); map.setPaintProperty('fog-edge', 'line-opacity', 0.8);
+    map.setLayoutProperty('fog-edge', 'line-join', 'round'); map.setLayoutProperty('fog-edge', 'line-cap', 'round'); // 尖角接頭加模糊會長刺，圓的才像霧散開
+    map.setPaintProperty('fog-edge', 'line-width', ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 12]); map.setPaintProperty('fog-edge', 'line-blur', ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 7]);
+    map.setPaintProperty('fog-q', 'text-color', '#B7BDC8'); map.setPaintProperty('fog-q', 'text-opacity', 0.5);
+    // 軌跡：尋寶圖的紅色虛線，所有縮放都看得到
+    map.setPaintProperty('track', 'line-color', '#A33B2E'); map.setPaintProperty('track', 'line-opacity', 0.9);
+    map.setPaintProperty('track', 'line-width', ['interpolate', ['linear'], ['zoom'], 8, 1.6, 13, 2.6]); map.setPaintProperty('track', 'line-dasharray', [2.5, 1.6]);
+  });
 }
 updateStats();
 </script>

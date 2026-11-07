@@ -1,0 +1,13 @@
+{
+ "sheet": "taipei",
+ "bounds": [
+  121.289062,
+  24.846565,
+  121.772461,
+  25.324167
+ ],
+ "minzoom": 9,
+ "maxzoom": 13,
+ "tileSize": 256,
+ "source": "painted_v1_source.png"
+}
