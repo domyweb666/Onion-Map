@@ -8,3 +8,5 @@ docs/drafts/
 sheets/**/*.png
 tools/sheet/cache/
 !sheets/**/painted*.png
+assets/textures/_*
+assets/textures-harvested/

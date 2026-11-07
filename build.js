@@ -27,6 +27,6 @@ const copyDir = (from, to) => {
   }
 };
 copyDir('fonts', 'www/fonts');
-if (fs.existsSync('assets')) copyDir('assets', 'www/assets'); // 貼紙
+if (fs.existsSync('assets/sprites')) copyDir('assets/sprites', 'www/assets/sprites'); // 貼紙（材質只有離線拼圖幅用，不進 app）
 if (fs.existsSync('tiles')) copyDir('tiles', 'www/tiles'); // 畫好的圖幅切成的圖磚
 console.log('index.html + www/index.html built,', h.length, 'bytes');

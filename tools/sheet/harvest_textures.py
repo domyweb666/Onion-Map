@@ -11,7 +11,7 @@ from PIL import Image
 from scipy import ndimage as ndi
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'assets' / 'textures'
+OUT = ROOT / 'assets' / 'textures-harvested'  # 多米生的正式材質在 assets/textures，這裡只是替代品，別蓋過去
 
 
 def seamless(a):

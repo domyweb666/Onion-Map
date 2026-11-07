@@ -18,13 +18,19 @@ PAPER, INK = (243, 236, 219), (46, 40, 32)
 rng = np.random.default_rng(11)
 
 
+# 材質鋪的時候縮多少：材質原圖 1254 像素，一個樹冠約 110 像素，縮到 0.42 變 46 像素，跟貼紙的比例才合
+TEX_SCALE = {'forest': 0.42, 'urban': 0.45, 'water': 0.5, 'meadow': 0.5, 'paper': 1.0}
+
+
 def load_tex(name, W, H, fallback):
-    p = TEX / f'{name}.png'
-    if p.exists():
-        t = np.asarray(Image.open(p).convert('RGB')).astype(np.float32) / 255
+    p = next((TEX / f'{name}{ext}' for ext in ('.webp', '.png') if (TEX / f'{name}{ext}').exists()), None)
+    if p:
+        im = Image.open(p).convert('RGB'); s = TEX_SCALE.get(name, 1.0)
+        if s != 1.0: im = im.resize((max(8, round(im.width * s)), max(8, round(im.height * s))), Image.LANCZOS)
+        t = np.asarray(im).astype(np.float32) / 255
         reps = (math.ceil(H / t.shape[0]), math.ceil(W / t.shape[1]), 1)
         return np.tile(t, reps)[:H, :W]
-    print(f'  沒有材質 {name}.png，用程式算的頂上')
+    print(f'  沒有材質 {name}，用程式算的頂上')
     return fallback(W, H)
 
 
@@ -89,6 +95,7 @@ def paste_sprite(canvas, sp, name, x, y, w, flip=False):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--sheet', default='taipei'); ap.add_argument('--cut', action='store_true')
+    ap.add_argument('--clumps', action='store_true', help='森林裡也貼樹叢貼紙')
     args = ap.parse_args(); t0 = time.time()
     sd = ROOT / 'sheets' / args.sheet
     layout = json.load(open(sd / 'layout.json', encoding='utf-8')); meta = layout['meta']; W, H = meta['size']; mpp = meta['m_per_px']
@@ -99,12 +106,13 @@ def main():
     print(f'圖幅 {W}x{H}，讀遮罩 {time.time() - t0:.1f}s')
 
     # 1. 底：紙 → 草地鋪滿陸地 → 森林、市區、水各鋪自己的材質。邊緣先推歪再鋪，才不像電腦切的
-    img = load_tex('paper', W, H, paper_tex)
+    paper = load_tex('paper', W, H, paper_tex); img = paper.copy()
     forest_tex = load_tex('forest', W, H, flat((160, 190, 110)))
-    # 草地：沒有專用材質就拿森林材質調淡一點（AI 那張全部陸地都是綠色排線，照它）
+    # 草地：沒有專用材質就拿森林材質調淡一點
     meadow = load_tex('meadow', W, H, lambda W_, H_: forest_tex * 0.55 + img * 0.45)
+    meadow = meadow * 0.86 + paper * 0.14  # 草地混一點紙色，不要太鮮
     land = 1 - water
-    img = img * (1 - land[..., None] * 0.9) + meadow * land[..., None] * 0.9
+    img = img * (1 - land[..., None]) + meadow * land[..., None]
     forest_w = np.clip(warp_mask(forest, px(140), px(900)), 0, 1)
     forest_w = ndi.gaussian_filter((forest_w > 0.5).astype(np.float32), 1.0)
     urban_w = np.clip(warp_mask(urban, px(90), px(600)), 0, 1)
@@ -117,7 +125,7 @@ def main():
         nonlocal img
         e = ndi.gaussian_filter(edge_of(m, max(1, int(px_w))), blur)[..., None] * alpha
         img = img * (1 - e) + (np.array(color, np.float32) / 255) * e
-    rim(forest_w, px(60), (70, 110, 50), 0.55); rim(urban_w, px(40), (120, 80, 40), 0.45)
+    rim(forest_w, px(50), (60, 95, 45), 0.6); rim(urban_w, px(40), (120, 80, 40), 0.45)
     wd = ndi.distance_transform_edt(water > 0.5)
     for d0, d1, a in ((0, px(40), 0.45), (px(90), px(130), 0.25), (px(200), px(240), 0.14)):
         band = ((wd > d0) & (wd <= d1)).astype(np.float32); band = ndi.gaussian_filter(band, 1.0)[..., None] * a
@@ -139,9 +147,11 @@ def main():
         if len(pts) > 1: dashed(d, S(pts), (120, 90, 55, 230), int(1.8 * ss), 9 * ss, 6 * ss, jitter=0.6 * ss)
     canvas.alpha_composite(lay.resize((W, H), Image.LANCZOS))
 
-    # 4. 貼紙：照 layout.json，由上往下
+    # 4. 貼紙：照 layout.json，由上往下。森林材質本身已經是樹冠，樹叢貼紙預設不貼（--clumps 才貼）
     sp = {p.stem: Image.open(p).convert('RGBA') for p in SPRITES.glob('*.png') if not p.name.startswith('_')}
-    for it in sorted(layout['items'], key=lambda i: i['y']): paste_sprite(canvas, sp, it['name'], it['x'], it['y'], it['w'], it['flip'])
+    for it in sorted(layout['items'], key=lambda i: i['y']):
+        if it['kind'] == 'forest' and not args.clumps: continue
+        paste_sprite(canvas, sp, it['name'], it['x'], it['y'], it['w'], it['flip'])
     # 5. 地名
     d = ImageDraw.Draw(canvas)
     for lb in layout['labels']:
@@ -149,7 +159,8 @@ def main():
         for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, 1), (-1, 1), (1, -1)): d.text((lb['x'] + dx, lb['y'] + dy), lb['text'], font=f, fill=PAPER)
         d.text((lb['x'], lb['y']), lb['text'], font=f, fill=INK)
     # 6. 紙的顆粒鋪在最上面（乘法），貼紙和材質才會像畫在同一張紙上
-    grain = paper_tex(W, H).mean(axis=2); grain = 0.9 + 0.1 * (grain - grain.min()) / (grain.max() - grain.min() + 1e-6)
+    grain = paper.mean(axis=2); lo, hi = np.percentile(grain, 1), np.percentile(grain, 99)
+    grain = 0.9 + 0.1 * np.clip((grain - lo) / (hi - lo + 1e-6), 0, 1)
     arr = np.asarray(canvas.convert('RGB')).astype(np.float32) * grain[..., None]
     final = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
     final.save(sd / 'collage.png'); final.resize((W // 2, H // 2), Image.LANCZOS).save(sd / 'collage_preview.png')
