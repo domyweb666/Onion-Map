@@ -13,7 +13,7 @@
 
 ## 🚧 還沒做完 / 待決定
 
-- 畫風第二版：多米在會話最後給了新的參考圖（色鉛筆風「台中探索地圖 v0.1」），跟第一版的鋼筆寫生差很多。目標寫在下面，還沒動工
+- 畫風第二版第一輪已做出來（分支 `style-v2`，疊在 journal-style 上）：迷霧灰色鉛筆排線加散落的「?」、已探索綠排線、黃色道路與綠白路牌、樹圖示森林、草地筆觸、藍排線湖泊與波浪河流、山頂圖示、聚落小房子／教堂／城堡、筆記本咖啡邊框、全圖鉛筆顆粒、比例尺、標題日期、圖例面板。還沒做：使用者標記圖示（旗、星、帳篷、洞窟）、醫院等重要區域、捷運「M」、「部分探索（黃）」的定義、把程式畫的佔位圖示換成多米自己畫的 sprite。多米給的參考圖描述留在下面
 - 真機／模擬器測試一次都沒跑過。多米指示用 limrun（雲端 iOS 模擬器），流程在下面
 - 資料模型改版（軌跡點上限 6 萬、整包 JSON 重寫）：給別人用之前要做，自己測可以先不管
 - 飛行判定要加「這段是搭飛機嗎」的確認與撤銷
@@ -75,14 +75,14 @@
 
 ## 🔧 瀏覽器實測的技巧（下次要截圖再用）
 
-- Claude 的瀏覽器面板在背景時 requestAnimationFrame 不跑，MapLibre 重載後 style 載不進來。在頁面裡跑 `window.requestAnimationFrame = cb => setTimeout(() => cb(performance.now()), 16)` 再 `map.setStyle(style)`
+- Claude 的瀏覽器面板在背景時 requestAnimationFrame 不跑，MapLibre 的 style 載不進來。app 內建了測試鉤子：網址加 `?testrender=1` 會改用計時器驅動，之後 `feed()`、`render(true)`、`map.jumpTo` 都正常。不要再用「先 setStyle」那套，會把執行期加的圖層洗掉
 - 截圖：`map._render(performance.now())` 之後把 canvas drawImage 到 2D canvas、toBlob、POST 到本機小伺服器（上個會話在 scratchpad 寫了 30 行的 snapserver.py，會話結束就沒了，重寫很快）
 - `window.map` 掛在全域方便主控台調樣式；`feed()` 可直接餵假定位點；`engine.clear()` 清掉
 
 ## ⏭️ 下一步從哪繼續
 
 1. 讀這份。看 PR #1、#2 的 CI 綠不綠：`gh pr checks 2`
-2. 多米二選一：畫風第二版（照上面目標，先做迷霧排線加「?」、道路黃色、樹圖示），或 limrun 模擬器測試（多米先 `lim login`，再從 Actions 抓 onion-simulator-app）
+2. 多米二選一：畫風第二版第二輪（使用者標記圖示、重要區域、換成自己畫的圖示），或 limrun 模擬器測試（多米先 `lim login`，再從 Actions 抓 onion-simulator-app）
 3. 不管做哪個，從 journal-style 再開新分支（例如 style-v2、sim-test），不要直接堆在 PR #2
 
 ## 🗑️ 這次會話的雜訊（下次別重新討論）

@@ -88,20 +88,23 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #map{position:fixed;inset:0}
   #vignette{position:fixed;inset:0;pointer-events:none;
     box-shadow:inset 0 0 70px 20px rgba(120,95,60,.14)}
-  /* 手札頁框（四角小紅方塊）與指北針 */
-  #frame{position:fixed;left:7px;right:7px;top:calc(var(--safe-t) + 7px);bottom:calc(var(--safe-b) + 7px);
-    border:1.5px solid rgba(46,40,32,.5);pointer-events:none}
-  #frame i{position:absolute;width:9px;height:9px;background:var(--accent);opacity:.8}
-  #frame i:nth-child(1){left:-5px;top:-5px} #frame i:nth-child(2){right:-5px;top:-5px}
-  #frame i:nth-child(3){left:-5px;bottom:-5px} #frame i:nth-child(4){right:-5px;bottom:-5px}
+  /* 筆記本的咖啡色頁框、鉛筆顆粒、指北針 */
+  #frame{position:fixed;left:6px;right:6px;top:calc(var(--safe-t) + 6px);bottom:calc(var(--safe-b) + 6px);border-radius:12px;
+    border:3px solid rgba(107,74,43,.7);box-shadow:inset 0 0 0 2px rgba(107,74,43,.16),inset 0 0 26px rgba(107,74,43,.14);pointer-events:none}
+  #grain{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.45;background-repeat:repeat}
   #compass{position:fixed;left:16px;bottom:calc(var(--safe-b) + 152px);width:30px;height:46px;pointer-events:none;opacity:.85}
+  /* 比例尺：細墨線、手寫字 */
+  .maplibregl-ctrl-bottom-left{bottom:calc(var(--safe-b) + 152px);left:56px}
+  .maplibregl-ctrl-scale{font-family:var(--hand);font-size:12px;color:var(--ink);background:transparent!important;
+    border:1.5px solid var(--ink)!important;border-top:none!important;padding:0 4px;box-sizing:content-box}
   button{font:inherit;color:inherit;border:0;cursor:pointer}
   .card{background:rgba(250,245,232,.94);border:1px solid rgba(46,40,32,.45);
     box-shadow:0 4px 18px rgba(60,40,15,.18);border-radius:14px}
   #top{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 10px);
     display:flex;align-items:center;gap:10px;padding:10px 14px}
-  .brand{font-family:var(--hand);font-weight:400;font-size:24px;letter-spacing:3px}
-  .brand span{font-size:11px;font-weight:400;margin-left:4px;color:var(--ink2)}
+  .brand{font-family:var(--hand);font-weight:400;font-size:24px;letter-spacing:3px;line-height:1.1}
+  .brand .hl{padding:0 4px;background:linear-gradient(transparent 58%,rgba(236,130,160,.45) 58%,rgba(236,130,160,.45) 88%,transparent 88%)}
+  .brand small{display:block;font-size:12px;letter-spacing:1px;color:var(--ink2);margin-top:3px}
   #stats{margin-left:auto;text-align:right;font-family:var(--hand);font-size:13px;line-height:1.3;color:var(--ink2)}
   #stats b{font-size:19px;color:var(--ink)}
   #side{position:fixed;right:12px;top:calc(var(--safe-t) + 78px);display:flex;flex-direction:column;gap:8px}
@@ -136,20 +139,33 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     opacity:0;transition:opacity .25s;pointer-events:none;max-width:86%;text-align:center}
   #toast.show{opacity:.95}
   .maplibregl-ctrl-attrib{background:rgba(250,245,232,.8)!important;font-size:10px}
+  /* 圖例 */
+  #legend{position:fixed;inset:0;background:rgba(40,28,12,.35);display:flex;align-items:flex-end;justify-content:center}
+  #legend[hidden]{display:none}
+  #legendSheet{width:100%;max-width:520px;margin:12px;margin-bottom:calc(var(--safe-b) + 12px);padding:16px}
+  #legendSheet h3{margin:0 0 10px;font-family:var(--hand);font-size:21px;font-weight:400}
+  #legendRows{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;margin-bottom:12px}
+  #legendRows div{display:flex;align-items:center;gap:10px;font-family:var(--hand);font-size:15px}
+  #legendRows i{display:block;flex:none;width:46px;height:26px;border:1px solid rgba(46,40,32,.5);background-color:var(--paper)}
+  #legendRows i.road{background:linear-gradient(var(--paper) 0 30%,var(--ink) 30% 37%,#F2CF5B 37% 63%,var(--ink) 63% 70%,var(--paper) 70%)}
+  #legendRows i.hwy{background:linear-gradient(var(--paper) 0 30%,var(--ink) 30% 37%,#CFC9BC 37% 63%,var(--ink) 63% 70%,var(--paper) 70%)}
+  #legendRows i.track{background:linear-gradient(var(--paper) 0 44%,var(--ink) 44% 56%,var(--paper) 56%)}
+  #btnLegendClose{width:100%;padding:12px;border-radius:10px;background:rgba(78,59,38,.1);font-size:14px}
   .maplibregl-ctrl-bottom-right{bottom:calc(var(--safe-b) + 150px)}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div id="vignette"></div>
-<div id="frame"><i></i><i></i><i></i><i></i></div>
+<div id="grain"></div>
+<div id="frame"></div>
 <svg id="compass" viewBox="0 0 30 46" aria-hidden="true">
   <path d="M15 3 L20 25 L15 21 L10 25 Z" fill="#2E2820"/>
   <text x="15" y="43" font-family="Luoyan,sans-serif" font-size="16" text-anchor="middle" fill="#2E2820">N</text>
 </svg>
 
 <div id="top" class="card">
-  <div class="brand">洋蔥</div>
+  <div class="brand"><span class="hl">洋蔥</span><small id="sub"></small></div>
   <div id="stats"><b>0.000</b> km²<br>航線 0 段</div>
 </div>
 
@@ -157,6 +173,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   <button id="btnLocate" class="card">定位</button>
   <button id="btnSim" class="card">模擬</button>
   <button id="btnData" class="card">資料</button>
+  <button id="btnLegend" class="card">圖例</button>
 </div>
 
 <div id="simbar" class="card" hidden>
@@ -188,6 +205,14 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
       <button id="btnClear" class="danger">清除全部紀錄</button>
       <button id="btnClose">關閉</button>
     </div>
+  </div>
+</div>
+
+<div id="legend" hidden>
+  <div id="legendSheet" class="card">
+    <h3>圖例</h3>
+    <div id="legendRows"></div>
+    <button id="btnLegendClose">關閉</button>
   </div>
 </div>
 
@@ -308,6 +333,11 @@ if (typeof h3 === 'undefined' || typeof maplibregl === 'undefined') {
   document.getElementById('status').textContent = '程式庫載入失敗，請重新整理頁面';
   throw new Error('libs missing');
 }
+// 測試用：背景分頁（自動化截圖）不會跑 requestAnimationFrame，網址加 ?testrender=1 改用計時器驅動 MapLibre
+if (/[?&]testrender=1/.test(location.search)) {
+  window.requestAnimationFrame = cb => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = id => clearTimeout(id);
+}
 const STORE = 'yangcong.v1';
 const engine = createEngine(h3);
 const $ = id => document.getElementById(id);
@@ -368,12 +398,16 @@ const roadW = stops => {
   for (const [z, [a, b, c, d, s]] of stops) e.push(z, ['match', ['get', 'class'], RC, a, RP, b, RS, c, RM, d, s]);
   return e;
 };
-const ROAD_IN = roadW([[13, [0, 0, 0, 0, 0]], [14, [2.4, 1.8, 1, 0, 0]], [16, [7, 5.5, 4, 1.8, 1]], [18, [16, 13, 10, 6, 4.5]]]);
-const ROAD_OUT = roadW([[8, [1.4, 1, 0.6, 0, 0]], [10, [1.8, 1.3, 0.8, 0, 0]], [12, [2.4, 1.8, 1.2, 0.35, 0]], [13, [2.6, 2, 1.4, 0.55, 0.3]],
-  [14, [4.4, 3.8, 3, 0.9, 0.6]], [16, [9.4, 7.9, 6.4, 4.2, 3]], [18, [19.2, 16.2, 13.2, 9.2, 7]]]);
+const ROAD_IN = roadW([[10, [0, 0, 0, 0, 0]], [11, [1.0, 0.7, 0, 0, 0]], [12, [1.4, 1.0, 0.5, 0, 0]], [13, [1.8, 1.4, 0.8, 0, 0]],
+  [14, [2.6, 2.0, 1.1, 0, 0]], [16, [7, 5.5, 4, 1.8, 1]], [18, [16, 13, 10, 6, 4.5]]]);
+const ROAD_OUT = roadW([[8, [1.4, 1, 0.6, 0, 0]], [10, [1.8, 1.3, 0.8, 0, 0]], [11, [2.4, 1.8, 1.0, 0, 0]], [12, [2.8, 2.2, 1.4, 0.35, 0]],
+  [13, [3.2, 2.6, 1.8, 0.55, 0.3]], [14, [4.6, 4.0, 3.1, 0.9, 0.6]], [16, [9.4, 7.9, 6.4, 4.2, 3]], [18, [19.2, 16.2, 13.2, 9.2, 7]]]);
 const ROADS = ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor', 'service'], true, false];
 const LABEL = { 'text-color': INK, 'text-halo-color': PAPER, 'text-halo-width': 1.6, 'text-halo-blur': 0.4 };
-const LABEL_LAYERS = ['water-name', 'road-name', 'place']; // 先隱藏，等手寫字型載好再顯示，否則會用系統字型畫掉
+const LABEL_LAYERS = ['water-name', 'road-name', 'road-shield', 'peak', 'place', 'fog-q']; // 先隱藏，等手寫字型載好再顯示，否則會用系統字型畫掉
+// 聚落圖示：城市＝城堡、城鎮＝教堂、村＝三間房、里／鄰＝一間房
+const PLACE_ICON = ['match', ['get', 'class'], 'city', 'castle', 'town', 'church', 'village', 'village', 'hamlet', 'house', 'none'];
+const ICON_CLASSES = ['city', 'town', 'village', 'hamlet']; // 里、鄰、街區只寫名字不放圖示，市區才不會滿地小房子
 
 const style = {
   version: 8,
@@ -390,35 +424,46 @@ const style = {
     { id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
       filter: ['match', ['get', 'class'], ['residential', 'suburb', 'neighbourhood'], true, false],
       paint: { 'fill-color': '#EADFC6', 'fill-opacity': 0.55 } },
-    { id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
-      paint: { 'fill-color': ['match', ['get', 'class'], 'wood', '#C7D8AE', 'grass', '#D8E3BE', 'farmland', '#E5E4BE', 'sand', '#EFE3C0', 'wetland', '#D2E0C8', '#D9E1BE'],
-        'fill-opacity': 0.55 } },
-    { id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
-      paint: { 'fill-color': '#CCDDB0', 'fill-opacity': 0.5 } },
+    // 植被：淡色打底，上面鋪色鉛筆的樹／草／田圖樣
+    { id: 'landcover-base', type: 'fill', source: 'omt', 'source-layer': 'landcover',
+      paint: { 'fill-color': ['match', ['get', 'class'], 'wood', '#D3E2BC', 'grass', '#E0E8C8', 'farmland', '#ECE9C8', 'sand', '#EFE3C0', 'wetland', '#D9E4CF', '#E0E5C8'],
+        'fill-opacity': 0.6 } },
+    { id: 'landcover-pattern', type: 'fill', source: 'omt', 'source-layer': 'landcover', minzoom: 9,
+      filter: ['match', ['get', 'class'], ['wood', 'grass', 'farmland', 'wetland'], true, false],
+      paint: { 'fill-pattern': ['match', ['get', 'class'], 'wood', 'trees', 'farmland', 'farm', 'grass'],
+        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.5, 13, 0.85] } },
+    { id: 'park-base', type: 'fill', source: 'omt', 'source-layer': 'park',
+      paint: { 'fill-color': '#DCE6C4', 'fill-opacity': 0.55 } },
+    { id: 'park-pattern', type: 'fill', source: 'omt', 'source-layer': 'park', minzoom: 11,
+      paint: { 'fill-pattern': 'grass', 'fill-opacity': 0.7 } },
     // 山：高程陰影調成鉛筆灰褐，像手札裡的排線
     { id: 'hillshade', type: 'hillshade', source: 'dem',
       paint: { 'hillshade-shadow-color': '#5E5447', 'hillshade-highlight-color': '#FFFBF0', 'hillshade-accent-color': '#8A7C68',
         'hillshade-exaggeration': 0.38, 'hillshade-illumination-direction': 335 } },
+    // 水：淡藍打底＋藍色鉛筆排線；河流用波浪筆觸
     { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water',
-      paint: { 'fill-color': '#A9CBDE', 'fill-opacity': 0.85 } },
+      paint: { 'fill-color': '#C6DDEC', 'fill-opacity': 0.9 } },
+    { id: 'water-hatch', type: 'fill', source: 'omt', 'source-layer': 'water',
+      paint: { 'fill-pattern': 'water-hatch', 'fill-opacity': 0.75 } },
     { id: 'water-edge', type: 'line', source: 'omt', 'source-layer': 'water',
-      paint: { 'line-color': '#5F8FB0', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.5, 16, 1.2], 'line-opacity': 0.8 } },
-    { id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway', layout: { 'line-cap': 'round' },
-      paint: { 'line-color': '#6E9FC0', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 13, 0.9, 18, 4.5] } },
+      paint: { 'line-color': '#3F7FB5', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 16, 1.3], 'line-opacity': 0.8 } },
+    { id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
+      paint: { 'line-pattern': 'river', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.4, 13, 2.2, 18, 6] } },
     // 建築：鋼筆排線＋細墨框（排線要淡，不然整座城市黑成一片）
-    { id: 'building-hatch', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 15,
-      paint: { 'fill-pattern': 'hatch', 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 15, 0.18, 16, 0.28, 17, 0.42, 18, 0.5] } },
-    { id: 'building-line', type: 'line', source: 'omt', 'source-layer': 'building', minzoom: 15,
-      paint: { 'line-color': INK_SOFT, 'line-width': ['interpolate', ['linear'], ['zoom'], 15, 0.4, 18, 0.9], 'line-opacity': 0.75 } },
+    { id: 'building-hatch', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 16,
+      paint: { 'fill-pattern': 'hatch', 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 16, 0.15, 17, 0.3, 18, 0.4] } },
+    { id: 'building-line', type: 'line', source: 'omt', 'source-layer': 'building', minzoom: 16,
+      paint: { 'line-color': INK_SOFT, 'line-width': ['interpolate', ['linear'], ['zoom'], 16, 0.4, 18, 0.9], 'line-opacity': 0.7 } },
     { id: 'path', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 14,
       filter: ['match', ['get', 'class'], ['path', 'track'], true, false],
       paint: { 'line-color': INK_SOFT, 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.9, 18, 1.8], 'line-dasharray': [2, 2], 'line-opacity': 0.85 } },
     { id: 'road-ink', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ROADS,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: { 'line-color': INK, 'line-width': ROAD_OUT, 'line-opacity': 0.92 } },
-    { id: 'road-paper', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 13, filter: ROADS,
+    // 道路內層：高速公路灰、主要道路黃、次要淡黃、小巷紙色（色鉛筆塗的感覺）
+    { id: 'road-fill', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 11, filter: ROADS,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': PAPER, 'line-width': ROAD_IN } },
+      paint: { 'line-color': ['match', ['get', 'class'], RC, '#CFC9BC', RP, '#F2CF5B', RS, '#F6E39A', PAPER], 'line-width': ROAD_IN } },
     // 鐵路：一條細墨線加枕木
     { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
       filter: ['==', ['get', 'class'], 'rail'],
@@ -432,9 +477,27 @@ const style = {
     { id: 'road-name', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 15,
       layout: { visibility: 'none', 'symbol-placement': 'line', 'text-field': NAME, 'text-font': FONT, 'text-size': 14 },
       paint: LABEL },
+    // 路牌：高速公路綠牌、其他白底方框，字是道路編號（ref）
+    { id: 'road-shield', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 10,
+      filter: ['all', ['has', 'ref'], ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false]],
+      layout: { visibility: 'none', 'symbol-placement': 'line', 'symbol-spacing': 420, 'text-field': ['get', 'ref'], 'text-font': FONT, 'text-size': 12,
+        'icon-image': ['match', ['get', 'class'], ['motorway', 'trunk'], 'shield-green', 'shield-box'], 'icon-text-fit': 'both', 'icon-text-fit-padding': [2, 5, 1, 5],
+        'text-rotation-alignment': 'viewport', 'icon-rotation-alignment': 'viewport', 'text-pitch-alignment': 'viewport' },
+      paint: { 'text-color': ['match', ['get', 'class'], ['motorway', 'trunk'], '#FFFFFF', INK] } },
+    // 山頂：鉛筆山形加名字
+    { id: 'peak', type: 'symbol', source: 'omt', 'source-layer': 'mountain_peak', minzoom: 11, filter: ['has', 'name'],
+      layout: { visibility: 'none', 'icon-image': 'peak', 'icon-size': 0.9, 'text-field': NAME, 'text-font': FONT, 'text-size': 12,
+        'text-anchor': 'top', 'text-offset': [0, 0.6], 'text-optional': true },
+      paint: LABEL },
+    // 地名：聚落圖示在上、名字在下；街區層級以上不放圖示
     { id: 'place', type: 'symbol', source: 'omt', 'source-layer': 'place',
       layout: { visibility: 'none', 'text-field': NAME, 'text-font': FONT, 'text-letter-spacing': 0.08,
-        'text-size': ['match', ['get', 'class'], 'city', 20, 'town', 17, 15] },
+        'text-size': ['match', ['get', 'class'], 'city', 20, 'town', 17, 15],
+        'icon-image': PLACE_ICON, 'icon-optional': true,
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 8, 0.6, 12, 0.8, 14, 0.95, 15, 0.95, 15.6, 0],
+        'text-anchor': ['match', ['get', 'class'], ICON_CLASSES, 'top', 'center'],
+        'text-offset': ['match', ['get', 'class'], ['city'], ['literal', [0, 1.0]], ['town'], ['literal', [0, 1.1]], ['village'], ['literal', [0, 0.8]],
+          ['hamlet'], ['literal', [0, 0.8]], ['literal', [0, 0]]] },
       paint: Object.assign({}, LABEL, { 'text-halo-width': 2 }) }
   ]
 };
@@ -447,12 +510,13 @@ const map = new maplibregl.Map({
 });
 map.touchZoomRotate.disableRotation();
 window.map = map; // 方便在瀏覽器主控台調樣式
-map.on('styleimagemissing', e => { if (e.id === 'hatch') map.addImage('hatch', hatchImage()); });
+map.on('styleimagemissing', e => { const mk = IMAGES[e.id]; if (mk && !map.hasImage(e.id)) { const im = mk(); map.addImage(e.id, im.data, im.opts); } });
 // 手寫字型載好（最多等 4 秒）再顯示地名，不然 MapLibre 會先用系統字型把字畫進快取
+let labelsOn = false;
+function showLabels() { labelsOn = true; LABEL_LAYERS.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'visible')); }
 const fontReady = (document.fonts && document.fonts.load) ? document.fonts.load("24px 'Luoyan'").catch(() => {}) : Promise.resolve();
 Promise.race([fontReady, new Promise(r => setTimeout(r, 4000))]).then(() => {
-  const show = () => LABEL_LAYERS.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'visible'));
-  if (map.isStyleLoaded()) show(); else map.once('load', show);
+  if (map.isStyleLoaded()) showLabels(); else map.once('load', showLabels);
 });
 // 讀回上次的紀錄（iOS 是讀檔，所以是非同步的），讀到就把地圖移到最後一個點
 const restored = loadSaved().then(ok => {
@@ -482,29 +546,89 @@ function paperImage() {
   const d = g.getImageData(0, 0, n, n);
   return { width: n, height: n, data: new Uint8Array(d.data.buffer) };
 }
-// 建築用的鋼筆排線（斜線，可無縫平鋪）
-function hatchImage() {
-  const n = 16, c = document.createElement('canvas'); c.width = c.height = n;
-  const g = c.getContext('2d'); g.clearRect(0, 0, n, n);
-  g.strokeStyle = 'rgba(46,40,32,0.75)'; g.lineWidth = 1; g.beginPath();
-  g.moveTo(-1, n + 1); g.lineTo(n + 1, -1);
-  g.moveTo(-1, n / 2 + 1); g.lineTo(n / 2 + 1, -1);
-  g.moveTo(n / 2 - 1, n + 1); g.lineTo(n + 1, n / 2 - 1);
-  g.stroke();
-  const d = g.getImageData(0, 0, n, n);
-  return { width: n, height: n, data: new Uint8Array(d.data.buffer) };
+// ===== 色鉛筆風的圖樣與圖示：全部用 canvas 畫，地圖的 pattern／icon 與圖例共用 =====
+const TILES = {}; // id -> canvas（圖例拿來當底圖）
+function tile(id, w, h, draw, opts) {
+  const pr = 2, c = document.createElement('canvas'); c.width = w * pr; c.height = h * pr;
+  const g = c.getContext('2d'); g.scale(pr, pr); draw(g, w, h);
+  TILES[id] = c;
+  const d = g.getImageData(0, 0, c.width, c.height);
+  return { data: { width: c.width, height: c.height, data: new Uint8Array(d.data.buffer) }, opts: Object.assign({ pixelRatio: pr }, opts || {}) };
 }
+function pencil(g, x1, y1, x2, y2, color, w, a) { // 鉛筆線：疊三道微抖、深淺不一的線
+  for (let k = 0; k < 3; k++) {
+    g.strokeStyle = color; g.globalAlpha = a * (0.45 + Math.random() * 0.55); g.lineWidth = w * (0.6 + Math.random() * 0.7); g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x1 + (Math.random() - 0.5) * 0.9, y1 + (Math.random() - 0.5) * 0.9); g.lineTo(x2 + (Math.random() - 0.5) * 0.9, y2 + (Math.random() - 0.5) * 0.9); g.stroke();
+  }
+  g.globalAlpha = 1;
+}
+function hatchTile(id, n, gap, color, w, a) { // 斜排線，可無縫平鋪
+  return tile(id, n, n, g => { for (let x = -n; x <= 2 * n; x += gap) pencil(g, x, n, x + n, 0, color, w, a); });
+}
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function houseAt(g, cx, cy, s) { // 小房子：方塊牆＋三角屋頂＋門
+  g.fillStyle = '#F3E6CC'; g.fillRect(cx - s / 2, cy - s * 0.1, s, s * 0.9);
+  g.fillStyle = '#C97A4E'; g.beginPath(); g.moveTo(cx - s * 0.65, cy - s * 0.1); g.lineTo(cx, cy - s * 0.85); g.lineTo(cx + s * 0.65, cy - s * 0.1); g.closePath(); g.fill();
+  g.strokeStyle = '#2E2820'; g.lineWidth = 1; g.strokeRect(cx - s / 2, cy - s * 0.1, s, s * 0.9);
+  g.beginPath(); g.moveTo(cx - s * 0.65, cy - s * 0.1); g.lineTo(cx, cy - s * 0.85); g.lineTo(cx + s * 0.65, cy - s * 0.1); g.stroke();
+  g.fillStyle = '#6B4A2B'; g.fillRect(cx - s * 0.12, cy + s * 0.35, s * 0.24, s * 0.45);
+}
+function treeAt(g, x, y, r, kind) {
+  if (kind === 'pine') { // 針葉：三角
+    g.fillStyle = '#7FAE57'; g.globalAlpha = 0.85; g.beginPath(); g.moveTo(x, y - r * 1.6); g.lineTo(x + r, y + r * 0.5); g.lineTo(x - r, y + r * 0.5); g.closePath(); g.fill(); g.globalAlpha = 1;
+    pencil(g, x, y - r * 1.6, x + r, y + r * 0.5, '#3F6B2E', 0.9, 0.9); pencil(g, x + r, y + r * 0.5, x - r, y + r * 0.5, '#3F6B2E', 0.9, 0.9); pencil(g, x - r, y + r * 0.5, x, y - r * 1.6, '#3F6B2E', 0.9, 0.9);
+  } else { // 闊葉：圓
+    g.fillStyle = '#8DBB5E'; g.globalAlpha = 0.85; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+    g.strokeStyle = '#3F6B2E'; g.globalAlpha = 0.8; g.lineWidth = 0.9; g.beginPath(); g.arc(x + 0.3, y + 0.3, r, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
+  }
+  pencil(g, x, y + r * 0.6, x, y + r * 1.5, '#6B4A2B', 1.2, 0.9);
+}
+const IMAGES = {
+  'hatch': () => hatchTile('hatch', 16, 8, '#2E2820', 0.8, 0.7),            // 建築
+  'fog-hatch': () => hatchTile('fog-hatch', 24, 6, '#8E887C', 1.1, 0.55),   // 未探索（迷霧）
+  'explored-hatch': () => hatchTile('explored-hatch', 24, 7, '#86B05C', 1.2, 0.5), // 已探索
+  'water-hatch': () => hatchTile('water-hatch', 20, 6, '#5B93C4', 1.1, 0.45),
+  'farm': () => hatchTile('farm', 28, 9, '#B9B868', 1, 0.35),
+  'grass': () => tile('grass', 32, 32, g => { for (let i = 0; i < 14; i++) { const x = Math.random() * 32, y = Math.random() * 32; pencil(g, x, y, x + 3, y - 4, '#8FB862', 1, 0.6); } }),
+  'trees': () => tile('trees', 64, 64, g => {
+    for (let i = 0; i < 10; i++) { const x = Math.random() * 64, y = Math.random() * 64; pencil(g, x, y, x + 4, y - 3, '#A9C98A', 1, 0.35); }
+    treeAt(g, 14, 16, 6, 'round'); treeAt(g, 44, 12, 5, 'pine'); treeAt(g, 30, 40, 6.5, 'round'); treeAt(g, 54, 46, 5, 'pine'); treeAt(g, 8, 50, 4.5, 'pine');
+  }),
+  'river': () => tile('river', 32, 6, g => { g.strokeStyle = '#4F8DC2'; g.lineWidth = 1.6; g.globalAlpha = 0.9; g.beginPath(); g.moveTo(0, 3); g.bezierCurveTo(8, -1, 8, 7, 16, 3); g.bezierCurveTo(24, -1, 24, 7, 32, 3); g.stroke(); g.globalAlpha = 1; }),
+  'shield-box': () => tile('shield-box', 28, 22, g => { g.fillStyle = '#FAF5E8'; roundRect(g, 1.5, 1.5, 25, 19, 4); g.fill(); g.strokeStyle = '#2E2820'; g.lineWidth = 1.4; roundRect(g, 1.5, 1.5, 25, 19, 4); g.stroke(); },
+    { stretchX: [[12, 44]], stretchY: [[12, 32]], content: [10, 6, 46, 38] }),
+  'shield-green': () => tile('shield-green', 28, 22, g => { g.fillStyle = '#4F8A3C'; roundRect(g, 1.5, 1.5, 25, 19, 9); g.fill(); g.strokeStyle = '#2E5A22'; g.lineWidth = 1.4; roundRect(g, 1.5, 1.5, 25, 19, 9); g.stroke(); },
+    { stretchX: [[14, 42]], stretchY: [[14, 30]], content: [12, 6, 44, 38] }),
+  'peak': () => tile('peak', 24, 16, g => { pencil(g, 2, 14, 10, 3, '#4A443B', 1.3, 0.95); pencil(g, 10, 3, 18, 14, '#4A443B', 1.3, 0.95); pencil(g, 10, 3, 13, 8, '#9A948A', 1, 0.6); pencil(g, 14, 10, 22, 14, '#6E6860', 1.1, 0.8); }),
+  'house': () => tile('house', 20, 18, g => houseAt(g, 10, 10, 7)),
+  'village': () => tile('village', 40, 18, g => { houseAt(g, 7, 10, 6); houseAt(g, 20, 10, 6); houseAt(g, 33, 10, 6); }),
+  'church': () => tile('church', 24, 26, g => { houseAt(g, 12, 17, 8); pencil(g, 12, 9, 12, 2, '#2E2820', 1.3, 0.95); pencil(g, 9.5, 4.5, 14.5, 4.5, '#2E2820', 1.3, 0.95); }),
+  'castle': () => tile('castle', 28, 24, g => {
+    g.fillStyle = '#E9DFC8'; g.fillRect(4, 9, 20, 13); g.strokeStyle = '#2E2820'; g.lineWidth = 1.2; g.strokeRect(4, 9, 20, 13);
+    for (let i = 0; i < 4; i++) { g.fillRect(4 + i * 5.5, 5, 3.5, 4); g.strokeRect(4 + i * 5.5, 5, 3.5, 4); }
+    g.fillStyle = '#6B4A2B'; g.fillRect(12, 15, 4, 7);
+  }),
+  'none': () => tile('none', 2, 2, () => {})
+};
+function tileCanvas(id) { if (!TILES[id]) IMAGES[id](); return TILES[id]; }
 
 const EMPTY = { type: 'FeatureCollection', features: [] };
 map.on('load', () => {
   map.addImage('paper', paperImage());
-  ['freq', 'fog', 'explored', 'flights', 'gaps', 'track'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
-  // 走過越多次墨色越深（踏實的路）
+  ['freq', 'fog', 'explored', 'flights', 'gaps', 'track', 'fogq'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
+  // 走過越多次綠色越深（踏實的路）
   map.addLayer({ id: 'freq', type: 'fill', source: 'freq',
-    paint: { 'fill-color': INK_SOFT, 'fill-opacity': 0.09 } });
+    paint: { 'fill-color': '#5E8C3F', 'fill-opacity': 0.12 } });
+  // 已探索：淡綠色鉛筆排線
+  map.addLayer({ id: 'explored-hatch', type: 'fill', source: 'explored',
+    paint: { 'fill-pattern': 'explored-hatch', 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.55, 16, 0.35] } });
+  // 迷霧：先用紙把底圖蓋掉，再鋪灰色鉛筆排線
   map.addLayer({ id: 'fog', type: 'fill', source: 'fog', paint: { 'fill-pattern': 'paper' } });
+  map.addLayer({ id: 'fog-hatch', type: 'fill', source: 'fog', paint: { 'fill-pattern': 'fog-hatch', 'fill-opacity': 0.8 } });
   map.addLayer({ id: 'fog-edge', type: 'line', source: 'fog',
-    paint: { 'line-color': PAPER, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 4, 18, 26], 'line-blur': ['interpolate', ['linear'], ['zoom'], 12, 3, 18, 20] } });
+    paint: { 'line-color': '#B5AE9F', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3, 18, 14], 'line-blur': ['interpolate', ['linear'], ['zoom'], 12, 2, 18, 8], 'line-opacity': 0.6 } });
   // 迷霧上只留極淡的海岸線與國界，讓你知道自己在哪
   map.addLayer({ id: 'hint-water', type: 'fill', source: 'omt', 'source-layer': 'water',
     paint: { 'fill-color': '#A9CBDE', 'fill-opacity': 0.25 } });
@@ -522,6 +646,13 @@ map.on('load', () => {
     paint: { 'line-color': INK_SOFT, 'line-opacity': 0.45, 'line-width': 1.2, 'line-dasharray': [1, 2] } });
   map.addLayer({ id: 'flights', type: 'line', source: 'flights', layout: { 'line-cap': 'round' },
     paint: { 'line-color': '#9A3B2A', 'line-width': 1.8, 'line-opacity': 0.8, 'line-dasharray': [4, 3] } });
+  // 迷霧上散落的「?」：手寫字型，大小角度各自不同
+  map.addLayer({ id: 'fog-q', type: 'symbol', source: 'fogq',
+    layout: { visibility: 'none', 'text-field': '?', 'text-font': FONT, 'text-size': ['*', 38, ['get', 's']], 'text-rotate': ['get', 'r'],
+      'text-allow-overlap': true, 'text-ignore-placement': true },
+    paint: { 'text-color': '#6F6B61', 'text-opacity': 0.8 } });
+  map.on('moveend', updateQ);
+  if (labelsOn) showLabels(); // 字型比地圖先好的話，剛加的「?」圖層也要打開
   render(true);
 });
 
@@ -555,6 +686,29 @@ function trackLines(pts) {
   if (cur.length > 1) lines.push(cur);
   return lines;
 }
+// 迷霧上的「?」：以整數 zoom 的螢幕格子為單位放點，位置用 hash 決定（平移不會跳），落在已探索格子上的不放
+function qhash(a, b, c) {
+  let h = Math.imul(a, 374761393) + Math.imul(b, 668265263) + Math.imul(c, 1274126177);
+  h = Math.imul(h ^ (h >>> 13), 1103515245); return (h ^ (h >>> 16)) >>> 0;
+}
+function updateQ() {
+  if (!map.getSource('fogq')) return;
+  const z = Math.max(0, Math.floor(map.getZoom())), size = 512 * Math.pow(2, z), step = 150, b = map.getBounds(), cells = engine.state().cells;
+  const proj = (lng, lat) => { const s = Math.sin(lat * Math.PI / 180); return [(lng + 180) / 360 * size, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * size]; };
+  const unproj = (x, y) => { const m = 0.5 - y / size; return [x / size * 360 - 180, 90 - 360 * Math.atan(Math.exp(-m * 2 * Math.PI)) / Math.PI]; };
+  const [x0, y0] = proj(b.getWest(), b.getNorth()), [x1, y1] = proj(b.getEast(), b.getSouth());
+  const feats = [];
+  for (let gx = Math.floor(x0 / step); gx <= Math.floor(x1 / step) && feats.length < 120; gx++) {
+    for (let gy = Math.floor(y0 / step); gy <= Math.floor(y1 / step); gy++) {
+      const h = qhash(gx, gy, z);
+      const [lng, lat] = unproj((gx + 0.15 + 0.7 * ((h & 255) / 255)) * step, (gy + 0.15 + 0.7 * (((h >> 8) & 255) / 255)) * step);
+      if (Math.abs(lat) > 84) continue;
+      if (cells[h3.latLngToCell(lat, lng, CFG.res)]) continue;
+      feats.push({ type: 'Feature', properties: { r: ((h >> 16) & 63) - 32, s: 0.8 + ((h >> 22) & 15) / 40 }, geometry: { type: 'Point', coordinates: [lng, lat] } });
+    }
+  }
+  map.getSource('fogq').setData({ type: 'FeatureCollection', features: feats });
+}
 const WORLD = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
 let renderTimer = null;
 function renderSoon() { if (!renderTimer) renderTimer = setTimeout(() => { renderTimer = null; render(); }, 350); }
@@ -568,6 +722,7 @@ function render(force) {
     coordinates: [orient(WORLD, true), ...polys.map(p => orient(p[0], false))] } }];
   polys.forEach(p => { for (let i = 1; i < p.length; i++) fog.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [p[i]] } }); });
   map.getSource('fog').setData({ type: 'FeatureCollection', features: fog });
+  updateQ();
   map.getSource('explored').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: polys } });
   // 去過越多次顏色越深
   const tiers = [2, 5, 10].map(th => ids.filter(c => s.cells[c][0] >= th)).filter(a => a.length);
@@ -768,6 +923,33 @@ $('btnClear').onclick = () => {
   if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
   render(true); $('modal').hidden = true; toast('已清除');
 };
+// --- 手札頁面元素：鉛筆顆粒、標題日期、比例尺、圖例 ---
+(function grain() { // 整頁疊一層淡淡的顆粒，用 multiply 混合，像色鉛筆畫在粗紙上
+  const n = 96, c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'), d = g.createImageData(n, n);
+  for (let i = 0; i < d.data.length; i += 4) { const v = 222 + Math.random() * 33; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  g.putImageData(d, 0, 0); $('grain').style.backgroundImage = 'url(' + c.toDataURL() + ')';
+})();
+(function title() {
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  $('sub').textContent = '探索地圖 · ' + d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate());
+})();
+map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: 'metric' }), 'bottom-left');
+function buildLegend() {
+  const rows = [['已探索', 'explored-hatch', 'pattern'], ['未探索（迷霧）', 'fog-hatch', 'pattern'], ['森林', 'trees', 'pattern'], ['草地、公園', 'grass', 'pattern'],
+    ['湖泊、河流', 'water-hatch', 'pattern'], ['農田', 'farm', 'pattern'], ['主要道路', null, 'road'], ['高速公路', null, 'hwy'], ['走過的路', null, 'track'],
+    ['村莊', 'village', 'icon'], ['城鎮', 'church', 'icon'], ['城市', 'castle', 'icon'], ['山頂', 'peak', 'icon']];
+  $('legendRows').innerHTML = rows.map(([label, id, kind]) => {
+    let sw;
+    if (kind === 'pattern') { const c = tileCanvas(id); sw = '<i style="background-image:url(' + c.toDataURL() + ');background-size:' + (c.width / 2) + 'px ' + (c.height / 2) + 'px"></i>'; }
+    else if (kind === 'icon') sw = '<i style="background:var(--paper) url(' + tileCanvas(id).toDataURL() + ') center/auto 70% no-repeat"></i>';
+    else sw = '<i class="' + kind + '"></i>';
+    return '<div>' + sw + '<span>' + label + '</span></div>';
+  }).join('');
+}
+$('btnLegend').onclick = () => { buildLegend(); $('legend').hidden = false; };
+$('btnLegendClose').onclick = () => { $('legend').hidden = true; };
+$('legend').onclick = e => { if (e.target === $('legend')) $('legend').hidden = true; };
 updateStats();
 </script>
 </body>
