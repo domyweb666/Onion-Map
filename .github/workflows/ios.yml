@@ -75,6 +75,43 @@ jobs:
           path: build/xcodebuild.log
           if-no-files-found: ignore
 
+  build-simulator:
+    name: 模擬器版 .app（limrun／Xcode 模擬器用）
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+      - name: 解析 Swift 套件
+        run: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
+      - name: 編譯模擬器版（Debug，arm64）
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedDataSim \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tee build/xcodebuild-sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build/xcodebuild-sim.log
+      - name: 壓縮 .app
+        run: |
+          APP=$(find build/DerivedDataSim/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -1)
+          test -n "$APP"
+          (cd "$(dirname "$APP")" && zip -qry "$GITHUB_WORKSPACE/build/onion-simulator-app.zip" "$(basename "$APP")")
+          ls -la build/onion-simulator-app.zip
+      - name: 保留模擬器版 .app
+        uses: actions/upload-artifact@v4
+        with:
+          name: onion-simulator-app
+          path: build/onion-simulator-app.zip
+
   testflight:
     name: 簽署並上傳 TestFlight
     if: github.event_name == 'workflow_dispatch' && inputs.testflight
