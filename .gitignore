@@ -5,3 +5,5 @@ www/
 # Claude Code 本機設定
 .claude/
 docs/drafts/
+sheets/**/*.png
+tools/sheet/cache/
