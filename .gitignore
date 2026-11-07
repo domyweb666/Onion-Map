@@ -17,3 +17,4 @@ daycard/*/map_*.png
 daycard/*/*_check.png
 daycard/*/card_*.png
 !daycard/*/card_*_1080.png
+daycard/*/structure.png

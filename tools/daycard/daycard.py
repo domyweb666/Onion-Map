@@ -45,8 +45,13 @@ SCHEMES = {
     'kai': {'title': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'place': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'label': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'text': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf']},
     'hand': {'title': ['ChenYuluoyan.woff2'], 'place': ['ChenYuluoyan.woff2'], 'label': ['ChenYuluoyan.woff2'], 'text': ['ChenYuluoyan.woff2']},
 }
-FONT_SCHEME = 'clear'
+FONT_SCHEME = 'kai'  # 多米定案：霞鶩文楷
 _font_cache = {}
+
+
+def txt(d, xy, text, f, fill):
+    """文楷筆畫細，加一像素描邊變粗一點"""
+    d.text(xy, text, font=f, fill=fill, stroke_width=1 if FONT_SCHEME == 'kai' else 0, stroke_fill=fill)
 
 
 def find_font(names):
@@ -236,8 +241,88 @@ def pencil_poly(d, pts, color, width, jit=1.6, step=40, closed=True):
 def text_halo(d, xy, text, f, fill=INK, halo=PAPER, r=4):
     for dx in range(-r, r + 1, max(1, r)):
         for dy in range(-r, r + 1, max(1, r)):
-            if dx or dy: d.text((xy[0] + dx, xy[1] + dy), text, font=f, fill=halo)
-    d.text(xy, text, font=f, fill=fill)
+            if dx or dy: txt(d, (xy[0] + dx, xy[1] + dy), text, f, halo)
+    txt(d, xy, text, f, fill)
+
+
+# ───────── 沒有紅線時的對位：用主要道路與水的形狀比對 ─────────
+def structure_of_ai(src):
+    """AI 彩鉛圖裡的主要道路（黃、橘）與水（藍）"""
+    a = np.asarray(src.convert('RGB')).astype(np.int16); R, G, B = a[..., 0], a[..., 1], a[..., 2]
+    road = (R > 170) & (R - B > 85) & (G - B > 45)
+    water = (B > R + 20) & (B > G + 5) & (B > 110)
+    return road | water
+
+
+def pool_max(m, f):
+    h, w = m.shape[0] // f, m.shape[1] // f
+    return m[:h * f, :w * f].reshape(h, f, w, f).max(axis=(1, 3))
+
+
+def chamfer_fit(ai_mask, ref_mask, s_range=(1.55, 2.35), off=320):
+    """找 AI 圖 → 卡片的縮放與位移（X = ox + sx·x），讓兩邊的結構互相貼近（雙向 chamfer）。粗到細三層"""
+    rng_ = np.random.default_rng(1)
+    def level(f, sxs, sys_, oxs, oys, npts, sigma):
+        A = pool_max(ai_mask, f); Rf = pool_max(ref_mask, f)
+        dA = ndi.distance_transform_edt(~A); dR = ndi.distance_transform_edt(~Rf)
+        ry, rx = np.nonzero(Rf); ay, ax = np.nonzero(A)
+        if len(rx) > npts: i = rng_.choice(len(rx), npts, replace=False); rx, ry = rx[i], ry[i]
+        if len(ax) > npts: i = rng_.choice(len(ax), npts, replace=False); ax, ay = ax[i], ay[i]
+        RX, RY = (rx + 0.5) * f, (ry + 0.5) * f; AX, AY = (ax + 0.5) * f, (ay + 0.5) * f
+        HA, WA = A.shape; HR, WR = Rf.shape; oxs = np.asarray(oxs, float); oys = np.asarray(oys, float)
+        best = (-1.0, None)
+        for sx in sxs:
+            for sy in sys_:
+                px = (RX[None, :] - oxs[:, None]) / sx; py = (RY[None, :] - oys[:, None]) / sy
+                ix = np.floor(px / f).astype(int); iy = np.floor(py / f).astype(int)
+                okx, oky = (ix >= 0) & (ix < WA), (iy >= 0) & (iy < HA)
+                d1 = dA[np.clip(iy, 0, HA - 1)[:, None, :], np.clip(ix, 0, WA - 1)[None, :, :]]
+                s1 = (np.exp(-d1 / sigma) * (oky[:, None, :] & okx[None, :, :])).mean(axis=2)
+                qx = oxs[:, None] + sx * AX[None, :]; qy = oys[:, None] + sy * AY[None, :]
+                jx = np.floor(qx / f).astype(int); jy = np.floor(qy / f).astype(int)
+                okx2, oky2 = (jx >= 0) & (jx < WR), (jy >= 0) & (jy < HR)
+                d2 = dR[np.clip(jy, 0, HR - 1)[:, None, :], np.clip(jx, 0, WR - 1)[None, :, :]]
+                s2 = (np.exp(-d2 / sigma) * (oky2[:, None, :] & okx2[None, :, :])).mean(axis=2)
+                s = s1 + s2; k = np.unravel_index(np.argmax(s), s.shape)
+                if s[k] > best[0]: best = (float(s[k]), (float(sx), float(sy), float(oxs[k[1]]), float(oys[k[0]])))
+        return best
+    ar = np.arange
+    sc, (sx, sy, ox, oy) = level(16, ar(s_range[0], s_range[1] + 1e-9, 0.05), ar(s_range[0], s_range[1] + 1e-9, 0.05), ar(-off, off + 1, 32), ar(-off, off + 1, 32), 1500, 1.5)
+    sc, (sx, sy, ox, oy) = level(8, ar(sx - 0.06, sx + 0.061, 0.01), ar(sy - 0.06, sy + 0.061, 0.01), ar(ox - 40, ox + 41, 8), ar(oy - 40, oy + 41, 8), 3000, 2.0)
+    sc, (sx, sy, ox, oy) = level(4, ar(sx - 0.012, sx + 0.0121, 0.003), ar(sy - 0.012, sy + 0.0121, 0.003), ar(ox - 10, ox + 11, 2), ar(oy - 10, oy + 11, 2), 5000, 2.5)
+    return sx, sy, ox, oy, sc / 2
+
+
+def fit_by_structure(src, ref_path):
+    ref = np.asarray(Image.open(ref_path).convert('L')) > 127
+    sx, sy, ox, oy, sc = chamfer_fit(structure_of_ai(src), ref)
+    print(f'  結構對位：縮放 {sx:.3f} x {sy:.3f}，位移 {ox:.0f},{oy:.0f}，貼合度 {sc:.2f}')
+    if sc < 0.25: print('  結構對位：貼合度太低，放棄'); return None
+    return sx, sy, ox, oy
+
+
+def erase_red(src):
+    """把 AI 畫的紅色路線（含白邊）抹掉：用最近的沒被遮到的顏色補，再糊一下"""
+    a = np.asarray(src.convert('RGB')); ai = a.astype(np.int16); R, G, B = ai[..., 0], ai[..., 1], ai[..., 2]
+    red = (R > 110) & (G < 120) & (B < 120) & (R - np.maximum(G, B) > 80)
+    m = ndi.binary_dilation(red, iterations=7)
+    if not m.any(): return src
+    print(f'  抹掉 AI 畫的紅線（{int(red.sum())} px）')
+    iy, ix = ndi.distance_transform_edt(m, return_distances=False, return_indices=True)
+    filled = a[iy, ix].astype(np.float32)
+    soft = ndi.gaussian_filter(filled, (2, 2, 0))
+    out = np.where(m[..., None], soft, a.astype(np.float32))
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+
+
+def draw_route(card, pts, mpp):
+    """程式畫路線：白色底、紅色虛線、每個點抖一點像手畫的"""
+    r_ = random.Random(3)
+    q = [(x + r_.gauss(0, 1.2), y + r_.gauss(0, 1.2)) for x, y in pts]
+    lay_ = Image.new('RGBA', card.size, (0, 0, 0, 0)); d = ImageDraw.Draw(lay_)
+    d.line(q, fill=(255, 252, 240, 215), width=26, joint='curve')
+    dashed(d, q, (204, 32, 28, 255), 13, 32, 20)
+    card.alpha_composite(lay_)
 
 
 def plate(card, box, pad=10, alpha=205, radius=14):
@@ -475,23 +560,30 @@ def apply_fog(card, lay, strength, radius_m, stop_m):
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).convert('RGBA'), reveal
 
 
-def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', mat=0, fog=0.0, fog_radius=150, fog_stop=250):
+def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', mat=0, fog=0.0, fog_radius=150, fog_stop=250, route='program'):
     lay = json.load(open(out / 'layout.json', encoding='utf-8'))
     src = Image.open(painted_path if painted_path else out / 'base_textured.png').convert('RGB')
     paper = Image.fromarray((tex_array('paper', (W2, H2), PAPER) * 255).astype(np.uint8))
-    placed = None
-    if painted_path and fit == 'auto' and 'route' in lay: placed = fit_by_route(src, lay)
+    placed, has_red = None, False
+    if painted_path and fit in ('auto', 'red') and 'route' in lay:
+        placed = fit_by_route(src, lay); has_red = placed is not None
+    if painted_path and placed is None and fit in ('auto', 'structure') and (out / 'structure.png').exists():
+        placed = fit_by_structure(src, out / 'structure.png')
+    if painted_path and route == 'program': src = erase_red(src)  # 路線程式畫：AI 圖上若有紅線先抹掉（沒有就原樣）
     if placed:
         sx, sy, ox, oy = placed
-        print(f'  紅線對位：縮放 {sx:.3f} x {sy:.3f}，位移 {ox:.0f},{oy:.0f}（圖 {src.width}x{src.height} → {src.width * sx:.0f}x{src.height * sy:.0f}）')
+        print(f'  套用：縮放 {sx:.3f} x {sy:.3f}，位移 {ox:.0f},{oy:.0f}（圖 {src.width}x{src.height} → {src.width * sx:.0f}x{src.height * sy:.0f}）')
         scaled = src.resize((max(1, round(src.width * sx)), max(1, round(src.height * sy))), Image.LANCZOS)
         card = paper.copy(); card.paste(scaled, (round(ox), round(oy)))
     else:
         if painted_path and fit == 'auto': print('  紅線對位失敗，當作跟底稿同框')
         card = src.resize((W2, H2), Image.LANCZOS) if src.size != (W2, H2) else src.copy()
     card = card.convert('RGBA')
+    sp = {p.stem: Image.open(p).convert('RGBA') for p in SPRITES.glob('*.png') if not p.name.startswith('_')}
+    if painted_path and route == 'program':
+        draw_route(card, [tuple(p) for p in lay['route']], lay['mpp'])
+        paste_sprite(card, sp, 'flag', lay['start'][0], lay['start'][1] + 6, 90, False); paste_sprite(card, sp, 'x-mark', lay['end'][0], lay['end'][1] + 24, 76, False)
     if painted_path and icons:  # AI 從地圖原圖畫的沒有我們的圖示，補上去（從底稿畫的就用 --no-icons）
-        sp = {p.stem: Image.open(p).convert('RGBA') for p in SPRITES.glob('*.png') if not p.name.startswith('_')}
         for ic in sorted(lay['icons'], key=lambda i: i['y']): paste_sprite(card, sp, ic['sprite'], ic['x'], ic['y'] + 8, ic['size'], False)
     # 戰爭迷霧：走過的路左右各 fog_radius 公尺、停留點周圍 fog_stop 公尺挖開，其餘蓋深色雲霧，透一點點出來
     reveal = None
@@ -522,14 +614,14 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
     f1, f2 = font(88, 'title'), font(42, 'text'); tw1, th1, top1 = text_size(f1, title); tw2, th2, top2 = text_size(f2, sub)
     bw, bh = max(tw1, tw2) + 100, 60 + th1 + 28 + th2 + 50; bx, by = CONTENT[0] + 36, CONTENT[1] + 36
     cartouche(bx, by, bw, bh)
-    d.text((bx + 50, by + 50 - top1), title, font=f1, fill=INK); d.text((bx + 52, by + 50 + th1 + 28 - top2), sub, font=f2, fill=INK_SOFT)
+    txt(d, (bx + 50, by + 50 - top1), title, f1, INK); txt(d, (bx + 52, by + 50 + th1 + 28 - top2), sub, f2, INK_SOFT)
     # 統計
     st = lay['stats']; line1 = f'{st["km"]} km　走了 {st["moving_min"] // 60} 小時 {st["moving_min"] % 60} 分'; line2 = f'{st["start"]} 到 {st["end"]}　停留 {st["stops"]} 處'
     f3 = font(40, 'text'); tw3, th3, top3 = text_size(f3, line1); tw4, th4, top4 = text_size(f3, line2)
     bw2 = max(tw3, tw4) + 90; bh2 = 40 + th3 + 22 + th4 + 40
     bx2, by2 = CONTENT[2] - 36 - bw2, CONTENT[3] - 36 - bh2
     cartouche(bx2, by2, bw2, bh2)
-    d.text((bx2 + 45, by2 + 40 - top3), line1, font=f3, fill=INK); d.text((bx2 + 45, by2 + 40 + th3 + 22 - top4), line2, font=f3, fill=INK_SOFT)
+    txt(d, (bx2 + 45, by2 + 40 - top3), line1, f3, INK); txt(d, (bx2 + 45, by2 + 40 + th3 + 22 - top4), line2, f3, INK_SOFT)
     # 羅盤（右上）
     cx, cy, R = CONTENT[2] - 36 - 110, CONTENT[1] + 36 + 110, 78
     d.ellipse([cx - R, cy - R, cx + R, cy + R], fill=PAPER, outline=INK, width=3); d.ellipse([cx - R * 0.8, cy - R * 0.8, cx + R * 0.8, cy + R * 0.8], outline=INK, width=1)
@@ -559,9 +651,8 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
                 cx_ = lx
                 for ch, w in zip(text, widths): text_halo(d, (cx_, ty - text_size(f, ch)[2]), ch, f, fill=fill, halo=halo, r=5); cx_ += w + gap
             else:
-                if with_plate: plate(card, bb)
+                if with_plate: plate(card, bb); txt(d, (lx, ty - top), text, f, fill)
                 else: text_halo(d, (lx, ty - top), text, f, fill=fill, halo=halo)
-                if with_plate: d.text((lx, ty - top), text, font=f, fill=fill)
             boxes.append(bb); return True
         return False
     in_light = lambda x, y: reveal is None or reveal[min(H2 - 1, max(0, int(y))), min(W2 - 1, max(0, int(x)))] > 0.5
@@ -574,7 +665,7 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
     for ic in sorted(lay['icons'], key=lambda i: i['kind'] != 'stop'):
         if not in_light(ic['x'], ic['y']): continue  # 在霧裡的就不標了
         label = ic['name'] if ic['kind'] == 'landmark' else f'{ic["name"]}　{ic["t0"]}'
-        f = font(60 if ic['kind'] == 'stop' else 48, 'label'); tw, th, _ = text_size(f, label); x, y, s = ic['x'], ic['y'], ic['size']
+        f = font(62 if ic['kind'] == 'stop' else 50, 'label'); tw, th, _ = text_size(f, label); x, y, s = ic['x'], ic['y'], ic['size']
         ib = [x - s / 2, y - 0.9 * s, x + s / 2, y + 10]
         cands = [(x - tw / 2, ib[3] + 10), (x - tw / 2, ib[1] - th - 10), (ib[2] + 12, y - 0.45 * s - th / 2), (ib[0] - 12 - tw, y - 0.45 * s - th / 2),
                  (x + 10, ib[3] + 10), (x - tw - 10, ib[3] + 10)]
@@ -597,22 +688,31 @@ PROMPT = """第一張是地圖底稿，第二張是風格參考。請把第一�
 """
 
 
+# 定案畫風：彩鉛。給 AI 的是 rawmap.py 出的「沒有路線」的地圖原圖（map_osm_full_noroute_1k.png），路線由程式事後畫
+PROMPT_PENCIL = """把這張地圖重畫成手繪色鉛筆風格：米白色紙，黑色細墨線勾邊，色鉛筆上色，筆觸看得見。
+街區淡褐色，主要道路淡黃色與淡橘色，巷弄細線，公園和綠地畫成一叢叢綠色的樹，河和水藍色。
+所有街道、街區、公園、河流的位置和形狀完全照原圖，不要新增、不要移動、不要省略。
+不要畫任何路線或箭頭，不要畫任何文字、符號、圖示，不要畫邊框。直式，1024×1536，畫滿整張。
+"""
+
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('cmd', choices=['draft', 'compose']); ap.add_argument('--track'); ap.add_argument('--date')
     ap.add_argument('--trim', type=float, default=300); ap.add_argument('--painted'); ap.add_argument('--out')
     ap.add_argument('--name', help='輸出檔名（預設 card），同一天比好幾張 AI 圖時用')
     ap.add_argument('--no-frame', action='store_true', help='不畫我們的邊框、不裱紙邊（AI 圖自己有框時用）')
     ap.add_argument('--no-icons', action='store_true', help='不補貼紙圖示（AI 是從帶圖示的底稿畫的時用）')
-    ap.add_argument('--fit', default='auto', choices=['auto', 'same'], help='auto：用紅色路線對位；same：當作跟底稿同框')
+    ap.add_argument('--fit', default='auto', choices=['auto', 'red', 'structure', 'same'], help='auto：有紅線用紅線對位、沒有就用道路與水的形狀對位；same：當作跟底稿同框')
     ap.add_argument('--mat', type=int, default=0, help='紙邊再往內裱幾像素（AI 圖自己有撕邊黑角跑進內容框時用，例如 48）')
-    ap.add_argument('--font', default='clear', choices=list(SCHEMES), help='字體方案：clear 思源（預設，最清楚）、kai 文楷、hand 辰宇落雁體')
+    ap.add_argument('--font', default='kai', choices=list(SCHEMES), help='字體方案：kai 霞鶩文楷（預設，多米定案）、clear 思源、hand 辰宇落雁體')
     ap.add_argument('--fog', type=float, default=0.0, help='戰爭迷霧濃度 0~1（0 關掉；0.9 = 沒走過的地方只透一成）')
     ap.add_argument('--fog-radius', type=float, default=150, help='路線左右揭開幾公尺'); ap.add_argument('--fog-stop', type=float, default=250, help='停留點周圍揭開幾公尺')
+    ap.add_argument('--route', default='program', choices=['program', 'ai'], help='program：路線由程式畫（AI 畫的會先抹掉）；ai：留 AI 畫的')
     args = ap.parse_args()
     global FONT_SCHEME; FONT_SCHEME = args.font
     if args.cmd == 'compose':
         out = Path(args.out) if args.out else ROOT / 'daycard' / args.date
-        return compose(out, args.painted, name=args.name, frame=not args.no_frame, icons=not args.no_icons, fit=args.fit, mat=args.mat, fog=args.fog, fog_radius=args.fog_radius, fog_stop=args.fog_stop)
+        return compose(out, args.painted, name=args.name, frame=not args.no_frame, icons=not args.no_icons, fit=args.fit, mat=args.mat, fog=args.fog, fog_radius=args.fog_radius, fog_stop=args.fog_stop, route=args.route)
     date, pts, layer, trimmed = load_day(args.track, args.date, args.trim)
     out = Path(args.out) if args.out else ROOT / 'daycard' / date; out.mkdir(parents=True, exist_ok=True)
     stops = find_stops(pts); st = stats_of(pts, stops)
@@ -634,11 +734,20 @@ def main():
     base_tex, _, _, _ = build_base(fr, layers, textured=True)
     tex = draw_vectors(base_tex, fr, layers, thin, water_g, True, start_px, end_px, icons)
     tex.convert('RGB').save(out / 'base_textured.png')
+    # 結構圖：主要道路＋水，給沒有紅線的 AI 圖對位用
+    struct_im = Image.new('L', (W2, H2), 0); ds = ImageDraw.Draw(struct_im)
+    for g, p in lines_of(layers.get('transportation', []), lambda p: p.get('class') in ('motorway', 'trunk', 'primary', 'secondary', 'tertiary') and p.get('brunnel') != 'tunnel'):
+        ds.line(list(g.coords), fill=255, width=14, joint='curve')
+    for poly in geoms_of(water_g):
+        if len(poly.exterior.coords) >= 3:
+            ds.polygon([(x, y) for x, y in poly.exterior.coords], fill=255)
+            for ring in poly.interiors: ds.polygon([(x, y) for x, y in ring.coords], fill=0)
+    struct_im.save(out / 'structure.png')
     dz = datetime.strptime(date, '%Y-%m-%d')
     json.dump({'date': date, 'date_zh': f'{dz.year}.{dz.month:02d}.{dz.day:02d}', 'layer': layer, 'city': city, 'district': district, 'stats': st, 'mpp': fr.mpp,
                'bounds': fr.bounds, 'icons': icons, 'places': places, 'start': start_px, 'end': end_px, 'trimmed': trimmed, 'route': [[round(x, 1), round(y, 1)] for x, y in thin]},
               open(out / 'layout.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-    (out / 'prompt.txt').write_text(PROMPT, encoding='utf-8')
+    (out / 'prompt.txt').write_text(PROMPT, encoding='utf-8'); (out / 'prompt_pencil.txt').write_text(PROMPT_PENCIL, encoding='utf-8')
     print('draft.png / draft_2k.png / base_textured.png / layout.json / prompt.txt 存到', out)
     compose(out, None)
 

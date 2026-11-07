@@ -2,9 +2,11 @@
 
 用法：python tools/daycard/rawmap.py --track daycard/demo-track.json --date 2026-11-07 [--trim 0] [--zoom 16]
 輸出到 daycard/<date>/：
-  map_<style>_plain.png        只有地圖與路線，沒有邊（自由使用）
-  map_<style>_plain_noroute.png 只有地圖
-  map_<style>.png              跟卡片同框：紙邊、同一個範圍（AI 畫完可以 compose --painted 套框寫字）
+  map_<style>_full_noroute_1k.png  ★給 AI 畫的：整張卡片框的範圍、沒有路線、1024x1536（路線之後由程式畫）
+  map_<style>_full_noroute.png     同上 2048x3072
+  map_<style>_plain.png            內容框範圍、有路線（舊流程）
+  map_<style>_plain_noroute.png    內容框範圍、沒路線
+  map_<style>.png                  內容框加紙邊、有路線
 
 圖磚來源：OpenStreetMap 標準圖（© OpenStreetMap 貢獻者，ODbL）。公開圖磚服務，一次抓幾十張沒問題，別拿來大量下載。
 """
@@ -44,16 +46,21 @@ def main():
     date, pts, layer, trimmed = load_day(args.track, args.date, args.trim)
     fr = extent_for([(p[2], p[1]) for p in pts]); lon0, lat0, lon1, lat1 = fr.bounds; z = args.zoom
     x0, y0 = world(lon0, lat1, z); x1, y1 = world(lon1, lat0, z)
-    tx0, ty0, tx1, ty1 = int(x0 // 256), int(y0 // 256), int(x1 // 256), int(y1 // 256)
+    cw, ch = CONTENT[2] - CONTENT[0], CONTENT[3] - CONTENT[1]
+    # 全框版：連紙邊底下的地圖也抓，出來剛好 2:3，AI 不用裁也不用拉
+    k = (x1 - x0) / cw
+    fx0, fy0, fx1, fy1 = x0 - CONTENT[0] * k, y0 - CONTENT[1] * k, x1 + (W2 - CONTENT[2]) * k, y1 + (H2 - CONTENT[3]) * k
+    tx0, ty0, tx1, ty1 = int(fx0 // 256), int(fy0 // 256), int(fx1 // 256), int(fy1 // 256)
     n = (tx1 - tx0 + 1) * (ty1 - ty0 + 1); print(f'{args.style} z{z}：{n} 張圖磚')
     mosaic = Image.new('RGB', ((tx1 - tx0 + 1) * 256, (ty1 - ty0 + 1) * 256))
     for tx in range(tx0, tx1 + 1):
         for ty in range(ty0, ty1 + 1):
             mosaic.paste(fetch_png(STYLES[args.style].format(z=z, x=tx, y=ty), CACHE / 'raster' / args.style / f'{z}_{tx}_{ty}.png'), ((tx - tx0) * 256, (ty - ty0) * 256))
-    crop = mosaic.crop((round(x0 - tx0 * 256), round(y0 - ty0 * 256), round(x1 - tx0 * 256), round(y1 - ty0 * 256)))
-    cw, ch = CONTENT[2] - CONTENT[0], CONTENT[3] - CONTENT[1]
-    plain = crop.resize((cw, ch), Image.LANCZOS)  # 跟卡片內容框一樣大，路線座標直接共用
     out = ROOT / 'daycard' / date; out.mkdir(parents=True, exist_ok=True)
+    full = mosaic.crop((round(fx0 - tx0 * 256), round(fy0 - ty0 * 256), round(fx1 - tx0 * 256), round(fy1 - ty0 * 256))).resize((W2, H2), Image.LANCZOS)
+    full.save(out / f'map_{args.style}_full_noroute.png'); full.resize((W2 // 2, H2 // 2), Image.LANCZOS).save(out / f'map_{args.style}_full_noroute_1k.png')
+    crop = mosaic.crop((round(x0 - tx0 * 256), round(y0 - ty0 * 256), round(x1 - tx0 * 256), round(y1 - ty0 * 256)))
+    plain = crop.resize((cw, ch), Image.LANCZOS)  # 跟卡片內容框一樣大，路線座標直接共用
     plain.save(out / f'map_{args.style}_plain_noroute.png')
     # 路線：白邊紅線，起點綠點、終點紅點
     route = [(fr.px(p[2], p[1])[0] - CONTENT[0], fr.px(p[2], p[1])[1] - CONTENT[1]) for p in pts]
@@ -70,7 +77,7 @@ def main():
     paper = Image.fromarray((tex_array('paper', (W2, H2), PAPER) * 255).astype(np.uint8))
     paper.paste(withroute, (CONTENT[0], CONTENT[1])); paper.save(out / f'map_{args.style}.png')
     paper.resize((W2 // 2, H2 // 2), Image.LANCZOS).save(out / f'map_{args.style}_1k.png')
-    print(f'存到 {out}：map_{args.style}_plain.png（{cw}x{ch}）、map_{args.style}_plain_noroute.png、map_{args.style}.png（{W2}x{H2}，同卡片框）、map_{args.style}_1k.png')
+    print(f'存到 {out}：map_{args.style}_full_noroute_1k.png（給 AI 畫的，1024x1536 沒路線）、map_{args.style}_plain.png（{cw}x{ch}）、map_{args.style}_plain_noroute.png、map_{args.style}.png（{W2}x{H2}，同卡片框）')
 
 
 if __name__ == '__main__':
