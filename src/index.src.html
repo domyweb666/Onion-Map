@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>洋蔥 — 只畫出你去過的地方</title>
+<style>/*@@MAPLIBRE_CSS@@*/</style>
+<script>/*@@H3_JS@@*/</script>
+<script>/*@@MAPLIBRE_JS@@*/</script>
+<style>
+  :root{
+    --paper:#E6D5B2; --paper2:#F1E4C6; --ink:#4E3B26; --ink2:#7A6244; --accent:#9A3B2A;
+    --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;overflow:hidden}
+  #map{position:fixed;inset:0}
+  #vignette{position:fixed;inset:0;pointer-events:none;
+    box-shadow:inset 0 0 90px 30px rgba(110,80,40,.35)}
+  button{font:inherit;color:inherit;border:0;cursor:pointer}
+  .card{background:rgba(241,228,198,.94);border:1px solid rgba(78,59,38,.35);
+    box-shadow:0 4px 18px rgba(60,40,15,.25);border-radius:14px}
+  #top{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 10px);
+    display:flex;align-items:center;gap:10px;padding:10px 14px}
+  .brand{font-weight:700;font-size:18px;letter-spacing:2px}
+  .brand span{font-size:11px;font-weight:400;margin-left:4px;color:var(--ink2)}
+  #stats{margin-left:auto;text-align:right;font-size:12px;line-height:1.35;color:var(--ink2)}
+  #stats b{font-size:16px;color:var(--ink)}
+  #side{position:fixed;right:12px;top:calc(var(--safe-t) + 78px);display:flex;flex-direction:column;gap:8px}
+  #side button{width:52px;height:46px;font-size:13px}
+  #side button.on{background:var(--ink);color:var(--paper2)}
+  #simbar{position:fixed;left:12px;right:76px;top:calc(var(--safe-t) + 78px);padding:10px}
+  #simbar .seg{display:flex;gap:6px}
+  #simbar .seg button{flex:1;padding:8px 0;border-radius:9px;background:rgba(78,59,38,.08);font-size:14px}
+  #simbar .seg button.on{background:var(--ink);color:var(--paper2)}
+  #simhint{font-size:12px;color:var(--ink2);margin-top:7px;line-height:1.4}
+  #panel{position:fixed;left:12px;right:12px;bottom:calc(var(--safe-b) + 12px);padding:12px 14px}
+  #status{font-size:13px;color:var(--ink2);min-height:18px;margin-bottom:9px}
+  #btnRec{width:100%;padding:14px;border-radius:12px;background:var(--ink);color:var(--paper2);
+    font-size:17px;font-weight:600;letter-spacing:1px}
+  #btnRec.rec{background:var(--accent)}
+  #note{font-size:11px;color:var(--ink2);margin-top:8px;line-height:1.4}
+  .me{width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--paper2);
+    box-shadow:0 0 0 0 rgba(154,59,42,.6);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(154,59,42,.55)}100%{box-shadow:0 0 0 18px rgba(154,59,42,0)}}
+  #modal{position:fixed;inset:0;background:rgba(40,28,12,.45);display:flex;align-items:flex-end;justify-content:center}
+  #modal[hidden],#simbar[hidden]{display:none}
+  #sheet{width:100%;max-width:520px;margin:12px;margin-bottom:calc(var(--safe-b) + 12px);padding:16px}
+  #sheet h3{margin:0 0 6px;font-size:17px}
+  #sheet p{margin:0 0 12px;font-size:12px;color:var(--ink2);line-height:1.5}
+  #sheet .row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  #sheet .row button,#sheet label.btn{flex:1;min-width:46%;padding:12px;border-radius:10px;
+    background:rgba(78,59,38,.1);font-size:14px;text-align:center}
+  #sheet .danger{color:var(--accent)}
+  #toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 170px);transform:translateX(-50%);
+    background:var(--ink);color:var(--paper2);padding:9px 14px;border-radius:10px;font-size:13px;
+    opacity:0;transition:opacity .25s;pointer-events:none;max-width:86%;text-align:center}
+  #toast.show{opacity:.95}
+  .maplibregl-ctrl-attrib{background:rgba(241,228,198,.8)!important;font-size:10px}
+  .maplibregl-ctrl-bottom-right{bottom:calc(var(--safe-b) + 150px)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="vignette"></div>
+
+<div id="top" class="card">
+  <div class="brand">洋蔥</div>
+  <div id="stats"><b>0.000</b> km²<br>航線 0 段</div>
+</div>
+
+<div id="side">
+  <button id="btnLocate" class="card">定位</button>
+  <button id="btnSim" class="card">模擬</button>
+  <button id="btnData" class="card">資料</button>
+</div>
+
+<div id="simbar" class="card" hidden>
+  <div class="seg">
+    <button data-m="walk" class="on">步行</button>
+    <button data-m="car">汽車</button>
+    <button data-m="hsr">高鐵</button>
+    <button data-m="plane">飛機</button>
+  </div>
+  <div id="simhint">第一下點地圖＝把你放在那裡；之後每點一下，就用選的交通方式移動過去。</div>
+</div>
+
+<div id="panel" class="card">
+  <div id="status">尚未開始記錄</div>
+  <button id="btnRec">開始記錄</button>
+  <div id="note">網頁版限制：要保持螢幕開啟、Safari 在最前面才會記錄（正式版會改成背景記錄）。</div>
+</div>
+
+<div id="modal" hidden>
+  <div id="sheet" class="card">
+    <h3>資料</h3>
+    <p id="dataInfo"></p>
+    <div class="row">
+      <button id="btnExport">下載備份</button>
+      <label class="btn">匯入備份<input id="fileImport" type="file" accept=".json,application/json" hidden></label>
+    </div>
+    <div class="row">
+      <button id="btnClear" class="danger">清除全部紀錄</button>
+      <button id="btnClose">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/*ENGINE_START*/
+// ===== 探索引擎：純邏輯，不碰地圖與畫面，方便獨立測試 =====
+const CFG = {
+  res: 12,            // H3 解析度（每格邊長約 10 公尺）
+  walkR: 30,          // 步行揭露半徑（公尺）
+  vehR: 14,           // 車／火車揭露半徑（公尺，沿路一條窄帶）
+  walkAcc: 25,        // 步行最差可接受精度（公尺）
+  vehAcc: 60,         // 車速時最差可接受精度
+  maxAcc: 200,        // 超過這個精度一律丟掉
+  walkMaxKmh: 25,     // 低於此速度＝步行／騎車
+  groundMaxKmh: 330,  // 地面交通上限（高鐵約 300）
+  flightMinKm: 50,    // 飛行至少要跳這麼遠，避免 GPS 跳點被當成飛機
+  interpWalkSec: 180, // 兩點間隔在此秒數內才補線（步行）
+  interpVehSec: 600,  // 兩點間隔在此秒數內才補線（車）
+  interpMaxKm: 40,    // 補線最長距離
+  revisitMin: 30,     // 離開超過幾分鐘再回來，才算「又來一次」
+  maxPoints: 60000
+};
+
+function createEngine(h3) {
+  const EDGE = h3.getHexagonEdgeLengthAvg(CFG.res, 'm');
+  let s, last, dirty;
+  function blank() {
+    s = { cells: {}, flights: [], gaps: [], points: [], area: 0, km: { walk: 0, vehicle: 0, flight: 0 } };
+    last = null; dirty = true;
+  }
+  blank();
+
+  function touch(c, t) {
+    const e = s.cells[c];
+    if (!e) { s.cells[c] = [1, t]; s.area += h3.cellArea(c, 'km2'); dirty = true; }
+    else {
+      if (t - e[1] > CFG.revisitMin * 60000) { e[0]++; dirty = true; }
+      e[1] = t;
+    }
+  }
+  function reveal(lat, lng, r, t) {
+    const c0 = h3.latLngToCell(lat, lng, CFG.res);
+    const k = Math.ceil(r / (EDGE * 1.5)) + 1;
+    for (const c of h3.gridDisk(c0, k)) {
+      if (h3.greatCircleDistance([lat, lng], h3.cellToLatLng(c), 'm') <= r + EDGE * 0.5) touch(c, t);
+    }
+  }
+  function revealLine(a, b, r, t) {
+    const d = h3.greatCircleDistance([a.lat, a.lng], [b.lat, b.lng], 'm');
+    const n = Math.max(1, Math.ceil(d / Math.max(r * 0.6, 5)));
+    for (let i = 1; i <= n; i++) {
+      const f = i / n;
+      reveal(a.lat + (b.lat - a.lat) * f, a.lng + (b.lng - a.lng) * f, r, t);
+    }
+  }
+
+  // f = {lat, lng, acc(公尺), t(毫秒), spd(公尺/秒 或 null)}
+  function process(f) {
+    if (!(f.acc <= CFG.maxAcc)) return { ok: false, why: '定位精度太差（' + Math.round(f.acc) + 'm）' };
+    if (last && f.t <= last.t) last = null;
+    let mode = 'walk', km = 0, dt = 0, kmh = 0, gk = 0;
+    if (last) {
+      km = h3.greatCircleDistance([last.lat, last.lng], [f.lat, f.lng], 'km');
+      dt = (f.t - last.t) / 1000;
+      kmh = km / (dt / 3600);
+      gk = (f.spd != null && f.spd >= 0 && dt < 30) ? f.spd * 3.6 : kmh;
+      if (km >= CFG.flightMinKm && kmh > CFG.groundMaxKmh) mode = 'flight';
+      else if (kmh > CFG.groundMaxKmh) return { ok: false, why: 'GPS 跳點，已略過' };
+      else if (gk > CFG.walkMaxKmh) mode = 'vehicle';
+    }
+    if (mode === 'flight') {
+      s.flights.push([last.lng, last.lat, f.lng, f.lat, last.t, f.t]);
+      s.km.flight += km; dirty = true;
+      if (f.acc <= CFG.walkAcc) reveal(f.lat, f.lng, CFG.walkR, f.t);
+    } else {
+      const maxAcc = mode === 'walk' ? CFG.walkAcc : CFG.vehAcc;
+      if (f.acc > maxAcc) return { ok: false, mode, kmh: gk, why: '精度 ' + Math.round(f.acc) + 'm，等更準的定位' };
+      const r = mode === 'walk' ? CFG.walkR : CFG.vehR;
+      const lim = mode === 'walk' ? CFG.interpWalkSec : CFG.interpVehSec;
+      if (last && dt <= lim && km <= CFG.interpMaxKm) {
+        revealLine(last, f, r, f.t);
+        s.km[mode] += km;
+      } else {
+        reveal(f.lat, f.lng, r, f.t);
+        if (last && km > 1) { s.gaps.push([last.lng, last.lat, f.lng, f.lat]); dirty = true; }
+      }
+    }
+    last = f;
+    s.points.push([Math.round(f.t / 1000), +f.lat.toFixed(6), +f.lng.toFixed(6), Math.round(f.acc), mode[0]]);
+    if (s.points.length > CFG.maxPoints) s.points.splice(0, s.points.length - CFG.maxPoints);
+    return { ok: true, mode, kmh: gk, km };
+  }
+
+  return {
+    process,
+    state: () => s,
+    takeDirty() { const d = dirty; dirty = false; return d; },
+    resetLast() { last = null; },
+    clear: blank,
+    dump: () => ({ v: 1, cells: s.cells, flights: s.flights, gaps: s.gaps, points: s.points, km: s.km }),
+    load(d) {
+      blank();
+      if (!d || typeof d !== 'object') return;
+      s.cells = d.cells || {}; s.flights = d.flights || []; s.gaps = d.gaps || [];
+      s.points = d.points || []; s.km = Object.assign({ walk: 0, vehicle: 0, flight: 0 }, d.km || {});
+      s.area = 0;
+      for (const c in s.cells) { try { s.area += h3.cellArea(c, 'km2'); } catch (e) { delete s.cells[c]; } }
+      dirty = true;
+    }
+  };
+}
+/*ENGINE_END*/
+
+// ===== 以下是畫面與地圖 =====
+if (typeof h3 === 'undefined' || typeof maplibregl === 'undefined') {
+  document.getElementById('status').textContent = '程式庫載入失敗，請重新整理頁面';
+  throw new Error('libs missing');
+}
+const STORE = 'yangcong.v1';
+const engine = createEngine(h3);
+const $ = id => document.getElementById(id);
+
+function toast(msg, ms = 2400) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// --- 儲存 ---
+let saveTimer = null;
+function saveSoon() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    try { localStorage.setItem(STORE, JSON.stringify(engine.dump())); }
+    catch (e) { toast('手機上的儲存空間滿了，請到「資料」下載備份'); }
+  }, 1500);
+}
+try { const raw = localStorage.getItem(STORE) || localStorage.getItem('digua.v1'); if (raw) engine.load(JSON.parse(raw)); } catch (e) {}
+
+// --- 地圖樣式：羊皮紙配色（只有探索過的地方看得到） ---
+const ROAD_W = (lo, mid, hi) => ['interpolate', ['exponential', 1.5], ['zoom'],
+  10, ['match', ['get', 'class'], ['motorway', 'trunk'], lo * 1.6, ['primary', 'secondary'], lo, lo * 0.5],
+  18, ['match', ['get', 'class'], ['motorway', 'trunk'], hi * 1.5, ['primary', 'secondary'], hi, mid]];
+const NAME = ['coalesce', ['get', 'name:zh-Hant'], ['get', 'name:zh'], ['get', 'name']];
+
+const style = {
+  version: 8,
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  sources: {
+    omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet',
+      attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' }
+  },
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#EADBB5' } },
+    { id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
+      filter: ['match', ['get', 'class'], ['residential', 'suburb', 'neighbourhood'], true, false],
+      paint: { 'fill-color': '#E2CC9E', 'fill-opacity': 0.6 } },
+    { id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
+      paint: { 'fill-color': ['match', ['get', 'class'], 'wood', '#A9AE85', 'grass', '#C4C292', 'farmland', '#D9CB98', 'sand', '#E8D7A6', '#C9C49A'],
+        'fill-opacity': 0.75 } },
+    { id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
+      paint: { 'fill-color': '#B8BC8E', 'fill-opacity': 0.7 } },
+    { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water',
+      paint: { 'fill-color': '#9DB7B2' } },
+    { id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
+      paint: { 'line-color': '#8DAAA5', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 18, 4] } },
+    { id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 14,
+      paint: { 'fill-color': '#D6BF8E', 'fill-outline-color': '#A2885D' } },
+    { id: 'path', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 14,
+      filter: ['match', ['get', 'class'], ['path', 'track'], true, false],
+      paint: { 'line-color': '#8E7652', 'line-width': 1, 'line-dasharray': [2, 1.5] } },
+    { id: 'road', type: 'line', source: 'omt', 'source-layer': 'transportation',
+      filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor', 'service'], true, false],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#7E6646', 'line-width': ROAD_W(1, 6, 12) } },
+    { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
+      filter: ['==', ['get', 'class'], 'rail'],
+      paint: { 'line-color': '#5E4A33', 'line-width': 1.4, 'line-dasharray': [3, 2] } },
+    { id: 'road-name', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 15,
+      layout: { 'symbol-placement': 'line', 'text-field': NAME, 'text-font': ['Noto Sans Regular'], 'text-size': 12 },
+      paint: { 'text-color': '#4E3B26', 'text-halo-color': '#EADBB5', 'text-halo-width': 1.5 } },
+    { id: 'place', type: 'symbol', source: 'omt', 'source-layer': 'place',
+      layout: { 'text-field': NAME, 'text-font': ['Noto Sans Regular'],
+        'text-size': ['match', ['get', 'class'], 'city', 16, 'town', 14, 12] },
+      paint: { 'text-color': '#4E3B26', 'text-halo-color': '#EADBB5', 'text-halo-width': 2 } }
+  ]
+};
+
+const start = (() => { const p = engine.state().points; const l = p[p.length - 1];
+  return l ? { center: [l[2], l[1]], zoom: 15 } : { center: [121.0, 23.7], zoom: 6.5 }; })();
+
+const map = new maplibregl.Map({
+  container: 'map', style, center: start.center, zoom: start.zoom,
+  attributionControl: { compact: true }, pitchWithRotate: false, dragRotate: false
+});
+map.touchZoomRotate.disableRotation();
+
+const meEl = document.createElement('div'); meEl.className = 'me';
+const me = new maplibregl.Marker({ element: meEl });
+let meShown = false;
+function showMe(lng, lat) { me.setLngLat([lng, lat]); if (!meShown) { me.addTo(map); meShown = true; } }
+
+// 羊皮紙紋理（迷霧用）
+function paperImage() {
+  const n = 160, c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'); g.fillStyle = '#E6D5B2'; g.fillRect(0, 0, n, n);
+  for (let i = 0; i < 2600; i++) {
+    const v = Math.random();
+    g.fillStyle = v < 0.5 ? 'rgba(120,90,50,' + (Math.random() * 0.07) + ')' : 'rgba(255,248,230,' + (Math.random() * 0.12) + ')';
+    g.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 2.5, 1 + Math.random() * 2.5);
+  }
+  for (let i = 0; i < 14; i++) {
+    g.strokeStyle = 'rgba(120,90,50,0.05)'; g.lineWidth = 1; g.beginPath();
+    const y = Math.random() * n; g.moveTo(0, y); g.bezierCurveTo(n / 3, y + 8 - Math.random() * 16, n * 2 / 3, y + 8 - Math.random() * 16, n, y); g.stroke();
+  }
+  const d = g.getImageData(0, 0, n, n);
+  return { width: n, height: n, data: new Uint8Array(d.data.buffer) };
+}
+
+const EMPTY = { type: 'FeatureCollection', features: [] };
+map.on('load', () => {
+  map.addImage('paper', paperImage());
+  ['freq', 'fog', 'explored', 'flights', 'gaps', 'track'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
+  map.addLayer({ id: 'freq', type: 'fill', source: 'freq',
+    paint: { 'fill-color': '#7A4E22', 'fill-opacity': 0.13 } });
+  map.addLayer({ id: 'fog', type: 'fill', source: 'fog', paint: { 'fill-pattern': 'paper' } });
+  map.addLayer({ id: 'fog-edge', type: 'line', source: 'fog',
+    paint: { 'line-color': '#E6D5B2', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 4, 18, 26], 'line-blur': ['interpolate', ['linear'], ['zoom'], 12, 3, 18, 20] } });
+  // 迷霧上只留極淡的海岸線與國界，讓你知道自己在哪
+  map.addLayer({ id: 'hint-water', type: 'fill', source: 'omt', 'source-layer': 'water',
+    paint: { 'fill-color': '#93ADA8', 'fill-opacity': 0.22 } });
+  map.addLayer({ id: 'hint-border', type: 'line', source: 'omt', 'source-layer': 'boundary',
+    filter: ['all', ['==', ['get', 'admin_level'], 2], ['!=', ['get', 'maritime'], 1]],
+    paint: { 'line-color': '#8C7A5E', 'line-opacity': 0.45, 'line-width': 0.8, 'line-dasharray': [3, 2] } });
+  map.addLayer({ id: 'explored-ink', type: 'line', source: 'explored',
+    paint: { 'line-color': '#5A4228', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2, 12, 1.4, 17, 1],
+      'line-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.85, 16, 0.25] } });
+  // 縮小看全國、全世界時，探索範圍太細看不到，改用墨線畫出走過的軌跡
+  map.addLayer({ id: 'track', type: 'line', source: 'track', layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#5A4228', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2.2, 12, 2],
+      'line-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.85, 13, 0] } });
+  map.addLayer({ id: 'gaps', type: 'line', source: 'gaps',
+    paint: { 'line-color': '#5A4228', 'line-opacity': 0.4, 'line-width': 1.2, 'line-dasharray': [1, 2] } });
+  map.addLayer({ id: 'flights', type: 'line', source: 'flights', layout: { 'line-cap': 'round' },
+    paint: { 'line-color': '#9A3B2A', 'line-width': 1.8, 'line-opacity': 0.8, 'line-dasharray': [4, 3] } });
+  render(true);
+});
+
+// --- 把探索格子畫成「迷霧上的洞」 ---
+function ringArea(r) { let a = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += (r[j][0] - r[i][0]) * (r[j][1] + r[i][1]); return a; }
+function orient(r, positive) { return (ringArea(r) > 0) === positive ? r : r.slice().reverse(); }
+function arc(a, b, n = 64) {
+  const D = Math.PI / 180, V = (lng, lat) => [Math.cos(lat * D) * Math.cos(lng * D), Math.cos(lat * D) * Math.sin(lng * D), Math.sin(lat * D)];
+  const v1 = V(a[0], a[1]), v2 = V(b[0], b[1]);
+  const w = Math.acos(Math.min(1, Math.max(-1, v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2])));
+  if (w < 1e-6) return [a, b];
+  const out = []; let prev = null;
+  for (let i = 0; i <= n; i++) {
+    const f = i / n, s1 = Math.sin((1 - f) * w) / Math.sin(w), s2 = Math.sin(f * w) / Math.sin(w);
+    const v = [s1 * v1[0] + s2 * v2[0], s1 * v1[1] + s2 * v2[1], s1 * v1[2] + s2 * v2[2]];
+    let lng = Math.atan2(v[1], v[0]) / D; const lat = Math.asin(v[2]) / D;
+    if (prev !== null) { while (lng - prev > 180) lng -= 360; while (lng - prev < -180) lng += 360; }
+    prev = lng; out.push([lng, lat]);
+  }
+  return out;
+}
+// 把軌跡點切成一段段線：遇到飛行、斷訊超過 10 分鐘或跳太遠就斷開
+function trackLines(pts) {
+  const lines = []; let cur = [], prev = null;
+  for (const p of pts) {
+    const brk = !prev || p[4] === 'f' || p[0] - prev[0] > 600 ||
+      Math.abs(p[1] - prev[1]) + Math.abs(p[2] - prev[2]) > 0.4;
+    if (brk) { if (cur.length > 1) lines.push(cur); cur = []; }
+    cur.push([p[2], p[1]]); prev = p;
+  }
+  if (cur.length > 1) lines.push(cur);
+  return lines;
+}
+const WORLD = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+let renderTimer = null;
+function renderSoon() { if (!renderTimer) renderTimer = setTimeout(() => { renderTimer = null; render(); }, 350); }
+function render(force) {
+  updateStats();
+  if (!map.getSource('fog')) return;
+  if (!engine.takeDirty() && !force) return;
+  const s = engine.state(), ids = Object.keys(s.cells);
+  const polys = ids.length ? h3.cellsToMultiPolygon(ids, true) : [];
+  const fog = [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon',
+    coordinates: [orient(WORLD, true), ...polys.map(p => orient(p[0], false))] } }];
+  polys.forEach(p => { for (let i = 1; i < p.length; i++) fog.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [p[i]] } }); });
+  map.getSource('fog').setData({ type: 'FeatureCollection', features: fog });
+  map.getSource('explored').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: polys } });
+  // 去過越多次顏色越深
+  const tiers = [2, 5, 10].map(th => ids.filter(c => s.cells[c][0] >= th)).filter(a => a.length);
+  map.getSource('freq').setData({ type: 'FeatureCollection', features: tiers.map(a => ({ type: 'Feature', properties: {},
+    geometry: { type: 'MultiPolygon', coordinates: h3.cellsToMultiPolygon(a, true) } })) });
+  map.getSource('flights').setData({ type: 'FeatureCollection', features: s.flights.map(f => ({ type: 'Feature', properties: {},
+    geometry: { type: 'LineString', coordinates: arc([f[0], f[1]], [f[2], f[3]]) } })) });
+  map.getSource('track').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: trackLines(s.points) } });
+  map.getSource('gaps').setData({ type: 'FeatureCollection', features: s.gaps.map(g => ({ type: 'Feature', properties: {},
+    geometry: { type: 'LineString', coordinates: [[g[0], g[1]], [g[2], g[3]]] } })) });
+}
+function updateStats() {
+  const s = engine.state();
+  const a = s.area < 10 ? s.area.toFixed(3) : s.area.toFixed(1);
+  $('stats').innerHTML = '<b>' + a + '</b> km²<br>航線 ' + s.flights.length + ' 段 · 地面 ' + Math.round(s.km.walk + s.km.vehicle) + ' km';
+}
+
+// --- 處理一個定位點（真實 GPS 與模擬共用同一條路） ---
+const MODE_LABEL = { walk: '步行', vehicle: '車／火車', flight: '飛行' };
+let follow = true;
+function feed(f, quiet) {
+  const r = engine.process(f);
+  if (r.ok) {
+    showMe(f.lng, f.lat);
+    if (follow && r.mode !== 'flight') map.easeTo({ center: [f.lng, f.lat], duration: quiet ? 0 : 600 });
+    if (r.mode === 'flight') { map.fitBounds(flightBounds(), { padding: 80, duration: 1200 }); toast('偵測到飛行，畫上一段航線'); }
+    setStatus(MODE_LABEL[r.mode] + ' · ' + Math.round(r.kmh || 0) + ' km/h · 精度 ' + Math.round(f.acc) + 'm');
+    saveSoon(); renderSoon();
+  } else setStatus(r.why);
+  return r;
+}
+function flightBounds() {
+  const f = engine.state().flights.slice(-1)[0], b = new maplibregl.LngLatBounds();
+  arc([f[0], f[1]], [f[2], f[3]]).forEach(p => b.extend(p)); return b;
+}
+function setStatus(t) { $('status').textContent = t; }
+map.on('dragstart', () => { follow = false; });
+
+// --- 真實 GPS ---
+let watchId = null, wakeLock = null;
+async function lockScreen() { try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (watchId !== null && document.visibilityState === 'visible') lockScreen(); });
+function startRec() {
+  if (!('geolocation' in navigator)) { toast('這個瀏覽器不支援定位'); return; }
+  if (simOn) toggleSim();
+  engine.resetLast(); follow = true;
+  watchId = navigator.geolocation.watchPosition(p => {
+    feed({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, t: p.timestamp || Date.now(),
+      spd: (typeof p.coords.speed === 'number' && !isNaN(p.coords.speed)) ? p.coords.speed : null });
+  }, e => {
+    setStatus(e.code === 1 ? '沒有定位權限：請到 設定 › Safari › 位置 允許' : '暫時拿不到定位，持續嘗試中…');
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  lockScreen();
+  $('btnRec').textContent = '停止記錄'; $('btnRec').classList.add('rec');
+  setStatus('等待定位中…');
+}
+function stopRec() {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  watchId = null; try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null;
+  $('btnRec').textContent = '開始記錄'; $('btnRec').classList.remove('rec');
+  setStatus('已停止記錄'); saveSoon();
+}
+$('btnRec').onclick = () => watchId === null ? startRec() : stopRec();
+$('btnLocate').onclick = () => {
+  follow = true;
+  if (meShown) { map.flyTo({ center: me.getLngLat(), zoom: Math.max(map.getZoom(), 15) }); return; }
+  navigator.geolocation && navigator.geolocation.getCurrentPosition(
+    p => map.flyTo({ center: [p.coords.longitude, p.coords.latitude], zoom: 15 }),
+    () => toast('拿不到定位'), { enableHighAccuracy: true, timeout: 10000 });
+};
+
+// --- 模擬模式：在桌上點地圖測試 ---
+const SIM = { walk: { kmh: 5, every: 4 }, car: { kmh: 50, every: 3 }, hsr: { kmh: 280, every: 5 }, plane: { kmh: 800 } };
+let simOn = false, simMode = 'walk', simPos = null, simClock = 0, simQueue = [], simTimer = null;
+function toggleSim() {
+  simOn = !simOn;
+  $('btnSim').classList.toggle('on', simOn); $('simbar').hidden = !simOn;
+  if (simOn) { if (watchId !== null) stopRec(); simPos = null; engine.resetLast(); setStatus('模擬模式：點地圖'); }
+  else { clearInterval(simTimer); simTimer = null; simQueue = []; engine.resetLast(); setStatus('已離開模擬模式'); }
+}
+$('btnSim').onclick = toggleSim;
+document.querySelectorAll('#simbar .seg button').forEach(b => b.onclick = () => {
+  simMode = b.dataset.m;
+  document.querySelectorAll('#simbar .seg button').forEach(x => x.classList.toggle('on', x === b));
+  if (simMode === 'plane') toast('飛機：請點 50 公里以外的地方');
+});
+function dist(a, b) { return h3.greatCircleDistance([a.lat, a.lng], [b.lat, b.lng], 'm'); }
+map.on('click', e => {
+  if (!simOn) return;
+  const to = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+  follow = true;
+  if (!simPos) {
+    simClock = Date.now(); simPos = to;
+    feed({ ...to, acc: 5, t: simClock, spd: 0 }); return;
+  }
+  simQueue = []; const cfg = SIM[simMode], d = dist(simPos, to);
+  if (simMode === 'plane') {
+    if (d < 50000) { toast('距離太近（' + (d / 1000).toFixed(1) + ' km），飛機請點 50 公里以外'); return; }
+    simClock += d / (cfg.kmh / 3.6) * 1000;
+    simQueue.push({ ...to, acc: 10, t: simClock, spd: cfg.kmh / 3.6 });
+  } else {
+    const step = cfg.kmh / 3.6 * cfg.every, n = Math.max(1, Math.ceil(d / step)), from = simPos;
+    for (let i = 1; i <= n; i++) {
+      const f = i / n; simClock += cfg.every * 1000 * (i === n ? (d - step * (n - 1)) / step : 1);
+      simQueue.push({ lat: from.lat + (to.lat - from.lat) * f, lng: from.lng + (to.lng - from.lng) * f,
+        acc: 6 + Math.random() * 6, t: simClock, spd: cfg.kmh / 3.6 });
+    }
+  }
+  if (!simTimer) simTimer = setInterval(() => {
+    const per = Math.max(1, Math.ceil(simQueue.length / 120));
+    for (let i = 0; i < per && simQueue.length; i++) { const f = simQueue.shift(); simPos = { lat: f.lat, lng: f.lng }; feed(f, true); }
+    if (!simQueue.length) { clearInterval(simTimer); simTimer = null; render(); }
+  }, 30);
+});
+
+// --- 資料：備份、匯入、清除 ---
+$('btnData').onclick = () => {
+  const s = engine.state();
+  $('dataInfo').textContent = '探索格子 ' + Object.keys(s.cells).length.toLocaleString() + ' 個、軌跡點 ' +
+    s.points.length.toLocaleString() + ' 個、航線 ' + s.flights.length + ' 段。資料只存在這支手機的瀏覽器裡，清除 Safari 網站資料就會消失，記得定期下載備份。';
+  $('btnClear').textContent = '清除全部紀錄'; $('btnClear').dataset.arm = '';
+  $('modal').hidden = false;
+};
+$('btnClose').onclick = () => { $('modal').hidden = true; };
+$('modal').onclick = e => { if (e.target === $('modal')) $('modal').hidden = true; };
+$('btnExport').onclick = () => {
+  const blob = new Blob([JSON.stringify(engine.dump())], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'onion-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+$('fileImport').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try { engine.load(JSON.parse(await file.text())); saveSoon(); render(true); $('modal').hidden = true; toast('已匯入備份'); }
+  catch (err) { toast('這個檔案讀不了'); }
+  e.target.value = '';
+};
+$('btnClear').onclick = () => {
+  const b = $('btnClear');
+  if (!b.dataset.arm) { b.dataset.arm = '1'; b.textContent = '再按一次確定清除'; return; }
+  engine.clear(); try { localStorage.removeItem(STORE); } catch (e) {}
+  render(true); $('modal').hidden = true; toast('已清除');
+};
+updateStats();
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "onion-map",
+  "private": true,
+  "scripts": { "build": "node build.js" },
+  "devDependencies": { "h3-js": "4.1.0", "maplibre-gl": "4.7.1" }
+}
