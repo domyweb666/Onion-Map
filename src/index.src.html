@@ -10,6 +10,7 @@
 <script>/*@@H3_JS@@*/</script>
 <script>/*@@MAPLIBRE_JS@@*/</script>
 <script>/*@@CAPACITOR_JS@@*/</script>
+<script>/*@@ROUGH_JS@@*/</script>
 <style>
   /* 手寫字型：辰宇落雁體（OFL），fonts/ 裡附授權 */
   @font-face{font-family:'Luoyan';src:url('fonts/ChenYuluoyan.woff2') format('woff2');font-display:swap}
@@ -28,6 +29,7 @@
   #frame{position:fixed;left:6px;right:6px;top:calc(var(--safe-t) + 6px);bottom:calc(var(--safe-b) + 6px);border-radius:12px;
     border:3px solid rgba(107,74,43,.7);box-shadow:inset 0 0 0 2px rgba(107,74,43,.16),inset 0 0 26px rgba(107,74,43,.14);pointer-events:none}
   #grain{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.45;background-repeat:repeat}
+  #sketch{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply}
   #compass{position:fixed;left:16px;bottom:calc(var(--safe-b) + 152px);width:30px;height:46px;pointer-events:none;opacity:.85}
   /* 比例尺：細墨線、手寫字 */
   .maplibregl-ctrl-bottom-left{bottom:calc(var(--safe-b) + 152px);left:56px}
@@ -886,6 +888,102 @@ function buildLegend() {
 $('btnLegend').onclick = () => { buildLegend(); $('legend').hidden = false; };
 $('btnLegendClose').onclick = () => { $('legend').hidden = true; };
 $('legend').onclick = e => { if (e.target === $('legend')) $('legend').hidden = true; };
+
+// ===== 手繪草稿模式（POC）：網址加 ?sketch=1 =====
+// MapLibre 只負責圖資、鏡頭、迷霧的洞與地名；路、水、植被、迷霧排線改用 Rough.js 畫在一層畫布上，
+// 畫布用 multiply 疊在地圖上，底下的地名與「?」照樣看得到。停下來才重畫，拖動時用 CSS 位移讓草稿跟著滑。
+const SKETCH = /[?&]sketch=1/.test(location.search) && typeof rough !== 'undefined';
+if (SKETCH) {
+  const SK = { tol: 5, rough: 1.3, bow: 1.4 }; // 簡化公差（螢幕像素）、抖動、彎曲：草稿要多潦草都在這裡調
+  const cv = document.createElement('canvas'); cv.id = 'sketch';
+  map.getContainer().insertAdjacentElement('afterend', cv);
+  const ctx = cv.getContext('2d'), rc = rough.canvas(cv);
+  let drawCenter = null, drawZoom = 0, needDraw = true;
+  const HIDE = ['landcover-base', 'landcover-pattern', 'park-base', 'park-pattern', 'water', 'water-hatch', 'water-edge', 'waterway',
+    'building-hatch', 'building-line', 'path', 'road-ink', 'road-fill', 'rail', 'rail-ties', 'fog-hatch', 'explored-hatch', 'freq', 'explored-ink', 'track'];
+  map.on('load', () => HIDE.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'none')));
+  // Douglas–Peucker：把線上多餘的點丟掉，草稿不用那麼精準
+  function simplify(pts, tol) {
+    if (pts.length < 3) return pts;
+    const a = pts[0], b = pts[pts.length - 1], dx = b[0] - a[0], dy = b[1] - a[1], len2 = dx * dx + dy * dy || 1;
+    let maxD = 0, idx = 0;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const t = Math.max(0, Math.min(1, ((pts[i][0] - a[0]) * dx + (pts[i][1] - a[1]) * dy) / len2));
+      const d = Math.hypot(pts[i][0] - (a[0] + t * dx), pts[i][1] - (a[1] + t * dy));
+      if (d > maxD) { maxD = d; idx = i; }
+    }
+    if (maxD <= tol) return [a, b];
+    return simplify(pts.slice(0, idx + 1), tol).slice(0, -1).concat(simplify(pts.slice(idx), tol));
+  }
+  const proj = ring => ring.map(c => { const p = map.project(c); return [p.x, p.y]; });
+  const lines = g => g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : [];
+  const rings = g => g.type === 'Polygon' ? [g.coordinates[0]] : g.type === 'MultiPolygon' ? g.coordinates.map(p => p[0]) : [];
+  const cls = list => ['match', ['get', 'class'], list, true, false];
+  const query = (layer, filter) => map.querySourceFeatures('omt', filter ? { sourceLayer: layer, filter } : { sourceLayer: layer });
+  function hatchPoly(pts, color, gap, angle, weight, seed) {
+    if (pts.length < 3) return;
+    rc.polygon(pts, { fill: color, fillStyle: 'hachure', hachureGap: gap, hachureAngle: angle, fillWeight: weight, stroke: 'none', roughness: SK.rough, seed });
+  }
+  function road(pts, outer, inner, fillColor, seed) { // 同一個 seed 畫兩次：外層墨線、內層顏色，抖動才會對齊
+    if (pts.length < 2) return;
+    const o = { roughness: SK.rough, bowing: SK.bow, seed };
+    rc.linearPath(pts, Object.assign({ stroke: '#2E2820', strokeWidth: outer }, o));
+    if (inner > 0) rc.linearPath(pts, Object.assign({ stroke: fillColor, strokeWidth: inner, disableMultiStroke: true }, o));
+  }
+  function exploredPath() { // 已探索區的 Path2D（含洞），用來裁切與挖迷霧
+    const ids = Object.keys(engine.state().cells); if (!ids.length) return null;
+    const path = new Path2D();
+    for (const poly of h3.cellsToMultiPolygon(ids, true)) for (const ring of poly) {
+      const pts = proj(ring); path.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);
+      path.closePath();
+    }
+    return path;
+  }
+  function drawSketch() {
+    const el = map.getContainer(), w = el.clientWidth, h = el.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px'; cv.style.transform = '';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    drawCenter = map.getCenter(); drawZoom = map.getZoom();
+    const z = drawZoom, fogOn = !!map.getLayer('fog') && map.getLayoutProperty('fog', 'visibility') !== 'none';
+    const ex = fogOn ? exploredPath() : null;
+    let seed = 1;
+    ctx.save(); if (ex) ctx.clip(ex, 'evenodd');
+    // 植被、公園：綠色排線
+    for (const f of query('landcover', cls(['wood']))) for (const r of rings(f.geometry)) hatchPoly(simplify(proj(r), SK.tol), '#8FB862', 9, -45, 0.9, seed++);
+    for (const f of query('park')) for (const r of rings(f.geometry)) hatchPoly(simplify(proj(r), SK.tol), '#9CC070', 10, 45, 0.9, seed++);
+    // 水：藍色排線；河流：藍線
+    for (const f of query('water')) for (const r of rings(f.geometry)) hatchPoly(simplify(proj(r), SK.tol), '#5B93C4', 7, -30, 0.9, seed++);
+    for (const f of query('waterway', cls(['river']))) for (const l of lines(f.geometry)) { const p = simplify(proj(l), SK.tol); if (p.length > 1) rc.linearPath(p, { stroke: '#4F8DC2', strokeWidth: 2.2, roughness: SK.rough, bowing: SK.bow, seed: seed++ }); }
+    // 鐵路
+    for (const f of query('transportation', cls(['rail']))) for (const l of lines(f.geometry)) { const p = simplify(proj(l), SK.tol); if (p.length > 1) rc.linearPath(p, { stroke: '#2E2820', strokeWidth: 1.4, roughness: SK.rough, seed: seed++ }); }
+    // 道路：次要 → 主要 → 幹道，外墨內色。縮得越小畫得越少
+    const big = z >= 14;
+    if (z >= 14) for (const f of query('transportation', cls(['tertiary']))) for (const l of lines(f.geometry)) road(simplify(proj(l), SK.tol), 4, 2, '#F8ECB8', seed++);
+    if (z >= 12.5) for (const f of query('transportation', cls(['secondary']))) for (const l of lines(f.geometry)) road(simplify(proj(l), SK.tol), big ? 5 : 2.8, big ? 2.6 : 1.3, '#F6E39A', seed++);
+    for (const f of query('transportation', cls(['primary']))) for (const l of lines(f.geometry)) road(simplify(proj(l), SK.tol), big ? 7 : 4, big ? 4 : 2.2, '#F2CF5B', seed++);
+    for (const f of query('transportation', cls(['motorway', 'trunk']))) for (const l of lines(f.geometry)) road(simplify(proj(l), SK.tol), big ? 8 : 4.6, big ? 4.6 : 2.6, '#CFC9BC', seed++);
+    ctx.restore();
+    if (ex) {
+      // 迷霧：全螢幕灰色排線，把已探索區挖掉；已探索區鋪綠色排線，邊界一條淡墨線
+      rc.rectangle(-20, -20, w + 40, h + 40, { fill: '#9A948A', fillStyle: 'hachure', hachureGap: 11, fillWeight: 0.7, stroke: 'none', roughness: 1.2, disableMultiStrokeFill: true, seed: 7 });
+      ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = '#000'; ctx.fill(ex, 'evenodd'); ctx.restore();
+      ctx.save(); ctx.clip(ex, 'evenodd');
+      rc.rectangle(-20, -20, w + 40, h + 40, { fill: '#7FAA55', fillStyle: 'hachure', hachureGap: 8, hachureAngle: -41, fillWeight: 1, stroke: 'none', roughness: 1.4, disableMultiStrokeFill: true, seed: 11 });
+      ctx.restore();
+      ctx.save(); ctx.strokeStyle = '#5C5244'; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.7; ctx.stroke(ex); ctx.restore();
+    }
+  }
+  map.on('move', () => {
+    needDraw = true; if (!drawCenter) return;
+    const el = map.getContainer(), p = map.project(drawCenter), s = Math.pow(2, map.getZoom() - drawZoom);
+    cv.style.transformOrigin = (el.clientWidth / 2) + 'px ' + (el.clientHeight / 2) + 'px';
+    cv.style.transform = 'translate(' + (p.x - el.clientWidth / 2) + 'px,' + (p.y - el.clientHeight / 2) + 'px) scale(' + s + ')';
+  });
+  map.on('sourcedata', e => { if ((e.sourceId === 'omt' || e.sourceId === 'fog') && e.isSourceLoaded) needDraw = true; });
+  map.on('idle', () => { if (needDraw) { needDraw = false; drawSketch(); } });
+  window.drawSketch = drawSketch; window.SK = SK; window.sketchCanvas = cv;
+}
 updateStats();
 </script>
 </body>

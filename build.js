@@ -13,6 +13,8 @@ put('/*@@H3_JS@@*/', 'node_modules/h3-js/dist/h3-js.umd.js');
 put('/*@@MAPLIBRE_JS@@*/', 'node_modules/maplibre-gl/dist/maplibre-gl.js');
 // Capacitor 的瀏覽器版橋接（約 9KB）。在網頁上只是個空殼；在 iOS app 裡接到原生 plugin。
 put('/*@@CAPACITOR_JS@@*/', 'node_modules/@capacitor/core/dist/capacitor.js');
+// Rough.js：手繪抖線與排線填色（草稿模式用，約 40KB）
+put('/*@@ROUGH_JS@@*/', 'node_modules/roughjs/bundled/rough.js');
 fs.writeFileSync('index.html', h);
 fs.mkdirSync('www', { recursive: true });
 fs.writeFileSync('www/index.html', h);
