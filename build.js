@@ -16,4 +16,13 @@ put('/*@@CAPACITOR_JS@@*/', 'node_modules/@capacitor/core/dist/capacitor.js');
 fs.writeFileSync('index.html', h);
 fs.mkdirSync('www', { recursive: true });
 fs.writeFileSync('www/index.html', h);
+// 手寫字型（woff2）與英數／標點的 glyph 也要進 app（fs.cpSync 在 Windows 的中文路徑上會悄悄掛掉，自己複製）
+const copyDir = (from, to) => {
+  fs.mkdirSync(to, { recursive: true });
+  for (const name of fs.readdirSync(from)) {
+    const a = from + '/' + name, b = to + '/' + name;
+    fs.statSync(a).isDirectory() ? copyDir(a, b) : fs.copyFileSync(a, b);
+  }
+};
+copyDir('fonts', 'www/fonts');
 console.log('index.html + www/index.html built,', h.length, 'bytes');

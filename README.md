@@ -19,7 +19,9 @@ npm run build
 
 會把地圖程式庫（MapLibre、H3）打包進根目錄的 `index.html`，GitHub Pages 直接發佈這個檔案。
 
-地圖資料：© OpenStreetMap contributors，圖磚由 OpenFreeMap 提供。
+地圖資料：© OpenStreetMap contributors，圖磚由 OpenFreeMap 提供。地形陰影用 AWS Open Data 的 Terrain Tiles。
+
+地名用手寫字型「辰宇落雁體」（SIL Open Font License 1.1），字型檔與授權在 `fonts/`。中文字由 MapLibre 在裝置上用這套字型畫，英數與標點用 `fonts/glyphs/` 裡自產的 glyph，缺的區段用 OpenFreeMap 的 Noto Sans 補。
 
 ## iOS app
 

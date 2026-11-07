@@ -75,8 +75,11 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
 //# sourceMappingURL=capacitor.js.map
 </script>
 <style>
+  /* 手寫字型：辰宇落雁體（OFL），fonts/ 裡附授權 */
+  @font-face{font-family:'Luoyan';src:url('fonts/ChenYuluoyan.woff2') format('woff2');font-display:swap}
   :root{
-    --paper:#E6D5B2; --paper2:#F1E4C6; --ink:#4E3B26; --ink2:#7A6244; --accent:#9A3B2A;
+    --paper:#F3ECDB; --paper2:#FAF5E8; --ink:#2E2820; --ink2:#6A5F4E; --accent:#9A3B2A;
+    --hand:'Luoyan',"PingFang TC","Noto Sans TC",sans-serif;
     --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -84,16 +87,23 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;overflow:hidden}
   #map{position:fixed;inset:0}
   #vignette{position:fixed;inset:0;pointer-events:none;
-    box-shadow:inset 0 0 90px 30px rgba(110,80,40,.35)}
+    box-shadow:inset 0 0 70px 20px rgba(120,95,60,.14)}
+  /* 手札頁框（四角小紅方塊）與指北針 */
+  #frame{position:fixed;left:7px;right:7px;top:calc(var(--safe-t) + 7px);bottom:calc(var(--safe-b) + 7px);
+    border:1.5px solid rgba(46,40,32,.5);pointer-events:none}
+  #frame i{position:absolute;width:9px;height:9px;background:var(--accent);opacity:.8}
+  #frame i:nth-child(1){left:-5px;top:-5px} #frame i:nth-child(2){right:-5px;top:-5px}
+  #frame i:nth-child(3){left:-5px;bottom:-5px} #frame i:nth-child(4){right:-5px;bottom:-5px}
+  #compass{position:fixed;left:16px;bottom:calc(var(--safe-b) + 152px);width:30px;height:46px;pointer-events:none;opacity:.85}
   button{font:inherit;color:inherit;border:0;cursor:pointer}
-  .card{background:rgba(241,228,198,.94);border:1px solid rgba(78,59,38,.35);
-    box-shadow:0 4px 18px rgba(60,40,15,.25);border-radius:14px}
+  .card{background:rgba(250,245,232,.94);border:1px solid rgba(46,40,32,.45);
+    box-shadow:0 4px 18px rgba(60,40,15,.18);border-radius:14px}
   #top{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 10px);
     display:flex;align-items:center;gap:10px;padding:10px 14px}
-  .brand{font-weight:700;font-size:18px;letter-spacing:2px}
+  .brand{font-family:var(--hand);font-weight:400;font-size:24px;letter-spacing:3px}
   .brand span{font-size:11px;font-weight:400;margin-left:4px;color:var(--ink2)}
-  #stats{margin-left:auto;text-align:right;font-size:12px;line-height:1.35;color:var(--ink2)}
-  #stats b{font-size:16px;color:var(--ink)}
+  #stats{margin-left:auto;text-align:right;font-family:var(--hand);font-size:13px;line-height:1.3;color:var(--ink2)}
+  #stats b{font-size:19px;color:var(--ink)}
   #side{position:fixed;right:12px;top:calc(var(--safe-t) + 78px);display:flex;flex-direction:column;gap:8px}
   #side button{width:52px;height:46px;font-size:13px}
   #side button.on{background:var(--ink);color:var(--paper2)}
@@ -101,13 +111,13 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #simbar .seg{display:flex;gap:6px}
   #simbar .seg button{flex:1;padding:8px 0;border-radius:9px;background:rgba(78,59,38,.08);font-size:14px}
   #simbar .seg button.on{background:var(--ink);color:var(--paper2)}
-  #simhint{font-size:12px;color:var(--ink2);margin-top:7px;line-height:1.4}
+  #simhint{font-family:var(--hand);font-size:13px;color:var(--ink2);margin-top:7px;line-height:1.4}
   #panel{position:fixed;left:12px;right:12px;bottom:calc(var(--safe-b) + 12px);padding:12px 14px}
-  #status{font-size:13px;color:var(--ink2);min-height:18px;margin-bottom:9px}
+  #status{font-family:var(--hand);font-size:15px;color:var(--ink2);min-height:18px;margin-bottom:9px}
   #btnRec{width:100%;padding:14px;border-radius:12px;background:var(--ink);color:var(--paper2);
     font-size:17px;font-weight:600;letter-spacing:1px}
   #btnRec.rec{background:var(--accent)}
-  #note{font-size:11px;color:var(--ink2);margin-top:8px;line-height:1.4}
+  #note{font-family:var(--hand);font-size:13px;color:var(--ink2);margin-top:8px;line-height:1.4}
   #btnSettings{width:100%;margin-top:8px;padding:10px;border-radius:10px;background:rgba(78,59,38,.1);font-size:14px}
   .me{width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--paper2);
     box-shadow:0 0 0 0 rgba(154,59,42,.6);animation:pulse 1.8s infinite}
@@ -115,8 +125,8 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #modal{position:fixed;inset:0;background:rgba(40,28,12,.45);display:flex;align-items:flex-end;justify-content:center}
   #modal[hidden],#simbar[hidden]{display:none}
   #sheet{width:100%;max-width:520px;margin:12px;margin-bottom:calc(var(--safe-b) + 12px);padding:16px}
-  #sheet h3{margin:0 0 6px;font-size:17px}
-  #sheet p{margin:0 0 12px;font-size:12px;color:var(--ink2);line-height:1.5}
+  #sheet h3{margin:0 0 6px;font-family:var(--hand);font-size:21px;font-weight:400}
+  #sheet p{margin:0 0 12px;font-family:var(--hand);font-size:14px;color:var(--ink2);line-height:1.5}
   #sheet .row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
   #sheet .row button,#sheet label.btn{flex:1;min-width:46%;padding:12px;border-radius:10px;
     background:rgba(78,59,38,.1);font-size:14px;text-align:center}
@@ -125,13 +135,18 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     background:var(--ink);color:var(--paper2);padding:9px 14px;border-radius:10px;font-size:13px;
     opacity:0;transition:opacity .25s;pointer-events:none;max-width:86%;text-align:center}
   #toast.show{opacity:.95}
-  .maplibregl-ctrl-attrib{background:rgba(241,228,198,.8)!important;font-size:10px}
+  .maplibregl-ctrl-attrib{background:rgba(250,245,232,.8)!important;font-size:10px}
   .maplibregl-ctrl-bottom-right{bottom:calc(var(--safe-b) + 150px)}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div id="vignette"></div>
+<div id="frame"><i></i><i></i><i></i><i></i></div>
+<svg id="compass" viewBox="0 0 30 46" aria-hidden="true">
+  <path d="M15 3 L20 25 L15 21 L10 25 Z" fill="#2E2820"/>
+  <text x="15" y="43" font-family="Luoyan,sans-serif" font-size="16" text-anchor="middle" fill="#2E2820">N</text>
+</svg>
 
 <div id="top" class="card">
   <div class="brand">洋蔥</div>
@@ -341,61 +356,104 @@ async function loadSaved() {
   return true;
 }
 
-// --- 地圖樣式：羊皮紙配色（只有探索過的地方看得到） ---
-const ROAD_W = (lo, mid, hi) => ['interpolate', ['exponential', 1.5], ['zoom'],
-  10, ['match', ['get', 'class'], ['motorway', 'trunk'], lo * 1.6, ['primary', 'secondary'], lo, lo * 0.5],
-  18, ['match', ['get', 'class'], ['motorway', 'trunk'], hi * 1.5, ['primary', 'secondary'], hi, mid]];
+// --- 地圖樣式：手札風（米白紙、鋼筆墨線、淡水彩；只有探索過的地方看得到） ---
+const INK = '#2E2820', INK_SOFT = '#5C5244', PAPER = '#F3ECDB';
+const FONT = ['Luoyan']; // 英數與標點從 fonts/glyphs/ 取；中文字由 MapLibre 用本機手寫字型畫（localIdeographFontFamily）
 const NAME = ['coalesce', ['get', 'name:zh-Hant'], ['get', 'name:zh'], ['get', 'name']];
+// 道路＝外層墨線＋內層紙色，看起來像鋼筆畫的雙線；縮小時內層歸零，變回單線。
+// 寬度順序：[幹道, 主要, 次要／三級, 小巷, 服務道路]，寬度 0 就是不畫（小巷 z12 以下、服務道路 z13 以下不畫）
+const RC = ['motorway', 'trunk'], RP = ['primary'], RS = ['secondary', 'tertiary'], RM = ['minor'];
+const roadW = stops => {
+  const e = ['interpolate', ['exponential', 1.4], ['zoom']];
+  for (const [z, [a, b, c, d, s]] of stops) e.push(z, ['match', ['get', 'class'], RC, a, RP, b, RS, c, RM, d, s]);
+  return e;
+};
+const ROAD_IN = roadW([[13, [0, 0, 0, 0, 0]], [14, [2.4, 1.8, 1, 0, 0]], [16, [7, 5.5, 4, 1.8, 1]], [18, [16, 13, 10, 6, 4.5]]]);
+const ROAD_OUT = roadW([[8, [1.4, 1, 0.6, 0, 0]], [10, [1.8, 1.3, 0.8, 0, 0]], [12, [2.4, 1.8, 1.2, 0.35, 0]], [13, [2.6, 2, 1.4, 0.55, 0.3]],
+  [14, [4.4, 3.8, 3, 0.9, 0.6]], [16, [9.4, 7.9, 6.4, 4.2, 3]], [18, [19.2, 16.2, 13.2, 9.2, 7]]]);
+const ROADS = ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor', 'service'], true, false];
+const LABEL = { 'text-color': INK, 'text-halo-color': PAPER, 'text-halo-width': 1.6, 'text-halo-blur': 0.4 };
+const LABEL_LAYERS = ['water-name', 'road-name', 'place']; // 先隱藏，等手寫字型載好再顯示，否則會用系統字型畫掉
 
 const style = {
   version: 8,
-  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  glyphs: 'fonts/glyphs/{fontstack}/{range}.pbf',
   sources: {
     omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet',
-      attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' }
+      attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' },
+    dem: { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+      encoding: 'terrarium', tileSize: 256, maxzoom: 15,
+      attribution: '地形 <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Terrain Tiles</a>' }
   },
   layers: [
-    { id: 'bg', type: 'background', paint: { 'background-color': '#EADBB5' } },
+    { id: 'bg', type: 'background', paint: { 'background-color': PAPER } },
     { id: 'landuse', type: 'fill', source: 'omt', 'source-layer': 'landuse',
       filter: ['match', ['get', 'class'], ['residential', 'suburb', 'neighbourhood'], true, false],
-      paint: { 'fill-color': '#E2CC9E', 'fill-opacity': 0.6 } },
+      paint: { 'fill-color': '#EADFC6', 'fill-opacity': 0.55 } },
     { id: 'landcover', type: 'fill', source: 'omt', 'source-layer': 'landcover',
-      paint: { 'fill-color': ['match', ['get', 'class'], 'wood', '#A9AE85', 'grass', '#C4C292', 'farmland', '#D9CB98', 'sand', '#E8D7A6', '#C9C49A'],
-        'fill-opacity': 0.75 } },
+      paint: { 'fill-color': ['match', ['get', 'class'], 'wood', '#C7D8AE', 'grass', '#D8E3BE', 'farmland', '#E5E4BE', 'sand', '#EFE3C0', 'wetland', '#D2E0C8', '#D9E1BE'],
+        'fill-opacity': 0.55 } },
     { id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
-      paint: { 'fill-color': '#B8BC8E', 'fill-opacity': 0.7 } },
+      paint: { 'fill-color': '#CCDDB0', 'fill-opacity': 0.5 } },
+    // 山：高程陰影調成鉛筆灰褐，像手札裡的排線
+    { id: 'hillshade', type: 'hillshade', source: 'dem',
+      paint: { 'hillshade-shadow-color': '#5E5447', 'hillshade-highlight-color': '#FFFBF0', 'hillshade-accent-color': '#8A7C68',
+        'hillshade-exaggeration': 0.38, 'hillshade-illumination-direction': 335 } },
     { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water',
-      paint: { 'fill-color': '#9DB7B2' } },
-    { id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
-      paint: { 'line-color': '#8DAAA5', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 18, 4] } },
-    { id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 14,
-      paint: { 'fill-color': '#D6BF8E', 'fill-outline-color': '#A2885D' } },
+      paint: { 'fill-color': '#A9CBDE', 'fill-opacity': 0.85 } },
+    { id: 'water-edge', type: 'line', source: 'omt', 'source-layer': 'water',
+      paint: { 'line-color': '#5F8FB0', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.5, 16, 1.2], 'line-opacity': 0.8 } },
+    { id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway', layout: { 'line-cap': 'round' },
+      paint: { 'line-color': '#6E9FC0', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 13, 0.9, 18, 4.5] } },
+    // 建築：鋼筆排線＋細墨框（排線要淡，不然整座城市黑成一片）
+    { id: 'building-hatch', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 15,
+      paint: { 'fill-pattern': 'hatch', 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 15, 0.18, 16, 0.28, 17, 0.42, 18, 0.5] } },
+    { id: 'building-line', type: 'line', source: 'omt', 'source-layer': 'building', minzoom: 15,
+      paint: { 'line-color': INK_SOFT, 'line-width': ['interpolate', ['linear'], ['zoom'], 15, 0.4, 18, 0.9], 'line-opacity': 0.75 } },
     { id: 'path', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 14,
       filter: ['match', ['get', 'class'], ['path', 'track'], true, false],
-      paint: { 'line-color': '#8E7652', 'line-width': 1, 'line-dasharray': [2, 1.5] } },
-    { id: 'road', type: 'line', source: 'omt', 'source-layer': 'transportation',
-      filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor', 'service'], true, false],
+      paint: { 'line-color': INK_SOFT, 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.9, 18, 1.8], 'line-dasharray': [2, 2], 'line-opacity': 0.85 } },
+    { id: 'road-ink', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ROADS,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#7E6646', 'line-width': ROAD_W(1, 6, 12) } },
+      paint: { 'line-color': INK, 'line-width': ROAD_OUT, 'line-opacity': 0.92 } },
+    { id: 'road-paper', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 13, filter: ROADS,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': PAPER, 'line-width': ROAD_IN } },
+    // 鐵路：一條細墨線加枕木
     { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
       filter: ['==', ['get', 'class'], 'rail'],
-      paint: { 'line-color': '#5E4A33', 'line-width': 1.4, 'line-dasharray': [3, 2] } },
+      paint: { 'line-color': INK, 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 16, 1.4], 'line-opacity': 0.9 } },
+    { id: 'rail-ties', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 13,
+      filter: ['==', ['get', 'class'], 'rail'],
+      paint: { 'line-color': INK, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 4, 16, 7], 'line-dasharray': [0.2, 2.2], 'line-opacity': 0.9 } },
+    { id: 'water-name', type: 'symbol', source: 'omt', 'source-layer': 'water_name', minzoom: 11,
+      layout: { visibility: 'none', 'symbol-placement': 'line', 'text-field': NAME, 'text-font': FONT, 'text-size': 14, 'text-letter-spacing': 0.15 },
+      paint: Object.assign({}, LABEL, { 'text-color': '#3F6E8F' }) },
     { id: 'road-name', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 15,
-      layout: { 'symbol-placement': 'line', 'text-field': NAME, 'text-font': ['Noto Sans Regular'], 'text-size': 12 },
-      paint: { 'text-color': '#4E3B26', 'text-halo-color': '#EADBB5', 'text-halo-width': 1.5 } },
+      layout: { visibility: 'none', 'symbol-placement': 'line', 'text-field': NAME, 'text-font': FONT, 'text-size': 14 },
+      paint: LABEL },
     { id: 'place', type: 'symbol', source: 'omt', 'source-layer': 'place',
-      layout: { 'text-field': NAME, 'text-font': ['Noto Sans Regular'],
-        'text-size': ['match', ['get', 'class'], 'city', 16, 'town', 14, 12] },
-      paint: { 'text-color': '#4E3B26', 'text-halo-color': '#EADBB5', 'text-halo-width': 2 } }
+      layout: { visibility: 'none', 'text-field': NAME, 'text-font': FONT, 'text-letter-spacing': 0.08,
+        'text-size': ['match', ['get', 'class'], 'city', 20, 'town', 17, 15] },
+      paint: Object.assign({}, LABEL, { 'text-halo-width': 2 }) }
   ]
 };
 
 function lastPoint() { const p = engine.state().points; return p[p.length - 1] || null; }
 const map = new maplibregl.Map({
   container: 'map', style, center: [121.0, 23.7], zoom: 6.5,
-  attributionControl: { compact: true }, pitchWithRotate: false, dragRotate: false
+  attributionControl: { compact: true }, pitchWithRotate: false, dragRotate: false,
+  localIdeographFontFamily: "'Luoyan', 'PingFang TC', 'Noto Sans TC', sans-serif" // 中文字在本機用手寫字型畫，不必下載整套中文 glyph
 });
 map.touchZoomRotate.disableRotation();
+window.map = map; // 方便在瀏覽器主控台調樣式
+map.on('styleimagemissing', e => { if (e.id === 'hatch') map.addImage('hatch', hatchImage()); });
+// 手寫字型載好（最多等 4 秒）再顯示地名，不然 MapLibre 會先用系統字型把字畫進快取
+const fontReady = (document.fonts && document.fonts.load) ? document.fonts.load("24px 'Luoyan'").catch(() => {}) : Promise.resolve();
+Promise.race([fontReady, new Promise(r => setTimeout(r, 4000))]).then(() => {
+  const show = () => LABEL_LAYERS.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'visible'));
+  if (map.isStyleLoaded()) show(); else map.once('load', show);
+});
 // 讀回上次的紀錄（iOS 是讀檔，所以是非同步的），讀到就把地圖移到最後一個點
 const restored = loadSaved().then(ok => {
   if (!ok) return;
@@ -408,19 +466,31 @@ const me = new maplibregl.Marker({ element: meEl });
 let meShown = false;
 function showMe(lng, lat) { me.setLngLat([lng, lat]); if (!meShown) { me.addTo(map); meShown = true; } }
 
-// 羊皮紙紋理（迷霧用）
+// 手札紙紋理（迷霧用）：米白底、細細的纖維斑點
 function paperImage() {
   const n = 160, c = document.createElement('canvas'); c.width = c.height = n;
-  const g = c.getContext('2d'); g.fillStyle = '#E6D5B2'; g.fillRect(0, 0, n, n);
-  for (let i = 0; i < 2600; i++) {
+  const g = c.getContext('2d'); g.fillStyle = PAPER; g.fillRect(0, 0, n, n);
+  for (let i = 0; i < 2200; i++) {
     const v = Math.random();
-    g.fillStyle = v < 0.5 ? 'rgba(120,90,50,' + (Math.random() * 0.07) + ')' : 'rgba(255,248,230,' + (Math.random() * 0.12) + ')';
-    g.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 2.5, 1 + Math.random() * 2.5);
+    g.fillStyle = v < 0.5 ? 'rgba(120,95,60,' + (Math.random() * 0.06) + ')' : 'rgba(255,252,242,' + (Math.random() * 0.14) + ')';
+    g.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 2.2, 1 + Math.random() * 2.2);
   }
-  for (let i = 0; i < 14; i++) {
-    g.strokeStyle = 'rgba(120,90,50,0.05)'; g.lineWidth = 1; g.beginPath();
+  for (let i = 0; i < 6; i++) {
+    g.strokeStyle = 'rgba(120,95,60,0.028)'; g.lineWidth = 1; g.beginPath();
     const y = Math.random() * n; g.moveTo(0, y); g.bezierCurveTo(n / 3, y + 8 - Math.random() * 16, n * 2 / 3, y + 8 - Math.random() * 16, n, y); g.stroke();
   }
+  const d = g.getImageData(0, 0, n, n);
+  return { width: n, height: n, data: new Uint8Array(d.data.buffer) };
+}
+// 建築用的鋼筆排線（斜線，可無縫平鋪）
+function hatchImage() {
+  const n = 16, c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'); g.clearRect(0, 0, n, n);
+  g.strokeStyle = 'rgba(46,40,32,0.75)'; g.lineWidth = 1; g.beginPath();
+  g.moveTo(-1, n + 1); g.lineTo(n + 1, -1);
+  g.moveTo(-1, n / 2 + 1); g.lineTo(n / 2 + 1, -1);
+  g.moveTo(n / 2 - 1, n + 1); g.lineTo(n + 1, n / 2 - 1);
+  g.stroke();
   const d = g.getImageData(0, 0, n, n);
   return { width: n, height: n, data: new Uint8Array(d.data.buffer) };
 }
@@ -429,26 +499,27 @@ const EMPTY = { type: 'FeatureCollection', features: [] };
 map.on('load', () => {
   map.addImage('paper', paperImage());
   ['freq', 'fog', 'explored', 'flights', 'gaps', 'track'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
+  // 走過越多次墨色越深（踏實的路）
   map.addLayer({ id: 'freq', type: 'fill', source: 'freq',
-    paint: { 'fill-color': '#7A4E22', 'fill-opacity': 0.13 } });
+    paint: { 'fill-color': INK_SOFT, 'fill-opacity': 0.09 } });
   map.addLayer({ id: 'fog', type: 'fill', source: 'fog', paint: { 'fill-pattern': 'paper' } });
   map.addLayer({ id: 'fog-edge', type: 'line', source: 'fog',
-    paint: { 'line-color': '#E6D5B2', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 4, 18, 26], 'line-blur': ['interpolate', ['linear'], ['zoom'], 12, 3, 18, 20] } });
+    paint: { 'line-color': PAPER, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 4, 18, 26], 'line-blur': ['interpolate', ['linear'], ['zoom'], 12, 3, 18, 20] } });
   // 迷霧上只留極淡的海岸線與國界，讓你知道自己在哪
   map.addLayer({ id: 'hint-water', type: 'fill', source: 'omt', 'source-layer': 'water',
-    paint: { 'fill-color': '#93ADA8', 'fill-opacity': 0.22 } });
+    paint: { 'fill-color': '#A9CBDE', 'fill-opacity': 0.25 } });
   map.addLayer({ id: 'hint-border', type: 'line', source: 'omt', 'source-layer': 'boundary',
     filter: ['all', ['==', ['get', 'admin_level'], 2], ['!=', ['get', 'maritime'], 1]],
-    paint: { 'line-color': '#8C7A5E', 'line-opacity': 0.45, 'line-width': 0.8, 'line-dasharray': [3, 2] } });
+    paint: { 'line-color': INK_SOFT, 'line-opacity': 0.4, 'line-width': 0.8, 'line-dasharray': [3, 2] } });
   map.addLayer({ id: 'explored-ink', type: 'line', source: 'explored',
-    paint: { 'line-color': '#5A4228', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2, 12, 1.4, 17, 1],
-      'line-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.85, 16, 0.25] } });
+    paint: { 'line-color': INK, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2, 12, 1.4, 17, 1],
+      'line-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.75, 16, 0.2] } });
   // 縮小看全國、全世界時，探索範圍太細看不到，改用墨線畫出走過的軌跡
   map.addLayer({ id: 'track', type: 'line', source: 'track', layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': '#5A4228', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2.2, 12, 2],
+    paint: { 'line-color': INK, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2.2, 12, 2],
       'line-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.85, 13, 0] } });
   map.addLayer({ id: 'gaps', type: 'line', source: 'gaps',
-    paint: { 'line-color': '#5A4228', 'line-opacity': 0.4, 'line-width': 1.2, 'line-dasharray': [1, 2] } });
+    paint: { 'line-color': INK_SOFT, 'line-opacity': 0.45, 'line-width': 1.2, 'line-dasharray': [1, 2] } });
   map.addLayer({ id: 'flights', type: 'line', source: 'flights', layout: { 'line-cap': 'round' },
     paint: { 'line-color': '#9A3B2A', 'line-width': 1.8, 'line-opacity': 0.8, 'line-dasharray': [4, 3] } });
   render(true);
