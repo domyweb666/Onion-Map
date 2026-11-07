@@ -77,7 +77,7 @@ SPRITE = {'railway': 'station', 'park': 'tree-broadleaf-1', 'place_of_worship': 
           'bar': 'hamlet', 'fast_food': 'hamlet', 'bakery': 'hamlet', 'ice_cream': 'hamlet', 'lodging': 'hamlet', 'shop': 'hamlet', 'garden': 'tree-conifer-1'}
 PREF = list(SPRITE)  # 停留點配對時的優先順序
 # 沿路地標只挑大家認得的：捷運站、大公園、學校、博物館、景點。廟、教堂、醫院只在你真的停留時才會出現
-LANDMARK = ['railway', 'park', 'university', 'college', 'museum', 'attraction', 'monument', 'memorial', 'library', 'stadium']
+LANDMARK = ['railway', 'park', 'museum', 'attraction', 'monument', 'memorial', 'library', 'stadium']  # 校園不當沿路地標（一堆學院、研習所），走進去才會以停留點出現
 MAX_LANDMARKS = 5
 CAMPUS_R = {'park': 600, 'college': 500, 'university': 500, 'school': 250, 'hospital': 300, 'stadium': 400}  # 大範圍的地標，停留點離它的「點」可以比較遠
 rng = random.Random(5)
