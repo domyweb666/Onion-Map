@@ -26,6 +26,7 @@ def tile_lonlat(z, x, y):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--sheet', default='taipei'); ap.add_argument('--image', required=True)
     ap.add_argument('--labels', action='store_true'); ap.add_argument('--minzoom', type=int, default=9)
+    ap.add_argument('--out', default=None, help='圖磚資料夾名，預設跟 sheet 一樣（比較用的版本可以另外取名）')
     args = ap.parse_args()
     layout = json.load(open(ROOT / 'sheets' / args.sheet / 'layout.json', encoding='utf-8'))
     meta = layout['meta']; Z = meta['zoom']; W, H = meta['size']; tx0, tx1 = meta['tile_x']; ty0, ty1 = meta['tile_y']
@@ -38,7 +39,7 @@ def main():
             for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, 1), (-1, 1), (1, -1)): d.text((lb['x'] + dx, lb['y'] + dy), lb['text'], font=f, fill=PAPER)
             d.text((lb['x'], lb['y']), lb['text'], font=f, fill=INK)
         print(f'貼了 {len(layout["labels"])} 個地名')
-    out = ROOT / 'tiles' / args.sheet
+    out = ROOT / 'tiles' / (args.out or args.sheet)
     n_tiles = 0
     for z in range(Z, args.minzoom - 1, -1):
         s = 2 ** (Z - z)  # 這一層一格等於 z13 的幾格

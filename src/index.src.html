@@ -1402,8 +1402,10 @@ if (SKETCH) {
 
 // ===== 圖幅模式（?style=sheet）：底圖是電腦上先畫好、切成圖磚的圖幅；app 只蓋霧、畫軌跡、放定位點 =====
 // 圖磚由 tools/sheet/cut_tiles.py 產生，bounds 抄 tiles/<sheet>/meta.json
+// 網址加 &sheet=taipei-b 可以換成程式拼貼版（路 B）比較
+const SHEET_VARIANT = (location.search.match(/[?&]sheet=([\w-]+)/) || [])[1] || 'taipei';
 const SHEETS = [
-  { id: 'taipei', tiles: 'tiles/taipei/{z}/{x}/{y}.webp', bounds: [121.289062, 24.846565, 121.772461, 25.324167], minzoom: 9, maxzoom: 13 }
+  { id: 'taipei', tiles: 'tiles/' + SHEET_VARIANT + '/{z}/{x}/{y}.webp', bounds: [121.289062, 24.846565, 121.772461, 25.324167], minzoom: 9, maxzoom: 13 }
 ];
 function mistImage() { // 黑濛濛的霧：幾個整數頻率的波疊起來，四邊自然接得上，鋪成 pattern 不會有縫
   const n = 256, c = document.createElement('canvas'); c.width = c.height = n;

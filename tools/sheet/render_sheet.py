@@ -308,6 +308,13 @@ def main():
     base.alpha_composite(lay)
     out.mkdir(parents=True, exist_ok=True)
     base.convert('RGB').save(out / 'base_flat.png'); print('base_flat.png 存好')
+    # 給路 B（程式拼貼）用：遮罩、高程陰影、線條
+    (out / 'masks').mkdir(exist_ok=True)
+    for nm, arr in (('water', water), ('urban', urban), ('forest', forest_f), ('hillshade', hs)):
+        Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8)).save(out / 'masks' / f'{nm}.png')
+    lines_json = {'coast': [list(map(list, g.coords)) for g in coast_lines], 'rivers': [list(map(list, g.coords)) for g in rivers], 'roads': [list(map(list, g.coords)) for g in roads]}
+    json.dump(lines_json, open(out / 'lines.json', 'w'), separators=(',', ':'))
+    print('masks/ 與 lines.json 存好')
 
     # 5. 排版：城鎮先佔位 → 山沿山脊 → 地名 → 森林叢 → 海上點綴
     sp = load_sprites(); font = lambda s: ImageFont.truetype(str(FONT), s)
