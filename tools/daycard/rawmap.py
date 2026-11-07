@@ -1,13 +1,12 @@
 """一日洋蔥地圖：出「真實地圖原圖加路線」，給多米自己丟 AI 選風格用。
 
-用法：python tools/daycard/rawmap.py --track daycard/demo-track.json --date 2026-11-07 [--trim 0] [--style osm|voyager] [--zoom 16]
+用法：python tools/daycard/rawmap.py --track daycard/demo-track.json --date 2026-11-07 [--trim 0] [--zoom 16]
 輸出到 daycard/<date>/：
   map_<style>_plain.png        只有地圖與路線，沒有邊（自由使用）
   map_<style>_plain_noroute.png 只有地圖
   map_<style>.png              跟卡片同框：紙邊、同一個範圍（AI 畫完可以 compose --painted 套框寫字）
 
-圖磚來源：osm = OpenStreetMap 標準圖（© OpenStreetMap 貢獻者，ODbL），voyager = CARTO Voyager。
-都是公開圖磚服務，一次抓幾十張沒問題，別拿來大量下載。
+圖磚來源：OpenStreetMap 標準圖（© OpenStreetMap 貢獻者，ODbL）。公開圖磚服務，一次抓幾十張沒問題，別拿來大量下載。
 """
 import argparse, io, math, sys, time, urllib.request
 from pathlib import Path
@@ -17,7 +16,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from daycard import ROOT, CACHE, CONTENT, W2, H2, PAPER, load_day, extent_for, tex_array  # noqa: E402
 
-STYLES = {'osm': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 'voyager': 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'}
+STYLES = {'osm': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'}  # CARTO Voyager 2026-11 起要 API 金鑰，拿掉了；要乾淨一點就用 --zoom 15（字少）
 UA = {'User-Agent': 'onion-map-daycard/0.1 (personal project; contact via github domyweb666/Onion-Map)'}
 
 
