@@ -2,7 +2,7 @@
 
 用法（在 Onion-Map 目錄）：
   python tools/daycard/daycard.py draft   --track daycard/demo-track.json --date 2026-11-07 [--trim 300]
-  python tools/daycard/daycard.py compose --date 2026-11-07 [--painted 路徑/AI畫的.png] [--name 彩鉛] [--no-icons] [--font clear|kai|hand] [--fog 0.9]
+  python tools/daycard/daycard.py compose --date 2026-11-07 [--painted 路徑/AI畫的.png] [--name 彩鉛] [--markers sticker|numbered] [--font kai|clear|hand] [--fog 0.9]
 
 輸出到 daycard/<date>/：
   draft.png / draft_2k.png    無字底稿（給 ChatGPT 照構圖重畫），1024x1536 與 2048x3072
@@ -76,7 +76,9 @@ SPRITE = {'railway': 'station', 'park': 'tree-broadleaf-1', 'place_of_worship': 
           'theatre': 'town', 'stadium': 'town', 'townhall': 'town', 'school': 'hamlet', 'cafe': 'hamlet', 'restaurant': 'hamlet',
           'bar': 'hamlet', 'fast_food': 'hamlet', 'bakery': 'hamlet', 'ice_cream': 'hamlet', 'lodging': 'hamlet', 'shop': 'hamlet', 'garden': 'tree-conifer-1'}
 PREF = list(SPRITE)  # 停留點配對時的優先順序
-LANDMARK = ['railway', 'park', 'place_of_worship', 'hospital', 'college', 'university', 'museum', 'attraction', 'monument', 'memorial', 'library', 'stadium']
+# 沿路地標只挑大家認得的：捷運站、大公園、學校、博物館、景點。廟、教堂、醫院只在你真的停留時才會出現
+LANDMARK = ['railway', 'park', 'university', 'college', 'museum', 'attraction', 'monument', 'memorial', 'library', 'stadium']
+MAX_LANDMARKS = 5
 CAMPUS_R = {'park': 600, 'college': 500, 'university': 500, 'school': 250, 'hospital': 300, 'stadium': 400}  # 大範圍的地標，停留點離它的「點」可以比較遠
 rng = random.Random(5)
 
@@ -325,12 +327,24 @@ def draw_route(card, pts, mpp):
     card.alpha_composite(lay_)
 
 
-def plate(card, box, pad=10, alpha=205, radius=14):
+def plate(card, box, pad=9, alpha=195, radius=18):
     """字底下墊一片半透明的紙，花底上的字才看得清"""
     x0, y0, x1, y1 = int(box[0] - pad), int(box[1] - pad), int(box[2] + pad), int(box[3] + pad)
     im = Image.new('RGBA', (x1 - x0, y1 - y0), (0, 0, 0, 0))
     ImageDraw.Draw(im).rounded_rectangle([0, 0, x1 - x0 - 1, y1 - y0 - 1], radius=radius, fill=PAPER + (alpha,))
     card.alpha_composite(im, (x0, y0))
+
+
+def badge(d, cx, cy, r, text, size):
+    """紅圈白數字：停留點的編號"""
+    d.ellipse([cx - r - 4, cy - r - 4, cx + r + 4, cy + r + 4], fill=(255, 252, 240)); d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=COL_ROUTE, outline=(120, 20, 16), width=2)
+    f = font(size, 'label'); tw, th, top = text_size(f, text)
+    d.text((cx - tw / 2, cy - th / 2 - top), text, font=f, fill=(255, 250, 240), stroke_width=1, stroke_fill=(255, 250, 240))
+
+
+def dot(d, cx, cy, r=11):
+    """小圓點：沿路地標的位置"""
+    d.ellipse([cx - r - 3, cy - r - 3, cx + r + 3, cy + r + 3], fill=(255, 252, 240)); d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=INK_SOFT)
 
 
 def text_size(f, text): l, t, r, b = f.getbbox(text); return r - l, b - t, t
@@ -412,6 +426,12 @@ def draw_vectors(base, fr, layers, route_px, water_g, textured, start_px, end_px
 
 
 # ───────── 地標與停留點 ─────────
+def station_name(q):
+    """捷運站的名字跟公園同名（大安森林公園）分不清，補個「站」"""
+    nm = q['name']
+    return nm + '站' if q['cls'] == 'railway' and not nm.endswith('站') else nm
+
+
 def pick_names(fr, layers, pts, stops, route_px, green_g, inst_g):
     pois = []
     for g, p in layers.get('poi', []):
@@ -436,7 +456,7 @@ def pick_names(fr, layers, pts, stops, route_px, green_g, inst_g):
             if best is None or key < best[0]: best = (key, q)
         if best:
             q = best[1]; used.add(q['name'])
-            icons.append({'kind': 'stop', 'x': x, 'y': y, 'name': q['name'], 'sprite': SPRITE.get(q['cls'], 'hamlet'), 'size': 128, 'minutes': s['minutes'],
+            icons.append({'kind': 'stop', 'x': x, 'y': y, 'name': station_name(q), 'sprite': SPRITE.get(q['cls'], 'hamlet'), 'size': 128, 'minutes': s['minutes'],
                           't0': datetime.fromtimestamp(s['t0'], TZ).strftime('%H:%M')})
         else:
             icons.append({'kind': 'stop', 'x': x, 'y': y, 'name': f'停留 {s["minutes"]} 分', 'sprite': 'tent', 'size': 110, 'minutes': s['minutes'],
@@ -445,6 +465,8 @@ def pick_names(fr, layers, pts, stops, route_px, green_g, inst_g):
     route = LineString(route_px); cands = []
     for q in pois:
         if q['cls'] not in LANDMARK or q['name'] in used: continue
+        if len(q['name']) > 8 or any(w in q['name'] for w in ('分部', '本部', '分校', '推廣', '辦公室', '中心')): continue  # 機構的分部、太長的名字不是地標
+        if q['cls'] in ('university', 'college') and not q['name'].endswith(('大學', '學院')): continue  # 研習所、語言中心這種不算
         if q['cls'] == 'hospital' and q['sub'] == 'clinic': continue
         if q['cls'] == 'railway' and q['sub'] not in ('subway', 'station'): continue
         if q['cls'] == 'park':  # 小公園不標：看它所在的綠地有多大
@@ -455,10 +477,10 @@ def pick_names(fr, layers, pts, stops, route_px, green_g, inst_g):
         cands.append(((LANDMARK.index(q['cls']), dm), q))
     cands.sort(key=lambda t: t[0])
     for _, q in cands:
-        if len([i for i in icons if i['kind'] == 'landmark']) >= 6: break
+        if len([i for i in icons if i['kind'] == 'landmark']) >= MAX_LANDMARKS: break
         if any(math.hypot(q['x'] - i['x'], q['y'] - i['y']) < 150 for i in icons): continue
         if q['name'] in used: continue
-        used.add(q['name']); icons.append({'kind': 'landmark', 'x': q['x'], 'y': q['y'], 'name': q['name'], 'sprite': SPRITE.get(q['cls'], 'town'), 'size': 100})
+        used.add(q['name']); icons.append({'kind': 'landmark', 'x': q['x'], 'y': q['y'], 'name': station_name(q), 'sprite': SPRITE.get(q['cls'], 'town'), 'size': 100})
     # 行政區名：內容框裡的區，最多三個，離得開
     places = []
     for g, p in layers.get('place', []):
@@ -560,7 +582,7 @@ def apply_fog(card, lay, strength, radius_m, stop_m):
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).convert('RGBA'), reveal
 
 
-def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', mat=0, fog=0.0, fog_radius=150, fog_stop=250, route='program'):
+def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', mat=0, fog=0.0, fog_radius=150, fog_stop=250, route='program', markers='sticker'):
     lay = json.load(open(out / 'layout.json', encoding='utf-8'))
     src = Image.open(painted_path if painted_path else out / 'base_textured.png').convert('RGB')
     paper = Image.fromarray((tex_array('paper', (W2, H2), PAPER) * 255).astype(np.uint8))
@@ -580,11 +602,13 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
         card = src.resize((W2, H2), Image.LANCZOS) if src.size != (W2, H2) else src.copy()
     card = card.convert('RGBA')
     sp = {p.stem: Image.open(p).convert('RGBA') for p in SPRITES.glob('*.png') if not p.name.startswith('_')}
+    stickers = painted_path and icons and markers == 'sticker'
+    stops_sorted = sorted([ic for ic in lay['icons'] if ic['kind'] == 'stop'], key=lambda i: i['t0'])
     if painted_path and route == 'program': draw_route(card, [tuple(p) for p in lay['route']], lay['mpp'])
-    if painted_path and icons:  # AI 從地圖原圖畫的沒有我們的圖示，補上去（從底稿畫的就用 --no-icons）
+    if stickers:  # AI 從地圖原圖畫的沒有我們的圖示，補上去（從底稿畫的就用 --no-icons）
         for ic in sorted(lay['icons'], key=lambda i: i['y']): paste_sprite(card, sp, ic['sprite'], ic['x'], ic['y'] + 8, ic['size'], False)
     if painted_path and route == 'program':  # 起點旗、終點 X 最後畫，不被停留點的圖示蓋住
-        paste_sprite(card, sp, 'flag', lay['start'][0] + 14, lay['start'][1] + 6, 90, False); paste_sprite(card, sp, 'x-mark', lay['end'][0], lay['end'][1] + 24, 76, False)
+        paste_sprite(card, sp, 'flag', lay['start'][0] + 14, lay['start'][1] + 6, 90 if stickers else 72, False); paste_sprite(card, sp, 'x-mark', lay['end'][0], lay['end'][1] + 24, 76, False)
     # 戰爭迷霧：走過的路左右各 fog_radius 公尺、停留點周圍 fog_stop 公尺挖開，其餘蓋深色雲霧，透一點點出來
     reveal = None
     if fog > 0:
@@ -597,6 +621,10 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
     # 對位檢查圖：我們的路線畫在 AI 圖上，看有沒有對上
     chk = card.copy(); dc = ImageDraw.Draw(chk); dc.line([tuple(p) for p in lay['route']], fill=(0, 90, 255), width=6)
     chk.convert('RGB').resize((W2 // 2, H2 // 2), Image.LANCZOS).save(out / f'{name or "card"}_check.png')
+    if painted_path and markers == 'numbered':  # 編號版：停留點紅圈數字，沿路地標小圓點，名字集中到行程表
+        for ic in lay['icons']:
+            if ic['kind'] == 'landmark': dot(d, ic['x'], ic['y'])
+        for n, ic in enumerate(stops_sorted, 1): badge(d, ic['x'], ic['y'], 34, str(n), 44)
     # 邊框：雙線，手抖
     o = M * 0.5
     if frame:
@@ -632,12 +660,21 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
     d.polygon([(cx - R * 0.7, cy), (cx, cy - R * 0.12), (cx, cy + R * 0.12)], outline=INK); d.polygon([(cx + R * 0.7, cy), (cx, cy - R * 0.12), (cx, cy + R * 0.12)], outline=INK)
     fn = font(44); text_halo(d, (cx - 12, cy - R - 54), 'N', fn)
     boxes.append([cx - R - 10, cy - R - 60, cx + R + 10, cy + R + 10])
-    # 比例尺（左下）
+    # 行程表（左下，編號版）：每個停留點一行
+    if painted_path and markers == 'numbered' and stops_sorted:
+        fl = font(40, 'text'); rows = [f'{ic["t0"]}　{ic["name"]}　{ic["minutes"]} 分' for ic in stops_sorted]
+        tw = max(text_size(fl, r)[0] for r in rows); lh = 64
+        bw3, bh3 = tw + 150, 36 + lh * len(rows) + 24; bx3, by3 = CONTENT[0] + 36, CONTENT[3] - 36 - bh3
+        cartouche(bx3, by3, bw3, bh3)
+        for i, (ic, r) in enumerate(zip(stops_sorted, rows)):
+            cy_ = by3 + 36 + lh * i + lh / 2; badge(d, bx3 + 62, cy_, 22, str(i + 1), 32)
+            _, th_, top_ = text_size(fl, r); txt(d, (bx3 + 104, cy_ - th_ / 2 - top_), r, fl, INK)
+    # 比例尺：放在統計框上面
     mpp = lay['mpp']; L = next(v for v in (2000, 1000, 500, 250, 200, 100) if v / mpp <= (CONTENT[2] - CONTENT[0]) / 4)
-    sx, sy, sw = CONTENT[0] + 50, CONTENT[3] - 70, L / mpp
+    sx, sy, sw = bx2 + 45, by2 - 64, L / mpp
     for k in range(4): d.rectangle([sx + sw * k / 4, sy, sx + sw * (k + 1) / 4, sy + 14], fill=INK if k % 2 == 0 else PAPER, outline=INK, width=2)
-    fs = font(40); text_halo(d, (sx - 8, sy - 54), '0', fs); text_halo(d, (sx + sw - 30, sy - 54), f'{L} m' if L < 1000 else f'{L // 1000} km', fs)
-    boxes.append([sx - 20, sy - 60, sx + sw + 80, sy + 30])
+    fs = font(36); text_halo(d, (sx - 8, sy - 50), '0', fs); text_halo(d, (sx + sw - 26, sy - 50), f'{L} m' if L < 1000 else f'{L // 1000} km', fs)
+    boxes.append([sx - 20, sy - 56, sx + sw + 80, sy + 24])
     # 地名：候選位置一個個試，放得下就寫；避開框、圖示、已經寫的字。一般標籤底下墊紙片，區名拉字距只用描邊
     def try_place(text, f, cands, fill, spaced=False, with_plate=True, halo=PAPER):
         if spaced:
@@ -656,20 +693,27 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
             boxes.append(bb); return True
         return False
     in_light = lambda x, y: reveal is None or reveal[min(H2 - 1, max(0, int(y))), min(W2 - 1, max(0, int(x)))] > 0.5
-    for ic in lay['icons']: boxes.append([ic['x'] - ic['size'] / 2, ic['y'] - ic['size'] * 0.9, ic['x'] + ic['size'] / 2, ic['y'] + 10])
+    def icon_box(ic):  # 圖示在地圖上佔的框：貼紙以底邊中點為錨；編號版是圓
+        x, y, s = ic['x'], ic['y'], ic['size']
+        if markers == 'numbered': r = 40 if ic['kind'] == 'stop' else 16; return [x - r, y - r, x + r, y + r]
+        return [x - s / 2, y - 0.9 * s, x + s / 2, y + 10]
+    for ic in lay['icons']: boxes.append(icon_box(ic))
     # 行政區名先放（大、拉字距），地標的字再閃它；在霧裡的區名用淡灰字，像沒去過的地方的名字
     for q in lay['places']:
         f = font(70, 'place'); widths = [text_size(f, ch)[0] for ch in q['name']]; tw = sum(widths) + 70 * 0.55 * (len(q['name']) - 1)
         lit = in_light(q['x'], q['y'])
         try_place(q['name'], f, [(q['x'] - tw / 2, q['y'] - 35 + dy) for dy in (0, -140, 140, -280, 280)], (80, 70, 56) if lit else (150, 156, 170), spaced=True, halo=PAPER if lit else (40, 44, 56))
+    # 停留點的字大、墊紙片；沿路地標的字小一號、只描邊，看起來退後一層。編號版的停留點名字在行程表，地圖上不重複寫
     for ic in sorted(lay['icons'], key=lambda i: i['kind'] != 'stop'):
         if not in_light(ic['x'], ic['y']): continue  # 在霧裡的就不標了
-        label = ic['name'] if ic['kind'] == 'landmark' else f'{ic["name"]}　{ic["t0"]}'
-        f = font(62 if ic['kind'] == 'stop' else 50, 'label'); tw, th, _ = text_size(f, label); x, y, s = ic['x'], ic['y'], ic['size']
-        ib = [x - s / 2, y - 0.9 * s, x + s / 2, y + 10]
-        cands = [(x - tw / 2, ib[3] + 10), (x - tw / 2, ib[1] - th - 10), (ib[2] + 12, y - 0.45 * s - th / 2), (ib[0] - 12 - tw, y - 0.45 * s - th / 2),
+        if markers == 'numbered' and ic['kind'] == 'stop': continue
+        is_stop = ic['kind'] == 'stop'
+        label = f'{ic["name"]}　{ic["t0"]}' if is_stop else ic['name']
+        f = font(62 if is_stop else 42, 'label'); tw, th, _ = text_size(f, label); x, y = ic['x'], ic['y']
+        ib = icon_box(ic); my = (ib[1] + ib[3]) / 2
+        cands = [(x - tw / 2, ib[3] + 10), (x - tw / 2, ib[1] - th - 10), (ib[2] + 12, my - th / 2), (ib[0] - 12 - tw, my - th / 2),
                  (x + 10, ib[3] + 10), (x - tw - 10, ib[3] + 10)]
-        try_place(label, f, cands, INK if ic['kind'] == 'stop' else INK_SOFT)
+        try_place(label, f, cands, INK if is_stop else (70, 62, 52), with_plate=is_stop)
     # 紙的顆粒壓在最上面，字和圖才像同一張紙
     arr = np.asarray(card.convert('RGB')).astype(np.float32)
     g = tex_array('paper', (W2, H2), PAPER).mean(axis=2); lo, hi = np.percentile(g, 1), np.percentile(g, 99)
@@ -708,11 +752,12 @@ def main():
     ap.add_argument('--fog', type=float, default=0.0, help='戰爭迷霧濃度 0~1（0 關掉；0.9 = 沒走過的地方只透一成）')
     ap.add_argument('--fog-radius', type=float, default=150, help='路線左右揭開幾公尺'); ap.add_argument('--fog-stop', type=float, default=250, help='停留點周圍揭開幾公尺')
     ap.add_argument('--route', default='program', choices=['program', 'ai'], help='program：路線由程式畫（AI 畫的會先抹掉）；ai：留 AI 畫的')
+    ap.add_argument('--markers', default='sticker', choices=['sticker', 'numbered'], help='sticker：停留點與地標貼貼紙、名字寫在旁邊；numbered：停留點紅圈數字、地標小點，名字集中在左下角行程表')
     args = ap.parse_args()
     global FONT_SCHEME; FONT_SCHEME = args.font
     if args.cmd == 'compose':
         out = Path(args.out) if args.out else ROOT / 'daycard' / args.date
-        return compose(out, args.painted, name=args.name, frame=not args.no_frame, icons=not args.no_icons, fit=args.fit, mat=args.mat, fog=args.fog, fog_radius=args.fog_radius, fog_stop=args.fog_stop, route=args.route)
+        return compose(out, args.painted, name=args.name, frame=not args.no_frame, icons=not args.no_icons, fit=args.fit, mat=args.mat, fog=args.fog, fog_radius=args.fog_radius, fog_stop=args.fog_stop, route=args.route, markers=args.markers)
     date, pts, layer, trimmed = load_day(args.track, args.date, args.trim)
     out = Path(args.out) if args.out else ROOT / 'daycard' / date; out.mkdir(parents=True, exist_ok=True)
     stops = find_stops(pts); st = stats_of(pts, stops)
