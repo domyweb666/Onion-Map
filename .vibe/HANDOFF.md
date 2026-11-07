@@ -68,8 +68,9 @@
 
 ## 🧪 limrun（雲端 iOS 模擬器，多米指定用它做真機測試）
 
-- 這台機器還沒裝：`npm install --global lim`。登入與帳號由多米自己做，AI 不碰
-- 流程：GitHub Actions 的 build-simulator job 產 artifact `onion-simulator-app`（App.app 壓成 zip）→ 下載解壓 → `lim ios sync App.app`（多個實例時加 `--id`）→ 模擬器開「洋蔥」→ 用 lim 的定位模擬餵一條路線（指令先看 `lim ios --help`）→ 截圖看字級、地形圖磚拖動、定位流程
+- CLI 已裝（`lim` 0.52.1，`npm install -g lim`）。還沒登入：`lim login` 或設 `LIM_API_KEY`，帳號由多米自己做，AI 不碰
+- 流程：GitHub Actions 的 build-simulator job 產 artifact `onion-simulator-app`（App.app 壓成 zip）→ 下載解壓 → `lim ios create` 開一台模擬器 → `lim ios sync App.app` 裝進去（多台時加 `--id`）→ `lim ios launch-app`、`lim ios screenshot`、`lim ios app-log` 看畫面與 log → 定位模擬走 `lim ios simctl`（simctl 的 `location` 子命令可以設座標或跑一條路線，先看 `lim ios simctl --help`）
+- lim 也有 `lim xcode build`，能在雲端 Xcode 直接建置，是 GitHub Actions 之外的另一條建置路；`lim skills install` 會把 Limrun 的 Claude Code skill 裝進來
 - 模擬器能驗介面、字型、樣式、定位流程；背景耗電與系統殺 app 後的續錄要真機
 
 ## 🔧 瀏覽器實測的技巧（下次要截圖再用）
@@ -81,7 +82,7 @@
 ## ⏭️ 下一步從哪繼續
 
 1. 讀這份。看 PR #1、#2 的 CI 綠不綠：`gh pr checks 2`
-2. 多米二選一：畫風第二版（照上面目標，先做迷霧排線加「?」、道路黃色、樹圖示），或 limrun 模擬器測試（先 `npm install --global lim`、多米登入、從 Actions 抓 onion-simulator-app）
+2. 多米二選一：畫風第二版（照上面目標，先做迷霧排線加「?」、道路黃色、樹圖示），或 limrun 模擬器測試（多米先 `lim login`，再從 Actions 抓 onion-simulator-app）
 3. 不管做哪個，從 journal-style 再開新分支（例如 style-v2、sim-test），不要直接堆在 PR #2
 
 ## 🗑️ 這次會話的雜訊（下次別重新討論）
