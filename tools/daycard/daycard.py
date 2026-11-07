@@ -752,7 +752,7 @@ def main():
     ap.add_argument('--fog', type=float, default=0.0, help='戰爭迷霧濃度 0~1（0 關掉；0.9 = 沒走過的地方只透一成）')
     ap.add_argument('--fog-radius', type=float, default=150, help='路線左右揭開幾公尺'); ap.add_argument('--fog-stop', type=float, default=250, help='停留點周圍揭開幾公尺')
     ap.add_argument('--route', default='program', choices=['program', 'ai'], help='program：路線由程式畫（AI 畫的會先抹掉）；ai：留 AI 畫的')
-    ap.add_argument('--markers', default='sticker', choices=['sticker', 'numbered'], help='sticker：停留點與地標貼貼紙、名字寫在旁邊；numbered：停留點紅圈數字、地標小點，名字集中在左下角行程表')
+    ap.add_argument('--markers', default='numbered', choices=['numbered', 'sticker'], help='numbered（預設，多米定案）：停留點紅圈數字、地標小點，名字集中在左下角行程表；sticker：貼貼紙、名字寫旁邊')
     args = ap.parse_args()
     global FONT_SCHEME; FONT_SCHEME = args.font
     if args.cmd == 'compose':
