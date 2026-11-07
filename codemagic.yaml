@@ -1,0 +1,46 @@
+# 洋蔥 iOS → TestFlight（Codemagic 版，推薦給沒有 Mac 的情況）
+#
+# Codemagic 會用 App Store Connect API key 自動產生簽署憑證與 profile，不用自己弄 .p12。
+# 事前準備（都在網頁上做，詳見 docs/iOS建置說明.md）：
+#   1. Apple Developer 後台註冊 Bundle ID：org.domyweb.onion（跟 capacitor.config.json 一樣）
+#   2. App Store Connect 建一個 app 用這個 Bundle ID；建一組 API key（App Manager 權限以上）
+#   3. Codemagic → Teams → Integrations → App Store Connect，把 key 加進去，名稱填下面 integrations 的值
+#   4. Codemagic 連上 GitHub 的 Onion-Map repo，選這份 codemagic.yaml 的 workflow 跑
+workflows:
+  ios-testflight:
+    name: 洋蔥 iOS → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: onion-asc
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: org.domyweb.onion
+      node: 22
+      xcode: latest
+      vars:
+        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+    scripts:
+      - name: 安裝依賴
+        script: npm ci
+      - name: 打包網頁
+        script: npm run build
+      - name: 同步到 iOS 專案
+        script: npx cap sync ios
+      - name: 套用簽署設定
+        script: xcode-project use-profiles
+      - name: 遞增 build 號
+        script: |
+          cd ios/App
+          agvtool new-version -all "$BUILD_NUMBER"
+      - name: 建置 IPA
+        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

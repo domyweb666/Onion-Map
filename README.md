@@ -20,3 +20,9 @@ npm run build
 會把地圖程式庫（MapLibre、H3）打包進根目錄的 `index.html`，GitHub Pages 直接發佈這個檔案。
 
 地圖資料：© OpenStreetMap contributors，圖磚由 OpenFreeMap 提供。
+
+## iOS app
+
+同一份程式用 Capacitor 包成 iOS app，定位改走原生的背景定位，螢幕關掉也會繼續畫。`npm run build` 會多產一份 `www/index.html` 給 app 用，再跑 `npx cap sync ios` 同步進 `ios/` 的 Xcode 專案。
+
+沒有 Mac 也能建置：GitHub Actions 每次 push 會在雲端 Mac 上編譯一次並產出未簽署的 IPA，可用 AltStore 裝到自己的 iPhone；要上 TestFlight 走 Codemagic 或 GitHub Actions 的簽署流程。細節在 `docs/iOS建置說明.md`。

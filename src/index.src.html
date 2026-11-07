@@ -9,6 +9,7 @@
 <style>/*@@MAPLIBRE_CSS@@*/</style>
 <script>/*@@H3_JS@@*/</script>
 <script>/*@@MAPLIBRE_JS@@*/</script>
+<script>/*@@CAPACITOR_JS@@*/</script>
 <style>
   :root{
     --paper:#E6D5B2; --paper2:#F1E4C6; --ink:#4E3B26; --ink2:#7A6244; --accent:#9A3B2A;
@@ -43,6 +44,7 @@
     font-size:17px;font-weight:600;letter-spacing:1px}
   #btnRec.rec{background:var(--accent)}
   #note{font-size:11px;color:var(--ink2);margin-top:8px;line-height:1.4}
+  #btnSettings{width:100%;margin-top:8px;padding:10px;border-radius:10px;background:rgba(78,59,38,.1);font-size:14px}
   .me{width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--paper2);
     box-shadow:0 0 0 0 rgba(154,59,42,.6);animation:pulse 1.8s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(154,59,42,.55)}100%{box-shadow:0 0 0 18px rgba(154,59,42,0)}}
@@ -91,6 +93,7 @@
 <div id="panel" class="card">
   <div id="status">尚未開始記錄</div>
   <button id="btnRec">開始記錄</button>
+  <button id="btnSettings" hidden>到「設定」開啟定位權限</button>
   <div id="note">網頁版限制：要保持螢幕開啟、Safari 在最前面才會記錄（正式版會改成背景記錄）。</div>
 </div>
 
@@ -230,22 +233,49 @@ const STORE = 'yangcong.v1';
 const engine = createEngine(h3);
 const $ = id => document.getElementById(id);
 
+// --- 平台：在 iOS app（Capacitor）裡走原生 plugin；在瀏覽器裡維持原本的網頁作法 ---
+const CapX = typeof capacitorExports !== 'undefined' ? capacitorExports : null;
+const NATIVE = !!(CapX && CapX.Capacitor && CapX.Capacitor.isNativePlatform());
+const BG = NATIVE ? CapX.registerPlugin('BackgroundGeolocation') : null; // 背景定位（CoreLocation）
+const FS = NATIVE ? CapX.registerPlugin('Filesystem') : null;            // 檔案（Documents 會跟著 iCloud 手機備份）
+const SHARE = NATIVE ? CapX.registerPlugin('Share') : null;              // iOS 分享面板（匯出備份用）
+const DATA_FILE = 'onion-map.json';
+const REC_FLAG = 'yangcong.recording';
+let recording = false;
+
 function toast(msg, ms = 2400) {
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
 }
 
 // --- 儲存 ---
-let saveTimer = null;
-function saveSoon() {
-  if (saveTimer) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    try { localStorage.setItem(STORE, JSON.stringify(engine.dump())); }
-    catch (e) { toast('手機上的儲存空間滿了，請到「資料」下載備份'); }
-  }, 1500);
+// 網頁版存 localStorage；iOS app 存到 app 的 Documents 資料夾（會跟著 iCloud 手機備份走）。
+// 背景記錄時每 10 秒最多寫一次，切到背景或停止記錄時立刻寫。
+let saveTimer = null, saving = false, saveAgain = false;
+async function persistNow() {
+  if (saving) { saveAgain = true; return; }
+  saving = true;
+  const json = JSON.stringify(engine.dump());
+  try {
+    if (NATIVE) await FS.writeFile({ path: DATA_FILE, data: json, directory: 'DOCUMENTS', encoding: 'utf8' });
+    else localStorage.setItem(STORE, json);
+  } catch (e) { toast(NATIVE ? '寫入檔案失敗：' + (e.message || e) : '手機上的儲存空間滿了，請到「資料」下載備份'); }
+  saving = false;
+  if (saveAgain) { saveAgain = false; saveSoon(); }
 }
-try { const raw = localStorage.getItem(STORE) || localStorage.getItem('digua.v1'); if (raw) engine.load(JSON.parse(raw)); } catch (e) {}
+function saveSoon(ms) {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = null; persistNow(); }, ms != null ? ms : (NATIVE && recording ? 10000 : 1500));
+}
+function flushSave() { clearTimeout(saveTimer); saveTimer = null; persistNow(); }
+async function loadSaved() {
+  let raw = null;
+  if (NATIVE) { try { raw = (await FS.readFile({ path: DATA_FILE, directory: 'DOCUMENTS', encoding: 'utf8' })).data; } catch (e) {} }
+  if (!raw) { try { raw = localStorage.getItem(STORE) || localStorage.getItem('digua.v1'); } catch (e) {} }
+  if (!raw) return false;
+  try { engine.load(JSON.parse(raw)); } catch (e) { return false; }
+  return true;
+}
 
 // --- 地圖樣式：羊皮紙配色（只有探索過的地方看得到） ---
 const ROAD_W = (lo, mid, hi) => ['interpolate', ['exponential', 1.5], ['zoom'],
@@ -296,14 +326,18 @@ const style = {
   ]
 };
 
-const start = (() => { const p = engine.state().points; const l = p[p.length - 1];
-  return l ? { center: [l[2], l[1]], zoom: 15 } : { center: [121.0, 23.7], zoom: 6.5 }; })();
-
+function lastPoint() { const p = engine.state().points; return p[p.length - 1] || null; }
 const map = new maplibregl.Map({
-  container: 'map', style, center: start.center, zoom: start.zoom,
+  container: 'map', style, center: [121.0, 23.7], zoom: 6.5,
   attributionControl: { compact: true }, pitchWithRotate: false, dragRotate: false
 });
 map.touchZoomRotate.disableRotation();
+// 讀回上次的紀錄（iOS 是讀檔，所以是非同步的），讀到就把地圖移到最後一個點
+const restored = loadSaved().then(ok => {
+  if (!ok) return;
+  render(true);
+  const l = lastPoint(); if (l) map.jumpTo({ center: [l[2], l[1]], zoom: 15 });
+});
 
 const meEl = document.createElement('div'); meEl.className = 'me';
 const me = new maplibregl.Marker({ element: meEl });
@@ -438,30 +472,74 @@ function setStatus(t) { $('status').textContent = t; }
 map.on('dragstart', () => { follow = false; });
 
 // --- 真實 GPS ---
-let watchId = null, wakeLock = null;
+// iOS app：走原生 CoreLocation（背景、螢幕關掉都繼續）；網頁：navigator.geolocation，要保持螢幕開啟。
+let watchId = null, bgWatcher = null, wakeLock = null;
 async function lockScreen() { try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
-document.addEventListener('visibilitychange', () => { if (watchId !== null && document.visibilityState === 'visible') lockScreen(); });
-function startRec() {
-  if (!('geolocation' in navigator)) { toast('這個瀏覽器不支援定位'); return; }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { if (recording && !NATIVE) lockScreen(); render(true); }
+  else if (recording) flushSave();
+});
+function setRecUI(on) {
+  $('btnRec').textContent = on ? '停止記錄' : '開始記錄'; $('btnRec').classList.toggle('rec', on);
+  if (!on) $('btnSettings').hidden = true;
+}
+function onFix(lat, lng, acc, t, spd) {
+  feed({ lat, lng, acc, t: t || Date.now(), spd: (typeof spd === 'number' && !isNaN(spd)) ? spd : null });
+}
+async function startRec() {
+  if (recording) return;
   if (simOn) toggleSim();
   engine.resetLast(); follow = true;
-  watchId = navigator.geolocation.watchPosition(p => {
-    feed({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, t: p.timestamp || Date.now(),
-      spd: (typeof p.coords.speed === 'number' && !isNaN(p.coords.speed)) ? p.coords.speed : null });
-  }, e => {
-    setStatus(e.code === 1 ? '沒有定位權限：請到 設定 › Safari › 位置 允許' : '暫時拿不到定位，持續嘗試中…');
-  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
-  lockScreen();
-  $('btnRec').textContent = '停止記錄'; $('btnRec').classList.add('rec');
-  setStatus('等待定位中…');
+  if (NATIVE) {
+    try {
+      bgWatcher = await BG.addWatcher({
+        backgroundMessage: '洋蔥正在記錄你走過的地方', // iOS 要有這個欄位才會開背景定位（文字本身只有 Android 用到）
+        backgroundTitle: '洋蔥',
+        requestPermissions: true,
+        stale: false,
+        distanceFilter: 4
+      }, (loc, err) => {
+        if (err) {
+          if (err.code === 'NOT_AUTHORIZED') { setStatus('沒有定位權限，洋蔥畫不了地圖'); $('btnSettings').hidden = false; }
+          else setStatus('暫時拿不到定位，持續嘗試中…');
+          return;
+        }
+        onFix(loc.latitude, loc.longitude, loc.accuracy, loc.time, loc.speed);
+      });
+    } catch (e) { setStatus('無法啟動定位：' + (e.message || e)); return; }
+  } else {
+    if (!('geolocation' in navigator)) { toast('這個瀏覽器不支援定位'); return; }
+    watchId = navigator.geolocation.watchPosition(p => {
+      onFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy, p.timestamp, p.coords.speed);
+    }, e => {
+      setStatus(e.code === 1 ? '沒有定位權限：請到 設定 › Safari › 位置 允許' : '暫時拿不到定位，持續嘗試中…');
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    lockScreen();
+  }
+  recording = true;
+  try { localStorage.setItem(REC_FLAG, '1'); } catch (e) {}
+  setRecUI(true); setStatus('等待定位中…');
 }
-function stopRec() {
-  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-  watchId = null; try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null;
-  $('btnRec').textContent = '開始記錄'; $('btnRec').classList.remove('rec');
-  setStatus('已停止記錄'); saveSoon();
+async function stopRec() {
+  if (!recording) return;
+  recording = false;
+  try { localStorage.removeItem(REC_FLAG); } catch (e) {}
+  if (NATIVE) { if (bgWatcher) { try { await BG.removeWatcher({ id: bgWatcher }); } catch (e) {} } bgWatcher = null; }
+  else {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null; try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null;
+  }
+  setRecUI(false); setStatus('已停止記錄'); flushSave();
 }
-$('btnRec').onclick = () => watchId === null ? startRec() : stopRec();
+$('btnRec').onclick = () => recording ? stopRec() : startRec();
+$('btnSettings').onclick = () => { if (BG) BG.openSettings(); };
+if (NATIVE) {
+  $('note').textContent = 'iOS 會在記錄一陣子後問你要不要改成「永遠允許」位置，選它，手機收進口袋也會繼續畫。資料只存在這支手機。';
+  $('btnExport').textContent = '匯出備份';
+  // 上次關掉 app 前還在記錄的話，打開就自動接著記（網頁版不這樣做，避免一開網頁就跳權限視窗）
+  let resume = false; try { resume = localStorage.getItem(REC_FLAG) === '1'; } catch (e) {}
+  if (resume) restored.then(() => startRec());
+}
 $('btnLocate').onclick = () => {
   follow = true;
   if (meShown) { map.flyTo({ center: me.getLngLat(), zoom: Math.max(map.getZoom(), 15) }); return; }
@@ -476,7 +554,7 @@ let simOn = false, simMode = 'walk', simPos = null, simClock = 0, simQueue = [],
 function toggleSim() {
   simOn = !simOn;
   $('btnSim').classList.toggle('on', simOn); $('simbar').hidden = !simOn;
-  if (simOn) { if (watchId !== null) stopRec(); simPos = null; engine.resetLast(); setStatus('模擬模式：點地圖'); }
+  if (simOn) { if (recording) stopRec(); simPos = null; engine.resetLast(); setStatus('模擬模式：點地圖'); }
   else { clearInterval(simTimer); simTimer = null; simQueue = []; engine.resetLast(); setStatus('已離開模擬模式'); }
 }
 $('btnSim').onclick = toggleSim;
@@ -518,21 +596,33 @@ map.on('click', e => {
 $('btnData').onclick = () => {
   const s = engine.state();
   $('dataInfo').textContent = '探索格子 ' + Object.keys(s.cells).length.toLocaleString() + ' 個、軌跡點 ' +
-    s.points.length.toLocaleString() + ' 個、航線 ' + s.flights.length + ' 段。資料只存在這支手機的瀏覽器裡，清除 Safari 網站資料就會消失，記得定期下載備份。';
+    s.points.length.toLocaleString() + ' 個、航線 ' + s.flights.length + ' 段。' + (NATIVE
+      ? '資料存在這支手機的洋蔥 app 裡，會跟著 iCloud 的手機備份走；刪掉 app 就沒了，記得定期匯出備份。'
+      : '資料只存在這支手機的瀏覽器裡，清除 Safari 網站資料就會消失，記得定期下載備份。');
   $('btnClear').textContent = '清除全部紀錄'; $('btnClear').dataset.arm = '';
   $('modal').hidden = false;
 };
 $('btnClose').onclick = () => { $('modal').hidden = true; };
 $('modal').onclick = e => { if (e.target === $('modal')) $('modal').hidden = true; };
-$('btnExport').onclick = () => {
-  const blob = new Blob([JSON.stringify(engine.dump())], { type: 'application/json' });
+$('btnExport').onclick = async () => {
+  const json = JSON.stringify(engine.dump()), name = 'onion-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  if (NATIVE) {
+    // WKWebView 裡 a.download 沒作用：先寫到暫存資料夾，再開 iOS 分享面板（可存到「檔案」、AirDrop、傳給自己）
+    try {
+      await FS.writeFile({ path: name, data: json, directory: 'CACHE', encoding: 'utf8' });
+      const { uri } = await FS.getUri({ path: name, directory: 'CACHE' });
+      await SHARE.share({ title: '洋蔥備份 ' + name, url: uri });
+    } catch (e) { if (!/cancel/i.test(String(e && e.message))) toast('匯出失敗：' + (e.message || e)); }
+    return;
+  }
+  const blob = new Blob([json], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'onion-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.download = name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 };
 $('fileImport').onchange = async e => {
   const file = e.target.files[0]; if (!file) return;
-  try { engine.load(JSON.parse(await file.text())); saveSoon(); render(true); $('modal').hidden = true; toast('已匯入備份'); }
+  try { engine.load(JSON.parse(await file.text())); flushSave(); render(true); $('modal').hidden = true; toast('已匯入備份'); }
   catch (err) { toast('這個檔案讀不了'); }
   e.target.value = '';
 };
@@ -540,6 +630,7 @@ $('btnClear').onclick = () => {
   const b = $('btnClear');
   if (!b.dataset.arm) { b.dataset.arm = '1'; b.textContent = '再按一次確定清除'; return; }
   engine.clear(); try { localStorage.removeItem(STORE); } catch (e) {}
+  if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
   render(true); $('modal').hidden = true; toast('已清除');
 };
 updateStats();
