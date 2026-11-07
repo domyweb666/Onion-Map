@@ -10,3 +10,6 @@ tools/sheet/cache/
 !sheets/**/painted*.png
 assets/textures/_*
 assets/textures-harvested/
+daycard/*/draft_2k.png
+daycard/*/base_textured.png
+daycard/*/card.png
