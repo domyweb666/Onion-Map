@@ -1,0 +1,187 @@
+# 洋蔥 iOS 雲端建置（不需要自己有 Mac）
+#
+# build-check：每次 push 都跑。在 GitHub 的 macOS 機器上把 iOS 專案真的編譯一次（不簽署），
+#              確認 Capacitor 專案、Swift 套件、plugin 都能過。公開 repo 免費。
+# testflight ：手動觸發（Actions 頁 → Run workflow → 勾「上傳到 TestFlight」）。
+#              需要先在 repo Settings → Secrets 放好下面 7 個 secret，做法見 docs/iOS建置說明.md：
+#                IOS_P12_BASE64      Apple Distribution 憑證 .p12 的 base64
+#                IOS_P12_PASSWORD    匯出 .p12 時設的密碼
+#                IOS_PROFILE_BASE64  App Store 類型 provisioning profile 的 base64
+#                APPLE_TEAM_ID       開發者帳號的 Team ID（10 碼）
+#                ASC_KEY_ID          App Store Connect API key 的 Key ID
+#                ASC_ISSUER_ID       App Store Connect API key 的 Issuer ID
+#                ASC_API_KEY_P8      API key 的 .p8 檔內容（整段文字）
+name: iOS
+
+on:
+  push:
+    branches: [main, ios-capacitor]
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: 上傳到 TestFlight（需要 secrets）
+        type: boolean
+        default: false
+
+env:
+  XCODE_PROJECT: ios/App/App.xcodeproj
+  XCODE_SCHEME: App
+
+jobs:
+  build-check:
+    name: 編譯檢查（不簽署）
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+      - name: 解析 Swift 套件
+        run: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
+      - name: 編譯 Release（不簽署）
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tee build/xcodebuild.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build/xcodebuild.log
+      - name: 打包未簽署 IPA（AltStore／Sideloadly 自己裝到 iPhone 用）
+        run: |
+          APP=$(find build/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          test -n "$APP"
+          rm -rf build/Payload && mkdir -p build/Payload && cp -R "$APP" build/Payload/
+          (cd build && zip -qr onion-unsigned.ipa Payload)
+          ls -la build/onion-unsigned.ipa
+      - name: 保留未簽署 IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: onion-unsigned-ipa
+          path: build/onion-unsigned.ipa
+      - name: 保留建置 log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build/xcodebuild.log
+          if-no-files-found: ignore
+
+  testflight:
+    name: 簽署並上傳 TestFlight
+    if: github.event_name == 'workflow_dispatch' && inputs.testflight
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      KEYCHAIN_PASSWORD: ci-temp-keychain
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+
+      - name: 匯入簽署憑證到暫時 keychain
+        env:
+          IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+          IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+        run: |
+          echo "$IOS_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import "$RUNNER_TEMP/cert.p12" -k build.keychain -P "$IOS_P12_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+      - name: 安裝 provisioning profile
+        id: profile
+        env:
+          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+        run: |
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$IOS_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/app.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/app.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")
+          cp "$RUNNER_TEMP/app.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "profile: $NAME ($UUID)"
+
+      - name: Archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PROFILE_NAME: ${{ steps.profile.outputs.name }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath build/App.xcarchive archive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            -quiet
+
+      - name: 匯出 IPA
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PROFILE_NAME: ${{ steps.profile.outputs.name }}
+        run: |
+          BUNDLE_ID=$(node -p "require('./capacitor.config.json').appId")
+          node -e '
+            const [team, profile, bundle] = process.argv.slice(1);
+            const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            process.stdout.write(`<?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>${esc(team)}</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict><key>${esc(bundle)}</key><string>${esc(profile)}</string></dict>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          `);
+          ' "$APPLE_TEAM_ID" "$PROFILE_NAME" "$BUNDLE_ID" > "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive -archivePath build/App.xcarchive \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath build/ipa -quiet
+          ls -la build/ipa
+
+      - name: 上傳到 TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          mkdir -p "$HOME/private_keys"
+          printf '%s\n' "$ASC_API_KEY_P8" > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          IPA=$(ls build/ipa/*.ipa | head -1)
+          xcrun altool --upload-app -t ios -f "$IPA" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: 保留 IPA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onion-ipa
+          path: build/ipa/*.ipa
+          if-no-files-found: ignore
+
+      - name: 清掉暫時 keychain
+        if: always()
+        run: security delete-keychain build.keychain || true

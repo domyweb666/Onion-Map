@@ -1,1 +1,6 @@
 node_modules/
+# npm run build 的產物之一，給 Capacitor 用；CI 會重新產生
+www/
+.DS_Store
+# Claude Code 本機設定
+.claude/

@@ -1,0 +1,12 @@
+{
+  "appId": "org.domyweb.onion",
+  "appName": "洋蔥",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#E6D5B2",
+    "scrollEnabled": false,
+    "allowsLinkPreview": false,
+    "preferredContentMode": "mobile"
+  }
+}
