@@ -27,4 +27,5 @@ const copyDir = (from, to) => {
   }
 };
 copyDir('fonts', 'www/fonts');
+if (fs.existsSync('assets')) copyDir('assets', 'www/assets'); // 貼紙
 console.log('index.html + www/index.html built,', h.length, 'bytes');

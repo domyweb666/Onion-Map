@@ -893,7 +893,7 @@ $('legend').onclick = e => { if (e.target === $('legend')) $('legend').hidden = 
 // MapLibre 只負責圖資、鏡頭、迷霧的洞與地名；路、水、植被、迷霧排線改用 Rough.js 畫在一層畫布上，
 // 畫布用 multiply 疊在地圖上，底下的地名與「?」照樣看得到。停下來才重畫，拖動時用 CSS 位移讓草稿跟著滑。
 // 草稿模式三種畫法：?sketch=1 色鉛筆排線（pencil）、?style=ink 羊皮紙鋼筆淡彩、?style=wash 水彩草原
-const STYLE = (location.search.match(/[?&]style=(ink|wash|pencil)/) || [])[1] || 'pencil';
+const STYLE = (location.search.match(/[?&]style=(ink|wash|pencil|sprite)/) || [])[1] || 'pencil'; // sprite：用 assets/sprites 的貼紙
 const SKETCH = (/[?&]sketch=1/.test(location.search) || STYLE !== 'pencil') && typeof rough !== 'undefined';
 if (SKETCH) {
   const SK = { tol: 5, rough: 1.3, bow: 1.4 }; // 簡化公差（螢幕像素）、抖動、彎曲：草稿要多潦草都在這裡調
@@ -906,6 +906,17 @@ if (SKETCH) {
     'building-hatch', 'building-line', 'path', 'road-ink', 'road-fill', 'rail', 'rail-ties', 'fog-hatch', 'explored-hatch', 'freq', 'explored-ink', 'track'];
   // 奇幻畫法：山形圖示取代高程陰影，房子自己畫，迷霧只留白紙，邊界自己撕
   if (FANTASY) HIDE.push('hillshade', 'landuse', 'fog-edge', 'hint-water', 'hint-border', 'gaps');
+  if (STYLE === 'sprite') { HIDE.push('fog-q', 'peak'); for (const id of ['fog-q', 'peak']) LABEL_LAYERS.splice(LABEL_LAYERS.indexOf(id), 1); } // 字型載好時別再把它們打開
+  // 貼紙：多米生的圖鑑表裁出來的透明 PNG，程式只管擺位
+  const SPRITES = {}, SPRITE_NAMES = ['mountain-high-1', 'mountain-high-2', 'mountain-1', 'hill-1', 'tree-broadleaf-1', 'tree-broadleaf-2',
+    'tree-conifer-1', 'tree-conifer-2', 'forest-clump-1', 'forest-clump-2', 'city', 'town', 'village', 'hamlet', 'ship', 'sea-serpent', 'whale', 'wave', 'question'];
+  if (STYLE === 'sprite') for (const n of SPRITE_NAMES) { const im = new Image(); im.onload = () => { SPRITES[n] = im; scheduleDraw(); }; im.src = 'assets/sprites/' + n + '.png'; }
+  function sprite(name, x, y, w, flip) { // 以底邊中點為錨，等比縮放
+    const im = SPRITES[name]; if (!im) return false;
+    const h = w * im.height / im.width;
+    ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
+    return true;
+  }
   map.on('load', () => {
     HIDE.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'none'));
     if (FANTASY) map.setLayoutProperty('place', 'icon-image', 'none');
@@ -1085,7 +1096,7 @@ if (SKETCH) {
   }
   // ───────── 奇幻畫法主程式 ─────────
   function drawFantasy(w, h, z, ex) {
-    const ink = STYLE === 'ink', lat = map.getCenter().lat;
+    const sp = STYLE === 'sprite', ink = STYLE !== 'wash', lat = map.getCenter().lat; // 貼紙模式用鋼筆版的紙與水
     const mpp = 40075016.686 * Math.cos(lat * Math.PI / 180) / (256 * 2 ** z); // 每個螢幕像素幾公尺
     const Z = Math.round(z), dz = Math.max(7, Math.min(12, Z - 2));
     let seed = 1;
@@ -1103,8 +1114,8 @@ if (SKETCH) {
     ctx.save(); if (ex) ctx.clip(ex, 'nonzero');
     // 1. 地面的淡彩
     if (ink) {
-      if (wood) washFill(wood, '#C9D8A8', 0.3, 1.5);
-      if (park) washFill(park, '#D6E0B4', 0.25, 1.5);
+      if (wood) washFill(wood, '#C9D8A8', sp ? 0.12 : 0.3, 1.5); // 貼紙本身就是森林，底色只要一點點
+      if (park) washFill(park, '#D6E0B4', sp ? 0.1 : 0.25, 1.5);
     } else {
       ctx.fillStyle = '#D3E39F'; ctx.fillRect(0, 0, w, h); // 整片草原
       if (farm) washFill(farm, '#E6E2A0', 0.35, 2);
@@ -1124,9 +1135,10 @@ if (SKETCH) {
         for (const [lw, a] of [[5, 0.3], [12, 0.16], [22, 0.08]]) { ctx.lineWidth = lw; ctx.globalAlpha = a; ctx.stroke(water); } // 岸邊一圈圈越遠越淡
         ctx.restore();
         ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 1.1; ctx.globalAlpha = 0.85; ctx.stroke(water); ctx.restore();
-        if (z >= 10) gridPoints(w, h, z, 36, 1, (x, y, r) => { // 海面的小波浪
+        if (z >= 10) gridPoints(w, h, z, sp ? 56 : 36, 1, (x, y, r) => { // 海面的小波浪
           if (r.c > 0.3 || !inside(water, x, y)) return;
-          rc.curve([[x - 7, y], [x - 3, y - 2.5], [x + 3, y + 2.5], [x + 7, y]], { stroke: '#3F6F95', strokeWidth: 0.9, roughness: 0.6, seed: seed++ });
+          if (sp) sprite('wave', x, y, 22, r.b > 0.5);
+          else rc.curve([[x - 7, y], [x - 3, y - 2.5], [x + 3, y + 2.5], [x + 7, y]], { stroke: '#3F6F95', strokeWidth: 0.9, roughness: 0.6, seed: seed++ });
         });
       } else {
         washFill(water, '#8CC2DE', 0.5, 2.5);
@@ -1149,17 +1161,22 @@ if (SKETCH) {
       let lo = e; for (const [dx, dy] of [[s, 0], [-s, 0], [0, s], [0, -s], [s * 0.7, s * 0.7], [-s * 0.7, -s * 0.7]]) { const n = elevScreen(x + dx, y + dy, dz); if (n != null && n < lo) lo = n; }
       const slope = (e - lo) / (mpp * s); // 相對落差 / 水平距離
       const t = Math.max(0, Math.min(1, Math.max(slope / 0.45, (e - 250) / 900))); // 越陡或越高，山畫越高
-      if (slope > 0.11 || e > 450) peaks.push({ x, y, s, r, kind: 'm', t, w: s * 1.7, h: s * (0.8 + 1.6 * t) });
+      if (sp && r.a > 0.8) return; // 貼紙的山比較寬，留一點空隙
+      if (slope > 0.11 || e > 450) peaks.push({ x, y, s, r, kind: 'm', t, w: s * (sp ? 2.4 + 1.6 * t : 1.7), h: s * (sp ? (1.05 + 0.7 * t) : (0.8 + 1.6 * t)) });
       else if ((slope > 0.05 || e > 180) && r.c < 0.6) peaks.push({ x, y, s, r, kind: 'h', t: Math.min(1, slope / 0.1) });
     });
     const mounts = peaks.filter(p => p.kind === 'm');
     const onMountain = (x, y) => { // 樹不種在山的上半部，不然把山蓋掉
-      for (const p of mounts) { if (Math.abs(x - p.x) > p.w / 2 || y > p.y || y < p.y - p.h) continue; const k = (p.y - y) / p.h; if (Math.abs(x - p.x) < p.w / 2 * (1 - k) && k > 0.35) return true; }
+      for (const p of mounts) { if (Math.abs(x - p.x) > p.w / 2 || y > p.y + (sp ? p.s * 0.2 : 0) || y < p.y - p.h) continue; const k = (p.y - y) / p.h; if (sp ? Math.abs(x - p.x) < p.w / 2 * (1 - k * 0.6) && k > -0.1 : Math.abs(x - p.x) < p.w / 2 * (1 - k) && k > 0.35) return true; }
       return false;
     };
     window.SKDBG = { peaks: peaks.length, dem: [...DEM.keys()].join(' '), dz, mpp, xs: peaks.map(p => Math.round(p.x)) }; // 瀏覽器主控台看山有沒有算出來
     for (const p of peaks) { // gridPoints 已是由上往下，前排蓋後排
-      if (p.kind === 'm') mountain(p.x, p.y, p.w, p.h, p.r, ink, seed++);
+      if (sp) { // 貼紙：高山、一般山、丘陵三種，寬度跟著高度走
+        if (p.kind === 'm') sprite(p.t > 0.55 ? (p.r.c > 0.5 ? 'mountain-high-1' : 'mountain-high-2') : 'mountain-1', p.x, p.y + p.s * 0.2, p.w, p.r.b > 0.5);
+        else if (p.r.c < 0.35) sprite('hill-1', p.x, p.y + p.s * 0.2, p.s * 1.8, p.r.b > 0.5);
+      }
+      else if (p.kind === 'm') mountain(p.x, p.y, p.w, p.h, p.r, ink, seed++);
       else hill(p.x, p.y, p.s * 1.3, p.s * (0.25 + 0.3 * p.t), ink, seed++);
     }
     // 4. 路：只畫幹道與主要道路
@@ -1171,7 +1188,7 @@ if (SKETCH) {
     }
     // 5. 樹：森林裡撒一棵棵；太多就拉大間距
     if ((wood || park) && z >= 9) {
-      let spacing = ink ? 17 : 18, count = 0;
+      let spacing = sp ? (z >= 13 ? 34 : 40) : ink ? 17 : 18, count = 0;
       gridPoints(w, h, z, spacing, 0, (x, y) => { if (inside(wood, x, y)) count++; });
       if (count > 1200) spacing *= Math.sqrt(count / 1200);
       gridPoints(w, h, z, spacing, 0.9, (x, y, r, s) => {
@@ -1179,7 +1196,13 @@ if (SKETCH) {
         if (!inside(wood, x, y) && !(r.a < 0.3 && inside(park, x, y))) return; // 公園、保護區稀疏種幾棵
         if (onMountain(x, y)) return;
         const size = s * 0.5;
-        if (ink) (r.c < 0.65 ? pine : oak)(x, y, size, seed++);
+        if (sp) { // 縮小時一叢一叢，拉近才一棵棵；山區偏針葉
+          if (r.c > 0.75) return; // 留空隙，不要鋪滿
+          const hi = (elevScreen(x, y, dz) || 0) > 300, v = r.b > 0.5 ? '1' : '2';
+          const name = z < 13 ? 'forest-clump-' + v : (hi ? r.c < 0.7 : r.c < 0.25) ? 'tree-conifer-' + v : 'tree-broadleaf-' + v;
+          sprite(name, x, y, s * (z < 13 ? 1.5 : 1.1), r.a > 0.5);
+        }
+        else if (ink) (r.c < 0.65 ? pine : oak)(x, y, size, seed++);
         else (r.c < 0.3 ? fir : (xx, yy, ss) => canopy(xx, yy, ss, r))(x, y, size);
       });
     }
@@ -1190,17 +1213,28 @@ if (SKETCH) {
       const c = f.properties.class, n = c === 'city' ? 7 : c === 'town' ? 4 : c === 'village' ? 2 : c === 'hamlet' ? 1 : 0; if (!n || z < minZ[c]) continue;
       const p = map.project(f.geometry.coordinates), s = z >= 13 ? 8 : 6;
       const rr = hash(Math.round(f.geometry.coordinates[0] * 1000), Math.round(f.geometry.coordinates[1] * 1000));
+      if (sp) { sprite(c, p.x, p.y + s * 1.5, { city: 92, town: 68, village: 62, hamlet: 40 }[c] * (z >= 13 ? 1.25 : 1), rr.b > 0.5); continue; }
       const spots = []; for (let k = 0; k < n; k++) { const a = rr.a * 6.28 + k * 6.28 / n, rad = n === 1 ? 0 : s * (1.6 + (k % 2) * 0.9); spots.push([p.x + Math.cos(a) * rad, p.y - s * 1.2 + Math.sin(a) * rad * 0.6, hash(k, n)]); }
       spots.sort((a, b) => a[1] - b[1]);
       for (const [x, y, r] of spots) house(x, y, s, ink, r, seed++);
       if (c === 'city') tower(p.x, p.y - s * 1.2, s, ink, seed++);
     }
+    // 6b. 海上點綴：探索過的大片水面放帆船、海怪、鯨魚
+    if (sp && water && z >= 9) gridPoints(w, h, z, 230, 0.8, (x, y, r) => {
+      if (r.c > 0.5 || !inside(water, x, y) || !inside(water, x - 40, y) || !inside(water, x + 40, y) || !inside(water, x, y - 40)) return;
+      sprite(r.a < 0.4 ? 'ship' : r.a < 0.75 ? 'sea-serpent' : 'whale', x, y + 20, 56, r.b > 0.5);
+    });
     // 7. 足跡：尋寶圖的紅色虛線航線
     for (const l of trackLines(engine.state().points)) {
       const p = simplify(l.map(c => { const q = map.project(c); return [q.x, q.y]; }), SK.tol * 1.5); if (p.length < 2) continue;
       rc.linearPath(p, { stroke: '#A33B2E', strokeWidth: 1.6, roughness: 0.8, bowing: 0.6, strokeLineDash: [8, 5], seed: seed++ });
     }
     ctx.restore();
+    // 7b. 迷霧上的問號改用貼紙，角度各自不同
+    if (sp && ex) gridPoints(w, h, z, 150, 1, (x, y, r) => {
+      if (r.c > 0.6 || inside(ex, x, y)) return;
+      ctx.save(); ctx.translate(x, y); ctx.rotate((r.a - 0.5) * 0.8); ctx.globalAlpha = 0.75; sprite('question', 0, 14, 20 + r.b * 10, false); ctx.restore();
+    });
     // 8. 探索邊界：手撕邊，內側一道焦痕
     if (ex) {
       ctx.save(); ctx.clip(ex, 'nonzero'); ctx.strokeStyle = ink ? '#6B5236' : '#7A6B4A'; ctx.lineWidth = 14; ctx.globalAlpha = 0.18; ctx.stroke(ex); ctx.lineWidth = 5; ctx.globalAlpha = 0.2; ctx.stroke(ex); ctx.restore();
