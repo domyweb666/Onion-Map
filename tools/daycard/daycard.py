@@ -466,7 +466,7 @@ def pick_names(fr, layers, pts, stops, route_px, green_g, inst_g):
     for q in pois:
         if q['cls'] not in LANDMARK or q['name'] in used: continue
         if len(q['name']) > 8 or any(w in q['name'] for w in ('分部', '本部', '分校', '推廣', '辦公室', '中心')): continue  # 機構的分部、太長的名字不是地標
-        if q['cls'] in ('university', 'college') and not q['name'].endswith(('大學', '學院')): continue  # 研習所、語言中心這種不算
+        if inst_p.contains(Point(q['x'], q['y'])): continue  # 校園裡的館、廳、學院都不算：校園本身走進去就是停留點
         if q['cls'] == 'hospital' and q['sub'] == 'clinic': continue
         if q['cls'] == 'railway' and q['sub'] not in ('subway', 'station'): continue
         if q['cls'] == 'park':  # 小公園不標：看它所在的綠地有多大
