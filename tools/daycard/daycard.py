@@ -580,11 +580,11 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
         card = src.resize((W2, H2), Image.LANCZOS) if src.size != (W2, H2) else src.copy()
     card = card.convert('RGBA')
     sp = {p.stem: Image.open(p).convert('RGBA') for p in SPRITES.glob('*.png') if not p.name.startswith('_')}
-    if painted_path and route == 'program':
-        draw_route(card, [tuple(p) for p in lay['route']], lay['mpp'])
-        paste_sprite(card, sp, 'flag', lay['start'][0], lay['start'][1] + 6, 90, False); paste_sprite(card, sp, 'x-mark', lay['end'][0], lay['end'][1] + 24, 76, False)
+    if painted_path and route == 'program': draw_route(card, [tuple(p) for p in lay['route']], lay['mpp'])
     if painted_path and icons:  # AI 從地圖原圖畫的沒有我們的圖示，補上去（從底稿畫的就用 --no-icons）
         for ic in sorted(lay['icons'], key=lambda i: i['y']): paste_sprite(card, sp, ic['sprite'], ic['x'], ic['y'] + 8, ic['size'], False)
+    if painted_path and route == 'program':  # 起點旗、終點 X 最後畫，不被停留點的圖示蓋住
+        paste_sprite(card, sp, 'flag', lay['start'][0] + 14, lay['start'][1] + 6, 90, False); paste_sprite(card, sp, 'x-mark', lay['end'][0], lay['end'][1] + 24, 76, False)
     # 戰爭迷霧：走過的路左右各 fog_radius 公尺、停留點周圍 fog_stop 公尺挖開，其餘蓋深色雲霧，透一點點出來
     reveal = None
     if fog > 0:
