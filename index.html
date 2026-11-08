@@ -1635,6 +1635,79 @@ function daysWalked() {
   return days.size;
 }
 
+// --- 稱號：看軌跡的樣子給一個身分，外加一句「被看穿」的理由。只用這支手機裡的資料，不跟別人比 ---
+// 判斷照順序，第一個符合的就是；每一條的門檻都寫在這裡，要調直接改數字
+function profileOf() {
+  const s = engine.state(), P = s.points, n = P.length, ground = s.km.walk + s.km.vehicle;
+  let night = 0, early = 0, la = 0, ln = 0;
+  for (const p of P) {
+    const h = new Date((p[0] < 1e12 ? p[0] * 1000 : p[0])).getHours();
+    if (h >= 22 || h < 4) night++; else if (h >= 5 && h < 8) early++;
+    la += p[1]; ln += p[2];
+  }
+  la /= n || 1; ln /= n || 1;
+  let rg = 0; const k = Math.cos(la * Math.PI / 180); // 迴轉半徑：軌跡點離重心的均方根距離（公里）。只拿來算半徑，重心本身不顯示，免得把家畫出來
+  for (const p of P) rg += ((p[2] - ln) * 111.32 * k) ** 2 + ((p[1] - la) * 110.57) ** 2;
+  rg = Math.sqrt(rg / (n || 1));
+  const cells = Object.values(s.cells), once = cells.filter(c => c[0] <= 1).length, thrice = cells.filter(c => c[0] >= 3).length;
+  return { n, ground, walk: s.km.walk, vehicle: s.km.vehicle, flights: s.flights.length, night: night / (n || 1), early: early / (n || 1),
+    rg, days: daysWalked(), once: once / (cells.length || 1), thrice: thrice / (cells.length || 1) };
+}
+const pc = x => Math.round(x * 100) + '%';
+const TITLES = [
+  { name: '剛出發的旅人', when: p => p.ground < 2, why: p => '地圖才刮開一角' },
+  { name: '跨海的候鳥', when: p => p.flights >= 2, why: p => '飛了 ' + p.flights + ' 段航線' },
+  { name: '軌道通勤族', when: p => p.vehicle >= 10 && p.vehicle >= 0.6 * p.ground, why: p => pc(p.vehicle / p.ground) + ' 的路是坐車走的' },
+  { name: '夜行者', when: p => p.n >= 200 && p.night >= 0.3, why: p => pc(p.night) + ' 的足跡在晚上十點以後' },
+  { name: '早起的鳥', when: p => p.n >= 200 && p.early >= 0.3, why: p => pc(p.early) + ' 的足跡在早上八點以前' },
+  { name: '以家為圓心的人', when: p => p.days >= 5 && p.rg < 1.5, why: p => p.days + ' 天都在 ' + p.rg.toFixed(1) + ' 公里內打轉' },
+  { name: '遠行者', when: p => p.rg >= 20, why: p => '足跡散在方圓 ' + Math.round(p.rg) + ' 公里' },
+  { name: '老路的守護者', when: p => p.days >= 3 && p.thrice >= 0.5, why: p => pc(p.thrice) + ' 的路走過三次以上' },
+  { name: '巷弄探子', when: p => p.walk >= 0.7 * p.ground && p.once >= 0.8, why: p => pc(p.once) + ' 的地方只去過一次' },
+  { name: '散步家', when: p => true, why: p => '走路 ' + Math.round(p.walk) + ' 公里' }
+];
+function titleOf() { const p = profileOf(), t = TITLES.find(t => t.when(p)); return { name: t.name, why: t.why(p) }; }
+
+// --- 行政區探索度：內政部的鄉鎮市區界線（tools/admin/build_admin.py 轉的），製圖時才載 ---
+let adminP = null;
+function loadAdmin() {
+  if (adminP) return adminP;
+  return adminP = fetch('assets/admin/tw-admin.json').then(r => r.json()).then(d => {
+    for (const t of d.towns) t.rings = t.p.map(poly => poly.map(r => { // 整數差分 → 經緯度陣列
+      const a = new Float64Array(r.length); let x = 0, y = 0;
+      for (let i = 0; i < r.length; i += 2) { x += r[i]; y += r[i + 1]; a[i] = x / 1e4; a[i + 1] = y / 1e4; }
+      return a;
+    }));
+    return d;
+  }).catch(e => { adminP = null; throw e; });
+}
+function inRing(a, x, y) { let c = false; for (let i = 0, j = a.length - 2; i < a.length; j = i, i += 2) { const yi = a[i + 1], yj = a[j + 1]; if ((yi > y) !== (yj > y) && x < (a[j] - a[i]) * (y - yi) / (yj - yi) + a[i]) c = !c; } return c; }
+function townAt(adm, lng, lat) {
+  for (const t of adm.towns) {
+    if (lng < t.b[0] || lng > t.b[2] || lat < t.b[1] || lat > t.b[3]) continue;
+    for (const poly of t.rings) if (inRing(poly[0], lng, lat) && !poly.slice(1).some(h => inRing(h, lng, lat))) return t;
+  }
+  return null;
+}
+let exploredCache = null;
+function exploredByTown(adm) { // 每個鄉鎮、縣市探索過多少 km²：格子中心落在哪區就算哪區。格子數沒變就用上次的
+  const cells = engine.state().cells, ids = Object.keys(cells);
+  if (exploredCache && exploredCache.n === ids.length) return exploredCache;
+  const town = new Map(), county = new Map(); let last = null;
+  for (const c of ids) {
+    const [lat, lng] = h3.cellToLatLng(c), a = h3.cellArea(c, 'km2');
+    const t = last && townAtOne(last, lng, lat) ? last : townAt(adm, lng, lat); // 相鄰的格子多半在同一區，先試上一個
+    if (!t) continue; last = t;
+    town.set(t, (town.get(t) || 0) + a); county.set(t.c, (county.get(t.c) || 0) + a);
+  }
+  return exploredCache = { n: ids.length, town, county };
+}
+function townAtOne(t, lng, lat) {
+  if (lng < t.b[0] || lng > t.b[2] || lat < t.b[1] || lat > t.b[3]) return false;
+  return t.rings.some(poly => inRing(poly[0], lng, lat) && !poly.slice(1).some(h => inRing(h, lng, lat)));
+}
+function fmtPct(p) { return p >= 10 ? p.toFixed(0) + '%' : p >= 1 ? p.toFixed(1) + '%' : p >= 0.01 ? p.toFixed(2) + '%' : p > 0 ? '不到 0.01%' : '0%'; }
+
 function handRect(g, x, y, w, h, jit, seed) { // 手抖的方框：每邊切幾段、每段偏一點；固定 seed，換框重畫時抖法一樣
   let k = seed;
   const rnd = () => ((k = (k * 16807) % 2147483647) / 2147483647 - 0.5) * 2 * jit;
@@ -1656,16 +1729,19 @@ function haloText(g, text, x, y) { g.lineWidth = 5; g.strokeStyle = 'rgba(28,24,
 function drawCardUI(g, o) {
   const U = CARD_UI, pad = 32;
   g.textBaseline = 'alphabetic';
-  // 標題帶：左上
-  const fT = '900 50px ' + CARD_SERIF, fS = '400 24px ' + CARD_KAI;
-  g.font = fT; const tw = g.measureText(o.title).width; g.font = fS; const sw = g.measureText(o.sub).width;
-  const bw = Math.ceil(Math.max(tw, sw) + pad * 2), bh = 132;
+  // 標題帶：左上。地名／稱號（紅）／被看穿的理由／日期
+  const fT = '900 50px ' + CARD_SERIF, fB2 = '900 34px ' + CARD_SERIF, fW = '400 22px ' + CARD_KAI, fS = '400 21px ' + CARD_KAI;
+  const badge = '〔' + o.badge.name + '〕';
+  g.font = fT; const tw = g.measureText(o.title).width; g.font = fB2; const bw2 = g.measureText(badge).width;
+  g.font = fW; const ww2 = g.measureText(o.badge.why).width; g.font = fS; const sw = g.measureText(o.sub).width;
+  const bw = Math.ceil(Math.max(tw, bw2, ww2, sw) + pad * 2), bh = 222;
   cartouche(g, U.l, U.t, bw, bh, 11);
   g.font = fT; g.fillStyle = '#2B241C'; g.fillText(o.title, U.l + pad, U.t + 74);
-  g.font = fS; g.fillStyle = '#5A4E3F'; g.fillText(o.sub, U.l + pad + 2, U.t + 108);
-  // 統計板：右下。大數字是「這張圖裡你走過多少」，有一點自嘲才有人想分享
-  const pct = o.pct, pctText = pct >= 10 ? pct.toFixed(0) + '%' : pct >= 0.1 ? pct.toFixed(1) + '%' : (pct > 0 ? '不到 0.1%' : '0%');
-  const l1 = '這張圖裡，你走過', l3 = '已開拓 ' + (o.area < 10 ? o.area.toFixed(2) : o.area.toFixed(1)) + ' km²　地面 ' + Math.round(o.km) + ' km';
+  g.font = fB2; g.fillStyle = '#A33028'; g.fillText(badge, U.l + pad - 14, U.t + 124);
+  g.font = fW; g.fillStyle = '#2B241C'; g.fillText(o.badge.why, U.l + pad + 2, U.t + 158);
+  g.font = fS; g.fillStyle = '#5A4E3F'; g.fillText(o.sub, U.l + pad + 2, U.t + 194);
+  // 統計板：右下。大數字是「這一區你走過多少」，有一點自嘲才有人想分享；找不到行政區（海上、資料沒載到）就退回「這張圖裡」
+  const pctText = fmtPct(o.pct), l1 = o.label, l3 = o.line3;
   const fB = '700 60px ' + CARD_SERIF, fL = '400 23px ' + CARD_KAI;
   g.font = fL; const w1 = g.measureText(l1).width, w3 = g.measureText(l3).width; g.font = fB; const w2 = g.measureText(pctText).width;
   const sw2 = Math.ceil(Math.max(w1, w2, w3) + pad * 2), sh2 = 190, sx2 = U.r - sw2, sy2 = U.b - sh2;
@@ -1695,12 +1771,26 @@ async function drawCard() {
   g.fillStyle = '#F4EEE0'; g.fillRect(0, 0, CARD_W, CARD_H);
   g.drawImage(snap, sx, sy, sw, sh, l, t, ww, wh);
   g.drawImage(fr.canvas, 0, 0);
-  const dpr = snap.width / v.w, nw = v.at(sx / dpr, sy / dpr), se = v.at((sx + sw) / dpr, (sy + sh) / dpr);
-  const ex = exploredIn(nw.lng, se.lat, se.lng, nw.lat), st = engine.state(), d = new Date(), pad2 = x => String(x).padStart(2, '0');
+  const dpr = snap.width / v.w, nw = v.at(sx / dpr, sy / dpr), se = v.at((sx + sw) / dpr, (sy + sh) / dpr), mid = v.at((sx + sw / 2) / dpr, (sy + sh / 2) / dpr);
+  const st = engine.state(), d = new Date(), pad2 = x => String(x).padStart(2, '0');
+  const areaText = '已開拓 ' + (st.area < 10 ? st.area.toFixed(2) : st.area.toFixed(1)) + ' km²';
+  let title = v.title, label, pct, line3;
+  let adm = null; try { adm = await loadAdmin(); } catch (e) {}
+  if (my !== card.tok) return;
+  const town = adm && townAt(adm, mid.lng, mid.lat);
+  if (town) { // 框住的那塊中心落在哪一區，就報那一區；底下再報整個縣市
+    const ex = exploredByTown(adm), cty = adm.counties[town.c];
+    title = cty.n + '・' + town.n;
+    label = town.n + '，你走過'; pct = (ex.town.get(town) || 0) / town.a * 100;
+    line3 = cty.n + ' ' + fmtPct((ex.county.get(town.c) || 0) / cty.a * 100) + '　' + areaText;
+  } else {
+    const ex = exploredIn(nw.lng, se.lat, se.lng, nw.lat);
+    label = '這張圖裡，你走過'; pct = ex.area > 0 ? ex.explored / ex.area * 100 : 0;
+    line3 = areaText + '　地面 ' + Math.round(st.km.walk + st.km.vehicle) + ' km';
+  }
   drawCardUI(g, {
-    title: v.title,
+    title, label, pct, line3, badge: titleOf(),
     sub: d.getFullYear() + '.' + pad2(d.getMonth() + 1) + '.' + pad2(d.getDate()) + '　走過 ' + daysWalked() + ' 天',
-    pct: ex.area > 0 ? ex.explored / ex.area * 100 : 0, area: st.area, km: st.km.walk + st.km.vehicle,
     mpp: v.mpp / (dpr * s)
   });
 }
@@ -1724,6 +1814,7 @@ $('btnCard').onclick = async () => {
   card.snap = await snapMap(); card.view = viewNow();
   buildStrip(); $('cardView').hidden = false;
   FRAMES.forEach(f => loadFrame(f.id).catch(() => {})); // 其他框先在背景處理好，換的時候不用等
+  loadAdmin().catch(() => {});
   drawCard();
 };
 $('btnCardClose').onclick = () => { $('cardView').hidden = true; card.snap = null; };

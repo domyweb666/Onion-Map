@@ -28,6 +28,7 @@ const copyDir = (from, to) => {
 };
 copyDir('fonts', 'www/fonts');
 if (fs.existsSync('assets/sprites')) copyDir('assets/sprites', 'www/assets/sprites'); // 貼紙（材質只有離線拼圖幅用，不進 app）
+if (fs.existsSync('assets/admin')) copyDir('assets/admin', 'www/assets/admin'); // 行政區界線（製圖的探索度用）
 if (fs.existsSync('assets/frames')) { // 製圖用的邊框（只要 PNG；同名 json 是離線預覽用的）
   fs.mkdirSync('www/assets/frames', { recursive: true });
   for (const n of fs.readdirSync('assets/frames')) if (n.endsWith('.png')) fs.copyFileSync('assets/frames/' + n, 'www/assets/frames/' + n);
