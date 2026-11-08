@@ -594,7 +594,7 @@ BACKING = (244, 238, 224)  # 撕邊外面的底色（框是 AI 產的透明 PNG 
 
 def apply_png_frame(card, lay, reveal, path):
     """多米用 AI 產的透明邊框：把內容框裡的地圖等比放進框的窗、疊上框，layout 的座標跟著搬，之後寫字都用新座標。
-    回傳 (新卡, 新 layout, 新 reveal, 框資訊)。框資訊裡有窗、保留區（從同名 json 讀，換算到 W2×H2）。"""
+    回傳 (新卡, 新 layout, 新 reveal, 框資訊)。板子位置不看框，固定在 UI_* 那四個數字（見 make_picker）。"""
     sys.path.insert(0, str(ROOT / 'tools' / 'daycard'))
     from overlay_frame import find_window, fix_inner  # noqa: E402
     p = Path(path)
@@ -614,32 +614,24 @@ def apply_png_frame(card, lay, reveal, path):
     if reveal is not None:
         rim = Image.fromarray((reveal * 255).astype(np.uint8)).crop(CONTENT).resize((sw, sh), Image.BILINEAR).crop((ox, oy, ox + ww, oy + wh))
         full = Image.new('L', (W2, H2), 0); full.paste(rim, (win[0], win[1])); reveal = np.asarray(full).astype(np.float32) / 255
-    fz = {'window': win, 'zones': {}, 'options': {}}
-    jp = p.with_suffix('.json')
-    if jp.exists():
-        j = json.load(open(jp, encoding='utf-8')); zx, zy = W2 / j['space'][0], H2 / j['space'][1]
-        sc = lambda z: [z[0] * zx, z[1] * zy, z[2] * zx, z[3] * zy]
-        fz['zones'] = {k: sc(v) for k, v in j['zones'].items()}; fz['options'] = {k: [sc(o) for o in v] for k, v in j.get('options', {}).items()}
-    else: print('  這款框沒有保留區 json（先跑 tools/daycard/frame_zones.py），板子用預設位置')
     print(f'  邊框 {p.name}：窗 {win}，地圖放大 {s:.3f}')
-    return out, lay, reveal, fz
+    return out, lay, reveal, {'window': win}
 
 
-def make_picker(fz, lum):
-    """回傳 pick(name, w, h, anchor, boxes)：從框的保留區備選裡挑一個位置放板子。
-    挑法：板子底下越暗越好（霧多、不蓋到路線），同分取排前面的；跟已放的板子重疊的不要。沒有框或沒有這塊就回 None，呼叫端用預設位置。"""
+# UI 層（標題帶、行程表、統計板、比例尺）壓在最上面，位置固定、不管哪款框都一樣（多米定案 2026-11-08）。
+# 數字是 1080×1620 輸出圖上的像素：左右內縮 110、上緣 200、下緣 1420，剛好避開最厚的框（城堡）的石牆與 IG 4:5 的裁切線。
+UI_LEFT, UI_TOP, UI_RIGHT, UI_BOTTOM = 110, 200, 970, 1420
+
+
+def make_picker(fz):
+    """回傳 pick(name, w, h, anchor, boxes)：用 PNG 框時給固定位置；沒用框就回 None，呼叫端用程式框的預設位置。"""
+    kx, ky = W2 / 1080, H2 / 1620
+    L, T, R, B = UI_LEFT * kx, UI_TOP * ky, UI_RIGHT * kx, UI_BOTTOM * ky
     def pick(name, w, h, anchor, boxes):
-        if not fz or name not in fz['zones']: return None
-        opts = fz['options'].get(name) or [fz['zones'][name]]
-        best = None
-        for i, (zx, zy, zw, zh) in enumerate(opts):
-            x = zx if anchor in ('tl', 'bl') else zx + zw - w
-            y = zy if anchor == 'tl' else zy + zh - h
-            x0, y0, x1, y1 = int(max(0, x)), int(max(0, y)), int(min(W2, x + w)), int(min(H2, y + h))
-            if x1 <= x0 or y1 <= y0 or overlaps([x0 - 12, y0 - 12, x1 + 12, y1 + 12], boxes): continue
-            score = float(lum[y0:y1, x0:x1].mean()) + 3 * i
-            if best is None or score < best[0]: best = (score, x, y)
-        return None if best is None else (int(best[1]), int(best[2]))
+        if not fz: return None
+        x = L if anchor in ('tl', 'bl') else R - w
+        y = T if anchor == 'tl' else B - h
+        return int(x), int(y)
     return pick
 
 
@@ -684,7 +676,7 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
     d = ImageDraw.Draw(card)
     # 亮度圖：挑板子位置用（越暗越好），也用來判斷 AI 圖自己畫的霧（沒開程式迷霧時，霧裡的字要換淡色）
     lum = ndi.uniform_filter(np.asarray(card.convert('L')).astype(np.float32), 61)
-    pick = make_picker(fz, lum)
+    pick = make_picker(fz)
     def in_light(x, y):  # 這一點是「去過的亮處」嗎：有程式迷霧看 reveal；AI 圖自己畫了霧（像迷霧城市那張）就看亮度
         xi, yi = min(W2 - 1, max(0, int(x))), min(H2 - 1, max(0, int(y)))
         if reveal is not None: return reveal[yi, xi] > 0.5
