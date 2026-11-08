@@ -23,3 +23,4 @@ daycard/*/frame_test_*.png
 daycard/*/framed_*.png
 daycard/_zones/
 __pycache__/
+daycard/*/rpg_*.png

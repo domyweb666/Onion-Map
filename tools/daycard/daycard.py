@@ -44,14 +44,17 @@ SCHEMES = {
               'label': ['SourceHanSansTC-Bold.otf', 'NotoSansTC-VF.ttf', 'msjhbd.ttc'], 'text': ['SourceHanSansTC-Medium.otf', 'NotoSansTC-VF.ttf', 'msjh.ttc']},
     'kai': {'title': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'place': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'label': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'text': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf']},
     'hand': {'title': ['ChenYuluoyan.woff2'], 'place': ['ChenYuluoyan.woff2'], 'label': ['ChenYuluoyan.woff2'], 'text': ['ChenYuluoyan.woff2']},
+    # rpg＝2026-11-08 介面重設計定案：標題與區名用思源宋體粗（木刻章回感），地名與內文用霞鶩文楷
+    'rpg': {'title': ['NotoSerifTC-VF.ttf', 'SourceHanSerifTC-Heavy.otf', 'msjhbd.ttc'], 'place': ['NotoSerifTC-VF.ttf', 'SourceHanSerifTC-Bold.otf', 'msjhbd.ttc'],
+            'label': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'text': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf']},
 }
-FONT_SCHEME = 'kai'  # 多米定案：霞鶩文楷
+FONT_SCHEME = 'rpg'  # 多米定案：rpg（思源宋體標題＋霞鶩文楷內文）；kai 是之前整張都用楷體的版本
 _font_cache = {}
 
 
 def txt(d, xy, text, f, fill):
     """文楷筆畫細，加一像素描邊變粗一點"""
-    d.text(xy, text, font=f, fill=fill, stroke_width=1 if FONT_SCHEME == 'kai' else 0, stroke_fill=fill)
+    d.text(xy, text, font=f, fill=fill, stroke_width=1 if FONT_SCHEME in ('kai', 'rpg') else 0, stroke_fill=fill)
 
 
 def find_font(names):
@@ -66,7 +69,11 @@ def font(size, role='label'):
     key = (FONT_SCHEME, role, size)
     if key not in _font_cache:
         p = find_font(SCHEMES[FONT_SCHEME][role])
-        _font_cache[key] = ImageFont.truetype(str(p), size, index=0)
+        f = ImageFont.truetype(str(p), size, index=0)
+        if 'VF' in p.name:  # 可變字重的字型（思源宋體 VF）：標題與區名壓到最粗，其他用粗體
+            try: f.set_variation_by_axes([900 if role in ('title', 'place') else 700])
+            except Exception: pass
+        _font_cache[key] = f
     return _font_cache[key]
 DZ = 14  # OpenFreeMap 圖磚最高 z14，街道、地標、綠地都在裡面
 TEX_SCALE = {'forest': 0.45, 'urban': 0.42, 'water': 0.5, 'meadow': 0.5, 'paper': 1.0}
@@ -582,7 +589,61 @@ def apply_fog(card, lay, strength, radius_m, stop_m):
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).convert('RGBA'), reveal
 
 
-def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', mat=0, fog=0.0, fog_radius=150, fog_stop=250, route='program', markers='sticker'):
+BACKING = (244, 238, 224)  # 撕邊外面的底色（框是 AI 產的透明 PNG 時）
+
+
+def apply_png_frame(card, lay, reveal, path):
+    """多米用 AI 產的透明邊框：把內容框裡的地圖等比放進框的窗、疊上框，layout 的座標跟著搬，之後寫字都用新座標。
+    回傳 (新卡, 新 layout, 新 reveal, 框資訊)。框資訊裡有窗、保留區（從同名 json 讀，換算到 W2×H2）。"""
+    sys.path.insert(0, str(ROOT / 'tools' / 'daycard'))
+    from overlay_frame import find_window, fix_inner  # noqa: E402
+    p = Path(path)
+    if not p.exists(): p = ROOT / 'assets' / 'frames' / (p.stem + '.png')
+    fr = fix_inner(Image.open(p).convert('RGBA'), 'shadow')
+    l, t, r, b = find_window(fr); kx, ky = W2 / fr.width, H2 / fr.height
+    win = (round(l * kx), round(t * ky), round(r * kx), round(b * ky)); ww, wh = win[2] - win[0], win[3] - win[1]
+    content = card.crop(CONTENT); s = max(ww / content.width, wh / content.height)
+    sw, sh = round(content.width * s), round(content.height * s); ox, oy = (sw - ww) // 2, (sh - wh) // 2
+    out = Image.new('RGBA', (W2, H2), BACKING + (255,))
+    out.paste(content.resize((sw, sh), Image.LANCZOS).crop((ox, oy, ox + ww, oy + wh)), (win[0], win[1]))
+    out.alpha_composite(fr.resize((W2, H2), Image.LANCZOS))
+    T = lambda x, y: ((x - CONTENT[0]) * s - ox + win[0], (y - CONTENT[1]) * s - oy + win[1])
+    for ic in lay['icons']: ic['x'], ic['y'] = T(ic['x'], ic['y']); ic['size'] = ic['size'] * s
+    for q in lay['places']: q['x'], q['y'] = T(q['x'], q['y'])
+    lay['route'] = [list(T(x, y)) for x, y in lay['route']]; lay['start'] = list(T(*lay['start'])); lay['end'] = list(T(*lay['end'])); lay['mpp'] = lay['mpp'] / s
+    if reveal is not None:
+        rim = Image.fromarray((reveal * 255).astype(np.uint8)).crop(CONTENT).resize((sw, sh), Image.BILINEAR).crop((ox, oy, ox + ww, oy + wh))
+        full = Image.new('L', (W2, H2), 0); full.paste(rim, (win[0], win[1])); reveal = np.asarray(full).astype(np.float32) / 255
+    fz = {'window': win, 'zones': {}, 'options': {}}
+    jp = p.with_suffix('.json')
+    if jp.exists():
+        j = json.load(open(jp, encoding='utf-8')); zx, zy = W2 / j['space'][0], H2 / j['space'][1]
+        sc = lambda z: [z[0] * zx, z[1] * zy, z[2] * zx, z[3] * zy]
+        fz['zones'] = {k: sc(v) for k, v in j['zones'].items()}; fz['options'] = {k: [sc(o) for o in v] for k, v in j.get('options', {}).items()}
+    else: print('  這款框沒有保留區 json（先跑 tools/daycard/frame_zones.py），板子用預設位置')
+    print(f'  邊框 {p.name}：窗 {win}，地圖放大 {s:.3f}')
+    return out, lay, reveal, fz
+
+
+def make_picker(fz, lum):
+    """回傳 pick(name, w, h, anchor, boxes)：從框的保留區備選裡挑一個位置放板子。
+    挑法：板子底下越暗越好（霧多、不蓋到路線），同分取排前面的；跟已放的板子重疊的不要。沒有框或沒有這塊就回 None，呼叫端用預設位置。"""
+    def pick(name, w, h, anchor, boxes):
+        if not fz or name not in fz['zones']: return None
+        opts = fz['options'].get(name) or [fz['zones'][name]]
+        best = None
+        for i, (zx, zy, zw, zh) in enumerate(opts):
+            x = zx if anchor in ('tl', 'bl') else zx + zw - w
+            y = zy if anchor == 'tl' else zy + zh - h
+            x0, y0, x1, y1 = int(max(0, x)), int(max(0, y)), int(min(W2, x + w)), int(min(H2, y + h))
+            if x1 <= x0 or y1 <= y0 or overlaps([x0 - 12, y0 - 12, x1 + 12, y1 + 12], boxes): continue
+            score = float(lum[y0:y1, x0:x1].mean()) + 3 * i
+            if best is None or score < best[0]: best = (score, x, y)
+        return None if best is None else (int(best[1]), int(best[2]))
+    return pick
+
+
+def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', mat=0, fog=0.0, fog_radius=150, fog_stop=250, route='program', markers='sticker', frame_png=None):
     lay = json.load(open(out / 'layout.json', encoding='utf-8'))
     src = Image.open(painted_path if painted_path else out / 'base_textured.png').convert('RGB')
     paper = Image.fromarray((tex_array('paper', (W2, H2), PAPER) * 255).astype(np.uint8))
@@ -614,16 +675,26 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
     if fog > 0:
         card, reveal = apply_fog(card, lay, fog, fog_radius, fog_stop)
     # 內容框外面鋪回紙，AI 畫到邊的也會被裱起來；mat：AI 圖自己畫了撕邊或黑角、落在內容框裡面時，紙邊再往內裱幾十像素蓋掉
-    if frame:
+    fz = None
+    if frame_png:  # 多米的透明 PNG 框：地圖進窗、疊框，之後的座標都換成窗裡的
+        card, lay, reveal, fz = apply_png_frame(card, lay, reveal, frame_png); frame = False
+    elif frame:
         band = Image.new('L', (W2, H2), 255); ImageDraw.Draw(band).rectangle([CONTENT[0] + mat, CONTENT[1] + mat, CONTENT[2] - mat, CONTENT[3] - mat], fill=0)
         card.paste(paper, (0, 0), band)
     d = ImageDraw.Draw(card)
+    # 亮度圖：挑板子位置用（越暗越好），也用來判斷 AI 圖自己畫的霧（沒開程式迷霧時，霧裡的字要換淡色）
+    lum = ndi.uniform_filter(np.asarray(card.convert('L')).astype(np.float32), 61)
+    pick = make_picker(fz, lum)
+    def in_light(x, y):  # 這一點是「去過的亮處」嗎：有程式迷霧看 reveal；AI 圖自己畫了霧（像迷霧城市那張）就看亮度
+        xi, yi = min(W2 - 1, max(0, int(x))), min(H2 - 1, max(0, int(y)))
+        if reveal is not None: return reveal[yi, xi] > 0.5
+        return lum[yi, xi] > 105 if painted_path else True
     # 對位檢查圖：我們的路線畫在 AI 圖上，看有沒有對上
     chk = card.copy(); dc = ImageDraw.Draw(chk); dc.line([tuple(p) for p in lay['route']], fill=(0, 90, 255), width=6)
     chk.convert('RGB').resize((W2 // 2, H2 // 2), Image.LANCZOS).save(out / f'{name or "card"}_check.png')
     if painted_path and markers == 'numbered':  # 編號版：停留點紅圈數字，沿路地標小圓點，名字集中到行程表
         for ic in lay['icons']:
-            if ic['kind'] == 'landmark': dot(d, ic['x'], ic['y'])
+            if ic['kind'] == 'landmark' and in_light(ic['x'], ic['y']): dot(d, ic['x'], ic['y'])  # 霧裡的地標不點，不然會多一顆沒名字的點
         for n, ic in enumerate(stops_sorted, 1): badge(d, ic['x'], ic['y'], 34, str(n), 44)
     # 邊框：雙線，手抖
     o = M * 0.5
@@ -640,31 +711,32 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
     # 標題
     title = f'{lay["city"]} · {lay["district"]}'.strip(' ·'); sub = f'{lay["date_zh"]}　洋蔥第 {lay["layer"]} 層'
     f1, f2 = font(88, 'title'), font(42, 'text'); tw1, th1, top1 = text_size(f1, title); tw2, th2, top2 = text_size(f2, sub)
-    bw, bh = max(tw1, tw2) + 100, 60 + th1 + 28 + th2 + 50; bx, by = CONTENT[0] + 36, CONTENT[1] + 36
+    bw, bh = max(tw1, tw2) + 100, 60 + th1 + 28 + th2 + 50; bx, by = pick('title', bw, bh, 'tl', boxes) or (CONTENT[0] + 36, CONTENT[1] + 36)
     cartouche(bx, by, bw, bh)
     txt(d, (bx + 50, by + 50 - top1), title, f1, INK); txt(d, (bx + 52, by + 50 + th1 + 28 - top2), sub, f2, INK_SOFT)
     # 統計
     st = lay['stats']; line1 = f'{st["km"]} km　走了 {st["moving_min"] // 60} 小時 {st["moving_min"] % 60} 分'; line2 = f'{st["start"]} 到 {st["end"]}　停留 {st["stops"]} 處'
     f3 = font(40, 'text'); tw3, th3, top3 = text_size(f3, line1); tw4, th4, top4 = text_size(f3, line2)
     bw2 = max(tw3, tw4) + 90; bh2 = 40 + th3 + 22 + th4 + 40
-    bx2, by2 = CONTENT[2] - 36 - bw2, CONTENT[3] - 36 - bh2
+    bx2, by2 = pick('stats', bw2, bh2, 'br', boxes) or (CONTENT[2] - 36 - bw2, CONTENT[3] - 36 - bh2)
     cartouche(bx2, by2, bw2, bh2)
     txt(d, (bx2 + 45, by2 + 40 - top3), line1, f3, INK); txt(d, (bx2 + 45, by2 + 40 + th3 + 22 - top4), line2, f3, INK_SOFT)
-    # 羅盤（右上）
-    cx, cy, R = CONTENT[2] - 36 - 110, CONTENT[1] + 36 + 110, 78
-    d.ellipse([cx - R, cy - R, cx + R, cy + R], fill=PAPER, outline=INK, width=3); d.ellipse([cx - R * 0.8, cy - R * 0.8, cx + R * 0.8, cy + R * 0.8], outline=INK, width=1)
-    for k in range(16):
-        a = k * math.pi / 8; l = R * 0.1 if k % 4 else R * 0.18
-        d.line([(cx + math.cos(a) * R * 0.8, cy + math.sin(a) * R * 0.8), (cx + math.cos(a) * (R * 0.8 - l), cy + math.sin(a) * (R * 0.8 - l))], fill=INK, width=2)
-    d.polygon([(cx, cy - R * 0.92), (cx - R * 0.16, cy), (cx + R * 0.16, cy)], fill=INK); d.polygon([(cx, cy + R * 0.92), (cx - R * 0.16, cy), (cx + R * 0.16, cy)], outline=INK)
-    d.polygon([(cx - R * 0.7, cy), (cx, cy - R * 0.12), (cx, cy + R * 0.12)], outline=INK); d.polygon([(cx + R * 0.7, cy), (cx, cy - R * 0.12), (cx, cy + R * 0.12)], outline=INK)
-    fn = font(44); text_halo(d, (cx - 12, cy - R - 54), 'N', fn)
-    boxes.append([cx - R - 10, cy - R - 60, cx + R + 10, cy + R + 10])
+    # 羅盤（右上）。PNG 框多半自己有羅盤或角花，就不畫
+    if not fz:
+        cx, cy, R = CONTENT[2] - 36 - 110, CONTENT[1] + 36 + 110, 78
+        d.ellipse([cx - R, cy - R, cx + R, cy + R], fill=PAPER, outline=INK, width=3); d.ellipse([cx - R * 0.8, cy - R * 0.8, cx + R * 0.8, cy + R * 0.8], outline=INK, width=1)
+        for k in range(16):
+            a = k * math.pi / 8; l = R * 0.1 if k % 4 else R * 0.18
+            d.line([(cx + math.cos(a) * R * 0.8, cy + math.sin(a) * R * 0.8), (cx + math.cos(a) * (R * 0.8 - l), cy + math.sin(a) * (R * 0.8 - l))], fill=INK, width=2)
+        d.polygon([(cx, cy - R * 0.92), (cx - R * 0.16, cy), (cx + R * 0.16, cy)], fill=INK); d.polygon([(cx, cy + R * 0.92), (cx - R * 0.16, cy), (cx + R * 0.16, cy)], outline=INK)
+        d.polygon([(cx - R * 0.7, cy), (cx, cy - R * 0.12), (cx, cy + R * 0.12)], outline=INK); d.polygon([(cx + R * 0.7, cy), (cx, cy - R * 0.12), (cx, cy + R * 0.12)], outline=INK)
+        fn = font(44); text_halo(d, (cx - 12, cy - R - 54), 'N', fn)
+        boxes.append([cx - R - 10, cy - R - 60, cx + R + 10, cy + R + 10])
     # 行程表（左下，編號版）：每個停留點一行
     if painted_path and markers == 'numbered' and stops_sorted:
         fl = font(40, 'text'); rows = [f'{ic["t0"]}　{ic["name"]}　{ic["minutes"]} 分' for ic in stops_sorted]
         tw = max(text_size(fl, r)[0] for r in rows); lh = 64
-        bw3, bh3 = tw + 150, 36 + lh * len(rows) + 24; bx3, by3 = CONTENT[0] + 36, CONTENT[3] - 36 - bh3
+        bw3, bh3 = tw + 150, 36 + lh * len(rows) + 24; bx3, by3 = pick('legend', bw3, bh3, 'bl', boxes) or (CONTENT[0] + 36, CONTENT[3] - 36 - bh3)
         cartouche(bx3, by3, bw3, bh3)
         for i, (ic, r) in enumerate(zip(stops_sorted, rows)):
             cy_ = by3 + 36 + lh * i + lh / 2; badge(d, bx3 + 62, cy_, 22, str(i + 1), 32)
@@ -692,7 +764,6 @@ def compose(out, painted_path, name=None, frame=True, icons=True, fit='auto', ma
                 else: text_halo(d, (lx, ty - top), text, f, fill=fill, halo=halo)
             boxes.append(bb); return True
         return False
-    in_light = lambda x, y: reveal is None or reveal[min(H2 - 1, max(0, int(y))), min(W2 - 1, max(0, int(x)))] > 0.5
     def icon_box(ic):  # 圖示在地圖上佔的框：貼紙以底邊中點為錨；編號版是圓
         x, y, s = ic['x'], ic['y'], ic['size']
         if markers == 'numbered': r = 40 if ic['kind'] == 'stop' else 16; return [x - r, y - r, x + r, y + r]
@@ -748,7 +819,8 @@ def main():
     ap.add_argument('--no-icons', action='store_true', help='不補貼紙圖示（AI 是從帶圖示的底稿畫的時用）')
     ap.add_argument('--fit', default='auto', choices=['auto', 'red', 'structure', 'same'], help='auto：有紅線用紅線對位、沒有就用道路與水的形狀對位；same：當作跟底稿同框')
     ap.add_argument('--mat', type=int, default=0, help='紙邊再往內裱幾像素（AI 圖自己有撕邊黑角跑進內容框時用，例如 48）')
-    ap.add_argument('--font', default='kai', choices=list(SCHEMES), help='字體方案：kai 霞鶩文楷（預設，多米定案）、clear 思源、hand 辰宇落雁體')
+    ap.add_argument('--font', default='rpg', choices=list(SCHEMES), help='字體方案：rpg 思源宋體標題＋霞鶩文楷內文（預設，2026-11-08 定案）、kai 全楷體、clear 思源、hand 辰宇落雁體')
+    ap.add_argument('--frame-png', help='多米用 AI 產的透明邊框（assets/frames/ 裡的名字如 flowers，或 PNG 路徑）。有給就疊這張框、不畫程式的框；板子位置照同名 json 的保留區')
     ap.add_argument('--fog', type=float, default=0.0, help='戰爭迷霧濃度 0~1（0 關掉；0.9 = 沒走過的地方只透一成）')
     ap.add_argument('--fog-radius', type=float, default=150, help='路線左右揭開幾公尺'); ap.add_argument('--fog-stop', type=float, default=250, help='停留點周圍揭開幾公尺')
     ap.add_argument('--route', default='program', choices=['program', 'ai'], help='program：路線由程式畫（AI 畫的會先抹掉）；ai：留 AI 畫的')
@@ -757,7 +829,7 @@ def main():
     global FONT_SCHEME; FONT_SCHEME = args.font
     if args.cmd == 'compose':
         out = Path(args.out) if args.out else ROOT / 'daycard' / args.date
-        return compose(out, args.painted, name=args.name, frame=not args.no_frame, icons=not args.no_icons, fit=args.fit, mat=args.mat, fog=args.fog, fog_radius=args.fog_radius, fog_stop=args.fog_stop, route=args.route, markers=args.markers)
+        return compose(out, args.painted, name=args.name, frame=not args.no_frame, icons=not args.no_icons, fit=args.fit, mat=args.mat, fog=args.fog, fog_radius=args.fog_radius, fog_stop=args.fog_stop, route=args.route, markers=args.markers, frame_png=args.frame_png)
     date, pts, layer, trimmed = load_day(args.track, args.date, args.trim)
     out = Path(args.out) if args.out else ROOT / 'daycard' / date; out.mkdir(parents=True, exist_ok=True)
     stops = find_stops(pts); st = stats_of(pts, stops)
