@@ -1629,16 +1629,16 @@ function exploredIn(w, s, e, n) { // 範圍內探索過的面積（格子中心�
   return { explored: a, area: (e - w) * 111.32 * Math.cos((s + n) / 2 * Math.PI / 180) * (n - s) * 110.57 };
 }
 
-function daysWalked() {
+function daysWalked(P = engine.state().points) {
   const days = new Set();
-  for (const p of engine.state().points) { const t = p[0] < 1e12 ? p[0] * 1000 : p[0]; days.add(new Date(t).toDateString()); }
+  for (const p of P) { const t = p[0] < 1e12 ? p[0] * 1000 : p[0]; days.add(new Date(t).toDateString()); }
   return days.size;
 }
 
 // --- 稱號：看軌跡的樣子給一個身分，外加一句「被看穿」的理由。只用這支手機裡的資料，不跟別人比 ---
 // 判斷照順序，第一個符合的就是；每一條的門檻都寫在這裡，要調直接改數字
-function profileOf() {
-  const s = engine.state(), P = s.points, n = P.length, ground = s.km.walk + s.km.vehicle;
+function profileOf(s = engine.state()) { // s 可以是任何一個引擎的 state（例如只餵一週的紀錄），用來檢查稱號會不會每週都一樣
+  const P = s.points, n = P.length, ground = s.km.walk + s.km.vehicle;
   let night = 0, early = 0, la = 0, ln = 0;
   for (const p of P) {
     const h = new Date((p[0] < 1e12 ? p[0] * 1000 : p[0])).getHours();
@@ -1651,22 +1651,23 @@ function profileOf() {
   rg = Math.sqrt(rg / (n || 1));
   const cells = Object.values(s.cells), once = cells.filter(c => c[0] <= 1).length, thrice = cells.filter(c => c[0] >= 3).length;
   return { n, ground, walk: s.km.walk, vehicle: s.km.vehicle, flights: s.flights.length, night: night / (n || 1), early: early / (n || 1),
-    rg, days: daysWalked(), once: once / (cells.length || 1), thrice: thrice / (cells.length || 1) };
+    rg, days: daysWalked(P), vdays: daysWalked(P.filter(p => p[4] === 'v')), once: once / (cells.length || 1), thrice: thrice / (cells.length || 1) };
 }
 const pc = x => Math.round(x * 100) + '%';
 const TITLES = [
   { name: '剛出發的旅人', when: p => p.ground < 2, why: p => '地圖才刮開一角' },
   { name: '跨海的候鳥', when: p => p.flights >= 2, why: p => '飛了 ' + p.flights + ' 段航線' },
-  { name: '軌道通勤族', when: p => p.vehicle >= 10 && p.vehicle >= 0.6 * p.ground, why: p => pc(p.vehicle / p.ground) + ' 的路是坐車走的' },
+  // 看「幾天有坐車」比看里程準：走路的里程會被 GPS 抖動灌水，通勤族天天坐車才是特徵（假資料試出來的，2026-11-08）
+  { name: '軌道通勤族', when: p => p.days >= 3 && p.vdays >= 0.5 * p.days && p.vehicle >= 0.4 * p.ground, why: p => p.days + ' 天裡有 ' + p.vdays + ' 天在坐車' },
   { name: '夜行者', when: p => p.n >= 200 && p.night >= 0.3, why: p => pc(p.night) + ' 的足跡在晚上十點以後' },
   { name: '早起的鳥', when: p => p.n >= 200 && p.early >= 0.3, why: p => pc(p.early) + ' 的足跡在早上八點以前' },
-  { name: '以家為圓心的人', when: p => p.days >= 5 && p.rg < 1.5, why: p => p.days + ' 天都在 ' + p.rg.toFixed(1) + ' 公里內打轉' },
+  { name: '以家為圓心的人', when: p => p.days >= 3 && p.rg < 1.5, why: p => p.days + ' 天都在 ' + p.rg.toFixed(1) + ' 公里內打轉' },
   { name: '遠行者', when: p => p.rg >= 20, why: p => '足跡散在方圓 ' + Math.round(p.rg) + ' 公里' },
   { name: '老路的守護者', when: p => p.days >= 3 && p.thrice >= 0.5, why: p => pc(p.thrice) + ' 的路走過三次以上' },
-  { name: '巷弄探子', when: p => p.walk >= 0.7 * p.ground && p.once >= 0.8, why: p => pc(p.once) + ' 的地方只去過一次' },
-  { name: '散步家', when: p => true, why: p => '走路 ' + Math.round(p.walk) + ' 公里' }
+  { name: '巷弄探子', when: p => p.walk >= 0.7 * p.ground && p.once >= 0.8 && p.rg >= 0.8, why: p => pc(p.once) + ' 的地方只去過一次' }, // 在家門口繞不算探巷子
+  { name: '散步家', when: p => true, why: p => '平均一天走 ' + (p.walk / (p.days || 1)).toFixed(1) + ' 公里' }
 ];
-function titleOf() { const p = profileOf(), t = TITLES.find(t => t.when(p)); return { name: t.name, why: t.why(p) }; }
+function titleOf(s) { const p = profileOf(s), t = TITLES.find(t => t.when(p)); return { name: t.name, why: t.why(p) }; }
 
 // --- 行政區探索度：內政部的鄉鎮市區界線（tools/admin/build_admin.py 轉的），製圖時才載 ---
 let adminP = null;
