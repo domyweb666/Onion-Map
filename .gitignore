@@ -18,3 +18,8 @@ daycard/*/*_check.png
 daycard/*/card_*.png
 !daycard/*/card_*_1080.png
 daycard/*/structure.png
+# 疊框實驗的輸出，腳本幾秒就能重產
+daycard/*/frame_test_*.png
+daycard/*/framed_*.png
+daycard/_zones/
+__pycache__/
