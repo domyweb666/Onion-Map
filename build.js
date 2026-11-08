@@ -28,5 +28,9 @@ const copyDir = (from, to) => {
 };
 copyDir('fonts', 'www/fonts');
 if (fs.existsSync('assets/sprites')) copyDir('assets/sprites', 'www/assets/sprites'); // 貼紙（材質只有離線拼圖幅用，不進 app）
+if (fs.existsSync('assets/frames')) { // 製圖用的邊框（只要 PNG；同名 json 是離線預覽用的）
+  fs.mkdirSync('www/assets/frames', { recursive: true });
+  for (const n of fs.readdirSync('assets/frames')) if (n.endsWith('.png')) fs.copyFileSync('assets/frames/' + n, 'www/assets/frames/' + n);
+}
 if (fs.existsSync('tiles')) copyDir('tiles', 'www/tiles'); // 畫好的圖幅切成的圖磚
 console.log('index.html + www/index.html built,', h.length, 'bytes');

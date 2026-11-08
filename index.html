@@ -155,6 +155,22 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #legendRows i.track{background:linear-gradient(var(--paper) 0 44%,var(--ink) 44% 56%,var(--paper) 56%)}
   #btnLegendClose{width:100%;padding:12px;border-radius:10px;background:rgba(78,59,38,.1);font-size:14px}
   .maplibregl-ctrl-bottom-right{bottom:calc(var(--safe-b) + 150px)}
+  /* 製圖：截目前的迷霧地圖進框，可換框、可分享 */
+  #cardView{position:fixed;inset:0;z-index:30;background:rgba(30,22,12,.88);display:flex;flex-direction:column;gap:10px;
+    padding:calc(var(--safe-t) + 10px) 12px calc(var(--safe-b) + 12px)}
+  #cardView[hidden]{display:none}
+  #cardBox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+  #cardCanvas{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 6px 16px rgba(0,0,0,.5))}
+  #cardBar{padding:10px 12px}
+  #cardHint{font-family:var(--hand);font-size:12px;color:var(--ink2);margin:0 0 8px;line-height:1.4}
+  #frameStrip{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+  #frameStrip .fr{flex:none;width:70px;padding:4px 2px;border-radius:10px;background:rgba(78,59,38,.08);border:2px solid transparent;
+    display:flex;flex-direction:column;align-items:center;gap:3px;font-family:var(--hand);font-size:12px}
+  #frameStrip .fr img{width:52px;height:78px;object-fit:contain;pointer-events:none}
+  #frameStrip .fr.on{border-color:var(--accent);background:rgba(154,59,42,.12)}
+  #cardBar .row{display:flex;gap:8px}
+  #cardBar .row button{flex:1;padding:13px;border-radius:11px;background:rgba(78,59,38,.1);font-size:15px}
+  #cardBar #btnCardShare{background:var(--ink);color:var(--paper2);font-weight:600;letter-spacing:1px}
 </style>
 </head>
 <body>
@@ -173,6 +189,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
 </div>
 
 <div id="side">
+  <button id="btnCard" class="card">製圖</button>
   <button id="btnLocate" class="card">定位</button>
   <button id="btnSim" class="card">模擬</button>
   <button id="btnData" class="card">資料</button>
@@ -216,6 +233,18 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     <h3>圖例</h3>
     <div id="legendRows"></div>
     <button id="btnLegendClose">關閉</button>
+  </div>
+</div>
+
+<div id="cardView" hidden>
+  <div id="cardBox"><canvas id="cardCanvas" width="1080" height="1620" role="img" aria-label="洋蔥地圖卡片預覽"></canvas></div>
+  <div id="cardBar" class="card">
+    <p id="cardHint">框住的是剛才畫面中間那一塊。想換範圍，回地圖移一下再按「製圖」。</p>
+    <div id="frameStrip" aria-label="選框"></div>
+    <div class="row">
+      <button id="btnCardShare">分享這張</button>
+      <button id="btnCardClose">回地圖</button>
+    </div>
   </div>
 </div>
 
@@ -1493,6 +1522,7 @@ if (STYLE === 'sheet') {
   map.on('load', () => {
     for (const l of style.layers) if (l.id !== 'bg' && map.getLayer(l.id)) map.setLayoutProperty(l.id, 'visibility', 'none'); // 向量底圖全藏
     for (const id of ['hint-water', 'hint-border', 'explored-hatch', 'freq', 'explored-ink', 'fog-hatch', 'gaps']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+    if (map.getLayer('place')) { map.setLayoutProperty('place', 'visibility', 'visible'); map.setPaintProperty('place', 'text-opacity', 0); } // 地名不畫，但圖磚要載：製圖的標題靠它找城市與區
     for (const s of SHEETS) {
       map.addSource('sheet-' + s.id, { type: 'raster', tiles: [s.tiles], tileSize: 256, bounds: s.bounds, minzoom: s.minzoom, maxzoom: s.maxzoom });
       map.addLayer({ id: 'sheet-' + s.id, type: 'raster', source: 'sheet-' + s.id, paint: { 'raster-fade-duration': 0 } }, 'freq'); // 放在霧的下面
@@ -1508,6 +1538,211 @@ if (STYLE === 'sheet') {
     map.setPaintProperty('track', 'line-width', ['interpolate', ['linear'], ['zoom'], 8, 1.6, 13, 2.6]); map.setPaintProperty('track', 'line-dasharray', [2.5, 1.6]);
   });
 }
+// ===== 製圖：把現在看到的迷霧地圖截下來，放進多米用 AI 產的框，壓上固定位置的 UI 層；可換框、可分享 =====
+// 框在 assets/frames/（離線卡片 tools/daycard 用同一批）。UI 層的位置跟 daycard.py 的 UI_* 是同一組數字：不管哪款框都一樣
+const CARD_W = 1080, CARD_H = 1620, CARD_UI = { l: 110, t: 200, r: 970, b: 1420 };
+const FRAMES = [
+  { id: 'vine-watercolor', name: '水彩花藤' },
+  { id: 'flowers', name: '花卉卷軸' },
+  { id: 'vine-wrap', name: '花藤環繞' },
+  { id: 'castle', name: '城堡' }
+];
+const FRAME_KEY = 'onion.frame';
+const CARD_SERIF = "'Noto Serif TC','Source Han Serif TC','Songti TC','STSong','PMingLiU',serif"; // 標題：宋體粗（rpg 字體方案）
+const CARD_KAI = "'LXGW WenKai TC','LXGW WenKai','Kaiti TC','STKaiti','DFKai-SB','BiauKai',serif"; // 內文：楷體
+const card = { frame: null, snap: null, view: null, tok: 0 };
+try { card.frame = localStorage.getItem(FRAME_KEY); } catch (e) {}
+if (!FRAMES.some(f => f.id === card.frame)) card.frame = FRAMES[0].id;
+
+const frameCache = {};
+function loadFrame(id) { // 框縮到卡片大小、找出中間透明的窗、窗內緣的米色暈改成焦褐陰影（跟 tools/daycard/overlay_frame.py 同一套）
+  if (frameCache[id]) return frameCache[id];
+  return frameCache[id] = new Promise((ok, bad) => {
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = CARD_W; c.height = CARD_H;
+      const g = c.getContext('2d'); g.drawImage(im, 0, 0, CARD_W, CARD_H);
+      const img = g.getImageData(0, 0, CARD_W, CARD_H), d = img.data, n = CARD_W * CARD_H;
+      const seen = new Uint8Array(n), q = new Int32Array(n), start = (CARD_H >> 1) * CARD_W + (CARD_W >> 1);
+      let head = 0, tail = 0, l = CARD_W, t = CARD_H, r = 0, b = 0;
+      const push = p => { if (!seen[p] && d[p * 4 + 3] < 250) { seen[p] = 1; q[tail++] = p; } };
+      push(start);
+      while (head < tail) { // 從中心沿著 alpha 低的像素往外長，長到的範圍就是窗
+        const p = q[head++], x = p % CARD_W, y = (p / CARD_W) | 0;
+        if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > b) b = y;
+        const a = d[p * 4 + 3];
+        if (a > 0) { d[p * 4] = 58; d[p * 4 + 1] = 40; d[p * 4 + 2] = 24; d[p * 4 + 3] = a * 0.7; } // 黑霧貼著框，不留白邊
+        if (x > 0) push(p - 1); if (x < CARD_W - 1) push(p + 1); if (y > 0) push(p - CARD_W); if (y < CARD_H - 1) push(p + CARD_W);
+      }
+      if (!tail) { l = 60; t = 60; r = CARD_W - 61; b = CARD_H - 61; } // 中心不透明：這張不像框，就整張蓋上去
+      g.putImageData(img, 0, 0);
+      ok({ canvas: c, win: [l, t, r + 1, b + 1] });
+    };
+    im.onerror = () => { delete frameCache[id]; bad(new Error('框載不到：' + id)); };
+    im.src = 'assets/frames/' + id + '.png';
+  });
+}
+
+function snapMap() { // WebGL 畫布要在 render 那一刻讀，不然是空的；草稿模式的手繪層用 multiply 疊回去
+  return new Promise(ok => {
+    let done = false;
+    const grab = () => {
+      if (done) return; done = true;
+      const src = map.getCanvas(), c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+      const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+      if (window.sketchCanvas) { g.globalCompositeOperation = 'multiply'; g.drawImage(window.sketchCanvas, 0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over'; }
+      ok(c);
+    };
+    map.once('render', grab); map.triggerRepaint();
+    setTimeout(() => { if (!done) { try { map._render(performance.now()); } catch (e) {} grab(); } }, 800); // 背景分頁沒有 rAF 時的保險
+  });
+}
+
+function viewNow() { // 記下按「製圖」那一刻的鏡頭：之後換框要重算範圍，地圖若在背景跟著定位移動也不影響
+  const el = map.getContainer(), c = map.getCenter(), z = map.getZoom(), size = 512 * Math.pow(2, z);
+  const merc = (lng, lat) => { const s = Math.sin(lat * Math.PI / 180); return [(lng + 180) / 360 * size, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * size]; };
+  const [cx, cy] = merc(c.lng, c.lat), w = el.clientWidth, h = el.clientHeight;
+  const at = (x, y) => { const X = cx + x - w / 2, Y = cy + y - h / 2, m = 0.5 - Y / size; return { lng: X / size * 360 - 180, lat: 90 - 360 * Math.atan(Math.exp(-m * 2 * Math.PI)) / Math.PI }; };
+  return { w, h, at, mpp: 40075016.686 * Math.cos(c.lat * Math.PI / 180) / size, title: placeTitle(c, z) };
+}
+
+function placeTitle(c, z) { // 卡片標題：畫面中心最近的城市與區（圖磚裡的地名點）；拉得太遠或圖磚沒載就叫「洋蔥地圖」
+  if (z < 8.5) return '洋蔥地圖';
+  let feats = []; try { feats = map.querySourceFeatures('omt', { sourceLayer: 'place' }); } catch (e) {}
+  const k = Math.cos(c.lat * Math.PI / 180);
+  const near = classes => {
+    let best = null, bd = Infinity;
+    for (const f of feats) {
+      if (!classes.includes(f.properties.class) || f.geometry.type !== 'Point') continue;
+      const [x, y] = f.geometry.coordinates, dd = ((x - c.lng) * k) ** 2 + (y - c.lat) ** 2;
+      if (dd < bd) { bd = dd; best = f; }
+    }
+    return best ? (best.properties['name:zh-Hant'] || best.properties['name:zh'] || best.properties.name) : null;
+  };
+  const city = near(['city', 'town']), sub = z >= 12 ? near(['suburb', 'quarter']) : null;
+  return [city, sub].filter(Boolean).join('・') || '洋蔥地圖';
+}
+
+function exploredIn(w, s, e, n) { // 範圍內探索過的面積（格子中心落在範圍裡就算）與範圍面積，km²
+  const cells = engine.state().cells; let a = 0;
+  for (const c in cells) { const [lat, lng] = h3.cellToLatLng(c); if (lng >= w && lng <= e && lat >= s && lat <= n) a += h3.cellArea(c, 'km2'); }
+  return { explored: a, area: (e - w) * 111.32 * Math.cos((s + n) / 2 * Math.PI / 180) * (n - s) * 110.57 };
+}
+
+function daysWalked() {
+  const days = new Set();
+  for (const p of engine.state().points) { const t = p[0] < 1e12 ? p[0] * 1000 : p[0]; days.add(new Date(t).toDateString()); }
+  return days.size;
+}
+
+function handRect(g, x, y, w, h, jit, seed) { // 手抖的方框：每邊切幾段、每段偏一點；固定 seed，換框重畫時抖法一樣
+  let k = seed;
+  const rnd = () => ((k = (k * 16807) % 2147483647) / 2147483647 - 0.5) * 2 * jit;
+  const corners = [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
+  g.beginPath(); g.moveTo(x + rnd(), y + rnd());
+  for (let i = 1; i < corners.length; i++) {
+    const [ax, ay] = corners[i - 1], [bx, by] = corners[i], steps = Math.max(2, Math.round(Math.hypot(bx - ax, by - ay) / 60));
+    for (let s = 1; s <= steps; s++) g.lineTo(ax + (bx - ax) * s / steps + rnd(), ay + (by - ay) * s / steps + rnd());
+  }
+  g.stroke();
+}
+function cartouche(g, x, y, w, h, seed) { // 字底下的紙片：半透明紙＋外粗內細兩道墨線
+  g.save(); g.fillStyle = 'rgba(246,238,219,.95)'; g.shadowColor = 'rgba(30,22,12,.4)'; g.shadowBlur = 12; g.shadowOffsetY = 3; g.fillRect(x, y, w, h); g.restore();
+  g.strokeStyle = '#2B241C'; g.lineWidth = 3; handRect(g, x, y, w, h, 1.1, seed);
+  g.strokeStyle = 'rgba(43,36,28,.7)'; g.lineWidth = 1.4; handRect(g, x + 7, y + 7, w - 14, h - 14, 0.7, seed + 7);
+}
+function haloText(g, text, x, y) { g.lineWidth = 5; g.strokeStyle = 'rgba(28,24,18,.85)'; g.strokeText(text, x, y); g.fillStyle = '#F6EEDB'; g.fillText(text, x, y); }
+
+function drawCardUI(g, o) {
+  const U = CARD_UI, pad = 32;
+  g.textBaseline = 'alphabetic';
+  // 標題帶：左上
+  const fT = '900 50px ' + CARD_SERIF, fS = '400 24px ' + CARD_KAI;
+  g.font = fT; const tw = g.measureText(o.title).width; g.font = fS; const sw = g.measureText(o.sub).width;
+  const bw = Math.ceil(Math.max(tw, sw) + pad * 2), bh = 132;
+  cartouche(g, U.l, U.t, bw, bh, 11);
+  g.font = fT; g.fillStyle = '#2B241C'; g.fillText(o.title, U.l + pad, U.t + 74);
+  g.font = fS; g.fillStyle = '#5A4E3F'; g.fillText(o.sub, U.l + pad + 2, U.t + 108);
+  // 統計板：右下。大數字是「這張圖裡你走過多少」，有一點自嘲才有人想分享
+  const pct = o.pct, pctText = pct >= 10 ? pct.toFixed(0) + '%' : pct >= 0.1 ? pct.toFixed(1) + '%' : (pct > 0 ? '不到 0.1%' : '0%');
+  const l1 = '這張圖裡，你走過', l3 = '已開拓 ' + (o.area < 10 ? o.area.toFixed(2) : o.area.toFixed(1)) + ' km²　地面 ' + Math.round(o.km) + ' km';
+  const fB = '700 60px ' + CARD_SERIF, fL = '400 23px ' + CARD_KAI;
+  g.font = fL; const w1 = g.measureText(l1).width, w3 = g.measureText(l3).width; g.font = fB; const w2 = g.measureText(pctText).width;
+  const sw2 = Math.ceil(Math.max(w1, w2, w3) + pad * 2), sh2 = 190, sx2 = U.r - sw2, sy2 = U.b - sh2;
+  cartouche(g, sx2, sy2, sw2, sh2, 23);
+  g.font = fL; g.fillStyle = '#5A4E3F'; g.fillText(l1, sx2 + pad, sy2 + 52);
+  g.font = fB; g.fillStyle = '#A33028'; g.fillText(pctText, sx2 + pad - 2, sy2 + 118);
+  g.font = fL; g.fillStyle = '#2B241C'; g.fillText(l3, sx2 + pad, sy2 + 160);
+  // 比例尺：統計板正上方，靠右；霧上也看得到（紙色字、深色描邊）
+  const L = [20000, 10000, 5000, 2000, 1000, 500, 250, 100, 50, 20].find(v => v / o.mpp <= 240) || 20;
+  const bl = L / o.mpp, bx = U.r - bl, by = sy2 - 28;
+  for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? '#F6EEDB' : '#2B241C'; g.fillRect(bx + bl * i / 4, by, bl / 4, 12); }
+  g.lineWidth = 2; g.strokeStyle = '#F6EEDB'; g.strokeRect(bx, by, bl, 12);
+  g.font = '400 22px ' + CARD_KAI; haloText(g, '0', bx - 6, by - 10);
+  const lab = L >= 1000 ? (L / 1000) + ' km' : L + ' m'; haloText(g, lab, U.r - g.measureText(lab).width, by - 10);
+  // 底邊署名
+  g.font = '400 20px ' + CARD_SERIF; g.fillStyle = 'rgba(74,47,24,.85)'; const sig = 'ONION MAP · 洋蔥地圖';
+  g.fillText(sig, (CARD_W - g.measureText(sig).width) / 2, CARD_H - 22);
+}
+
+async function drawCard() {
+  const my = ++card.tok, snap = card.snap, v = card.view;
+  let fr; try { fr = await loadFrame(card.frame); } catch (e) { toast(e.message); return; }
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  if (my !== card.tok) return; // 連續點了好幾個框，只畫最後一個
+  const g = $('cardCanvas').getContext('2d'), [l, t, r, b] = fr.win, ww = r - l, wh = b - t;
+  const s = Math.max(ww / snap.width, wh / snap.height), sw = ww / s, sh = wh / s, sx = (snap.width - sw) / 2, sy = (snap.height - sh) / 2;
+  g.fillStyle = '#F4EEE0'; g.fillRect(0, 0, CARD_W, CARD_H);
+  g.drawImage(snap, sx, sy, sw, sh, l, t, ww, wh);
+  g.drawImage(fr.canvas, 0, 0);
+  const dpr = snap.width / v.w, nw = v.at(sx / dpr, sy / dpr), se = v.at((sx + sw) / dpr, (sy + sh) / dpr);
+  const ex = exploredIn(nw.lng, se.lat, se.lng, nw.lat), st = engine.state(), d = new Date(), pad2 = x => String(x).padStart(2, '0');
+  drawCardUI(g, {
+    title: v.title,
+    sub: d.getFullYear() + '.' + pad2(d.getMonth() + 1) + '.' + pad2(d.getDate()) + '　走過 ' + daysWalked() + ' 天',
+    pct: ex.area > 0 ? ex.explored / ex.area * 100 : 0, area: st.area, km: st.km.walk + st.km.vehicle,
+    mpp: v.mpp / (dpr * s)
+  });
+}
+
+function markStrip() { for (const b of $('frameStrip').children) b.classList.toggle('on', b.dataset.id === card.frame); }
+function buildStrip() {
+  const el = $('frameStrip');
+  if (!el.childElementCount) for (const f of FRAMES) {
+    const b = document.createElement('button'); b.className = 'fr'; b.dataset.id = f.id; b.setAttribute('aria-label', '換成' + f.name + '框');
+    b.innerHTML = '<img src="assets/frames/' + f.id + '.png" alt=""><span>' + f.name + '</span>';
+    b.onclick = () => { card.frame = f.id; try { localStorage.setItem(FRAME_KEY, f.id); } catch (e) {} markStrip(); drawCard(); };
+    el.appendChild(b);
+  }
+  markStrip();
+}
+
+$('btnCard').onclick = async () => {
+  const s = engine.state();
+  if (!Object.keys(s.cells).length) { toast('還沒走過任何地方，先去記錄一段'); return; }
+  toast('製圖中…', 1200);
+  card.snap = await snapMap(); card.view = viewNow();
+  buildStrip(); $('cardView').hidden = false;
+  FRAMES.forEach(f => loadFrame(f.id).catch(() => {})); // 其他框先在背景處理好，換的時候不用等
+  drawCard();
+};
+$('btnCardClose').onclick = () => { $('cardView').hidden = true; card.snap = null; };
+$('btnCardShare').onclick = async () => {
+  const cv = $('cardCanvas'), name = 'onion-card-' + new Date().toISOString().slice(0, 10) + '.png';
+  if (NATIVE) { // 跟匯出備份同一招：寫進暫存資料夾，再開 iOS 分享面板（存相簿、傳 LINE、發 IG 都從這裡）
+    try {
+      await FS.writeFile({ path: name, data: cv.toDataURL('image/png').split(',')[1], directory: 'CACHE' });
+      const { uri } = await FS.getUri({ path: name, directory: 'CACHE' });
+      await SHARE.share({ title: '我的洋蔥地圖', url: uri });
+    } catch (e) { if (!/cancel/i.test(String(e && e.message))) toast('分享失敗：' + (e.message || e)); }
+    return;
+  }
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png')), file = new File([blob], name, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: '我的洋蔥地圖' }); } catch (e) {} return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+
 updateStats();
 </script>
 </body>
