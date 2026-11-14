@@ -15,6 +15,34 @@ put('/*@@MAPLIBRE_JS@@*/', 'node_modules/maplibre-gl/dist/maplibre-gl.js');
 put('/*@@CAPACITOR_JS@@*/', 'node_modules/@capacitor/core/dist/capacitor.js');
 // Rough.js：手繪抖線與排線填色（草稿模式用，約 40KB）
 put('/*@@ROUGH_JS@@*/', 'node_modules/roughjs/bundled/rough.js');
+// Domy Design 的代號 → CSS 變數。介面只准用 var(--d-*)，數值的唯一來源是 vendor/domy-design/tokens.json
+// （改代號先跑 node tools/sync-domy-tokens.js，不要手改 CSS）
+const DOMY_THEME = 'gold';
+const domyCSS = (() => {
+  const T = JSON.parse(fs.readFileSync('vendor/domy-design/tokens.json', 'utf8')), th = T.themes[DOMY_THEME];
+  const kebab = s => s.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
+  const colors = scheme => {
+    const c = { ...T.neutral[scheme], canvas: T.canvas[th.canvas][scheme], ...th[scheme] };
+    return Object.entries(c).map(([k, v]) => '--d-' + kebab(k) + ':' + v).join(';');
+  };
+  const v = [];
+  for (const [k, t] of Object.entries(T.type)) v.push('--d-' + kebab(k) + ':' + t.weight + ' ' + t.size + 'px/' + t.lineHeight + 'px var(--d-font)');
+  for (const [k, n] of Object.entries(T.space)) v.push('--d-space-' + k + ':' + n + 'px');
+  for (const [k, n] of Object.entries(T.radius)) v.push('--d-radius-' + k + ':' + n + 'px');
+  for (const [k, n] of Object.entries(T.size)) v.push('--d-size-' + kebab(k) + ':' + n + 'px');
+  for (const [k, e] of Object.entries(T.elevation)) v.push('--d-elev-' + k + ':0 ' + e.offsetY + 'px ' + e.blur + 'px rgba(var(--d-shadow-rgb),' + e.opacity + ')');
+  v.push('--d-press-scale:' + T.motion.pressScale, '--d-pressed-opacity:' + T.motion.pressedOpacity,
+    '--d-press-ms:' + T.motion.pressDuration + 'ms', '--d-transition-ms:' + T.motion.transition + 'ms');
+  const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
+  return ':root{--d-font:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif;' + v.join(';') + ';' + colors('light') +
+    ';--d-shadow-rgb:' + rgb(T.neutral.light.shadow) + ';color-scheme:light}' +
+    '@media (prefers-color-scheme:dark){:root:not([data-theme=light]){' + colors('dark') + ';--d-shadow-rgb:' + rgb(T.neutral.dark.shadow) + ';color-scheme:dark}}' +
+    ':root[data-theme=dark]{' + colors('dark') + ';--d-shadow-rgb:' + rgb(T.neutral.dark.shadow) + ';color-scheme:dark}' +
+    '/* domy-design v' + T.version + ' · theme ' + DOMY_THEME + ' */';
+})();
+if (!h.includes('/*@@DOMY_CSS@@*/')) throw new Error('src/index.src.html 裡找不到佔位符 /*@@DOMY_CSS@@*/');
+h = h.split('/*@@DOMY_CSS@@*/').join(domyCSS);
+h = h.split('@@DOMY_VER@@').join(JSON.parse(fs.readFileSync('vendor/domy-design/tokens.json', 'utf8')).version);
 fs.writeFileSync('index.html', h);
 fs.mkdirSync('www', { recursive: true });
 fs.writeFileSync('www/index.html', h);

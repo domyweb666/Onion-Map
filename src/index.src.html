@@ -11,180 +11,315 @@
 <script>/*@@MAPLIBRE_JS@@*/</script>
 <script>/*@@CAPACITOR_JS@@*/</script>
 <script>/*@@ROUGH_JS@@*/</script>
+<style>/*@@DOMY_CSS@@*/</style>
 <style>
-  /* 手寫字型：辰宇落雁體（OFL），fonts/ 裡附授權 */
+  /* ===== 介面：Domy Design（代號在 vendor/domy-design/tokens.json，build.js 轉成 var(--d-*)）=====
+     規矩：介面只准用 var(--d-*)，不寫色碼、字級、間距、圓角。地圖本身的畫風、卡片畫布不受這條管。 */
+  /* 手寫字型：辰宇落雁體（OFL），地圖上的地名用，介面不用 */
   @font-face{font-family:'Luoyan';src:url('fonts/ChenYuluoyan.woff2') format('woff2');font-display:swap}
   :root{
-    --paper:#F3ECDB; --paper2:#FAF5E8; --ink:#2E2820; --ink2:#6A5F4E; --accent:#9A3B2A;
-    --hand:'Luoyan',"PingFang TC","Noto Sans TC",sans-serif;
     --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+    --tab-icon:22px; /* domy-ignore: DomyTabBar 的 TAB_ICON */
+    --tab-clear:calc(var(--safe-b) + var(--d-size-tab-bar-bottom) + var(--d-size-tab-bar) + var(--d-space-4));
+    --rec-btn:calc(var(--d-size-button) + var(--d-space-3));
+    --rec-h:calc(var(--rec-btn) + var(--d-space-3) * 2);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);
-    font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;overflow:hidden}
-  #map{position:fixed;inset:0}
-  #vignette{position:fixed;inset:0;pointer-events:none;
-    box-shadow:inset 0 0 70px 20px rgba(120,95,60,.14)}
-  /* 筆記本的咖啡色頁框、鉛筆顆粒、指北針 */
-  #frame{position:fixed;left:6px;right:6px;top:calc(var(--safe-t) + 6px);bottom:calc(var(--safe-b) + 6px);border-radius:12px;
-    border:3px solid rgba(107,74,43,.7);box-shadow:inset 0 0 0 2px rgba(107,74,43,.16),inset 0 0 26px rgba(107,74,43,.14);pointer-events:none}
+  html,body{margin:0;height:100%;background:var(--d-canvas);color:var(--d-text-primary);font:var(--d-body);overflow:hidden;
+    -webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0;margin:0}
+  .ic{width:var(--tab-icon);height:var(--tab-icon);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .press{transition:transform var(--d-press-ms),opacity var(--d-press-ms)}
+  .press:active{transform:scale(var(--d-press-scale))}
+  @media (prefers-reduced-motion:reduce){.press:active{transform:none;opacity:var(--d-pressed-opacity)}}
+  [hidden]{display:none!important}
+
+  /* ----- 地圖（畫風照舊，這幾層是地圖的一部分） ----- */
+  #map{position:fixed;inset:0;background:#F3ECDB} /* domy-ignore: 地圖紙色，跟樣式表的 PAPER 同一個 */
+  #vignette{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 70px 20px rgba(120,95,60,.14)} /* domy-ignore: 地圖畫風 */
   #grain{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.45;background-repeat:repeat}
   #sketch{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply}
-  #compass{position:fixed;left:16px;bottom:calc(var(--safe-b) + 152px);width:30px;height:46px;pointer-events:none;opacity:.85}
-  /* 比例尺：細墨線、手寫字 */
-  .maplibregl-ctrl-bottom-left{bottom:calc(var(--safe-b) + 152px);left:56px}
-  .maplibregl-ctrl-scale{font-family:var(--hand);font-size:12px;color:var(--ink);background:transparent!important;
-    border:1.5px solid var(--ink)!important;border-top:none!important;padding:0 4px;box-sizing:content-box}
-  button{font:inherit;color:inherit;border:0;cursor:pointer}
-  .card{background:rgba(250,245,232,.94);border:1px solid rgba(46,40,32,.45);
-    box-shadow:0 4px 18px rgba(60,40,15,.18);border-radius:14px}
-  #top{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 10px);
-    display:flex;align-items:center;gap:10px;padding:10px 14px}
-  .brand{font-family:var(--hand);font-weight:400;font-size:24px;letter-spacing:3px;line-height:1.1}
-  .brand .hl{padding:0 4px;background:linear-gradient(transparent 58%,rgba(236,130,160,.45) 58%,rgba(236,130,160,.45) 88%,transparent 88%)}
-  .brand small{display:block;font-size:12px;letter-spacing:1px;color:var(--ink2);margin-top:3px}
-  #stats{margin-left:auto;text-align:right;font-family:var(--hand);font-size:13px;line-height:1.3;color:var(--ink2)}
-  #stats b{font-size:19px;color:var(--ink)}
-  #side{position:fixed;right:12px;top:calc(var(--safe-t) + 78px);display:flex;flex-direction:column;gap:8px}
-  #side button{width:52px;height:46px;font-size:13px}
-  #side button.on{background:var(--ink);color:var(--paper2)}
-  #simbar{position:fixed;left:12px;right:76px;top:calc(var(--safe-t) + 78px);padding:10px}
-  #simbar .seg{display:flex;gap:6px}
-  #simbar .seg button{flex:1;padding:8px 0;border-radius:9px;background:rgba(78,59,38,.08);font-size:14px}
-  #simbar .seg button.on{background:var(--ink);color:var(--paper2)}
-  #simhint{font-family:var(--hand);font-size:13px;color:var(--ink2);margin-top:7px;line-height:1.4}
-  #panel{position:fixed;left:12px;right:12px;bottom:calc(var(--safe-b) + 12px);padding:12px 14px}
-  #status{font-family:var(--hand);font-size:15px;color:var(--ink2);min-height:18px;margin-bottom:9px}
-  #btnRec{width:100%;padding:14px;border-radius:12px;background:var(--ink);color:var(--paper2);
-    font-size:17px;font-weight:600;letter-spacing:1px}
-  #btnRec.rec{background:var(--accent)}
-  #note{font-family:var(--hand);font-size:13px;color:var(--ink2);margin-top:8px;line-height:1.4}
-  #btnSettings{width:100%;margin-top:8px;padding:10px;border-radius:10px;background:rgba(78,59,38,.1);font-size:14px}
-  .me{width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--paper2);
-    box-shadow:0 0 0 0 rgba(154,59,42,.6);animation:pulse 1.8s infinite}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(154,59,42,.55)}100%{box-shadow:0 0 0 18px rgba(154,59,42,0)}}
-  #modal{position:fixed;inset:0;background:rgba(40,28,12,.45);display:flex;align-items:flex-end;justify-content:center}
-  #modal[hidden],#simbar[hidden]{display:none}
-  #sheet{width:100%;max-width:520px;margin:12px;margin-bottom:calc(var(--safe-b) + 12px);padding:16px}
-  #sheet h3{margin:0 0 6px;font-family:var(--hand);font-size:21px;font-weight:400}
-  #sheet p{margin:0 0 12px;font-family:var(--hand);font-size:14px;color:var(--ink2);line-height:1.5}
-  #sheet .row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
-  #sheet .row button,#sheet label.btn{flex:1;min-width:46%;padding:12px;border-radius:10px;
-    background:rgba(78,59,38,.1);font-size:14px;text-align:center}
-  #sheet .danger{color:var(--accent)}
-  #toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 170px);transform:translateX(-50%);
-    background:var(--ink);color:var(--paper2);padding:9px 14px;border-radius:10px;font-size:13px;
-    opacity:0;transition:opacity .25s;pointer-events:none;max-width:86%;text-align:center}
-  #toast.show{opacity:.95}
-  .maplibregl-ctrl-attrib{background:rgba(250,245,232,.8)!important;font-size:10px}
-  /* 圖例 */
-  #legend{position:fixed;inset:0;background:rgba(40,28,12,.35);display:flex;align-items:flex-end;justify-content:center}
-  #legend[hidden]{display:none}
-  #legendSheet{width:100%;max-width:520px;margin:12px;margin-bottom:calc(var(--safe-b) + 12px);padding:16px}
-  #legendSheet h3{margin:0 0 10px;font-family:var(--hand);font-size:21px;font-weight:400}
-  #legendRows{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;margin-bottom:12px}
-  #legendRows div{display:flex;align-items:center;gap:10px;font-family:var(--hand);font-size:15px}
-  #legendRows i{display:block;flex:none;width:46px;height:26px;border:1px solid rgba(46,40,32,.5);background-color:var(--paper)}
-  #legendRows i.road{background:linear-gradient(var(--paper) 0 30%,var(--ink) 30% 37%,#F2CF5B 37% 63%,var(--ink) 63% 70%,var(--paper) 70%)}
-  #legendRows i.hwy{background:linear-gradient(var(--paper) 0 30%,var(--ink) 30% 37%,#CFC9BC 37% 63%,var(--ink) 63% 70%,var(--paper) 70%)}
-  #legendRows i.track{background:linear-gradient(var(--paper) 0 44%,var(--ink) 44% 56%,var(--paper) 56%)}
-  #btnLegendClose{width:100%;padding:12px;border-radius:10px;background:rgba(78,59,38,.1);font-size:14px}
-  .maplibregl-ctrl-bottom-right{bottom:calc(var(--safe-b) + 150px)}
-  /* 製圖：截目前的迷霧地圖進框，可換框、可分享 */
-  #cardView{position:fixed;inset:0;z-index:30;background:rgba(30,22,12,.88);display:flex;flex-direction:column;gap:10px;
-    padding:calc(var(--safe-t) + 10px) 12px calc(var(--safe-b) + 12px)}
-  #cardView[hidden]{display:none}
-  #cardBox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
-  #cardCanvas{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 6px 16px rgba(0,0,0,.5))}
-  #cardBar{padding:10px 12px}
-  #cardHint{font-family:var(--hand);font-size:12px;color:var(--ink2);margin:0 0 8px;line-height:1.4}
-  #frameStrip{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}
-  #frameStrip .fr{flex:none;width:70px;padding:4px 2px;border-radius:10px;background:rgba(78,59,38,.08);border:2px solid transparent;
-    display:flex;flex-direction:column;align-items:center;gap:3px;font-family:var(--hand);font-size:12px}
-  #frameStrip .fr img{width:52px;height:78px;object-fit:contain;pointer-events:none}
-  #frameStrip .fr.on{border-color:var(--accent);background:rgba(154,59,42,.12)}
-  #cardBar .row{display:flex;gap:8px}
-  #cardBar .row button{flex:1;padding:13px;border-radius:11px;background:rgba(78,59,38,.1);font-size:15px}
-  #cardBar #btnCardShare{background:var(--ink);color:var(--paper2);font-weight:600;letter-spacing:1px}
+  .me{width:18px;height:18px;border-radius:50%;background:var(--d-accent);border:3px solid var(--d-surface);
+    animation:pulse 1.8s infinite} /* domy-ignore: 定位點大小 */
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(145,107,27,.55)}100%{box-shadow:0 0 0 18px rgba(145,107,27,0)}} /* domy-ignore: 脈衝用 accent 的透明版 */
+  .maplibregl-ctrl-bottom-left{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));left:var(--d-size-screen-margin)}
+  .maplibregl-ctrl-bottom-right{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));right:var(--d-size-screen-margin)}
+  .maplibregl-ctrl-bottom-left .maplibregl-ctrl,.maplibregl-ctrl-bottom-right .maplibregl-ctrl{margin:0!important}
+  .maplibregl-ctrl-scale{font:var(--d-caption);color:var(--d-text-secondary);background:var(--d-surface)!important;
+    border:2px solid var(--d-text-secondary)!important;border-top:none!important;padding:0 var(--d-space-1)}
+  .maplibregl-ctrl-attrib{background:var(--d-surface)!important;color:var(--d-text-secondary);font:var(--d-caption)}
+  .maplibregl-ctrl-attrib a{color:var(--d-text-secondary)}
+
+  /* ----- 地圖頁的控制 ----- */
+  #mapTop{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));left:var(--d-size-screen-margin);
+    right:calc(var(--d-size-screen-margin) + var(--d-size-icon-button) + var(--d-space-3));pointer-events:none}
+  #stats{display:inline-flex;align-items:baseline;gap:var(--d-space-1);max-width:100%;pointer-events:auto;
+    min-height:var(--d-size-icon-button);padding:var(--d-space-3) var(--d-space-4);border-radius:var(--d-radius-pill);
+    background:var(--d-surface);box-shadow:var(--d-elev-1);font:var(--d-subheadline);color:var(--d-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #stats b{font:var(--d-headline);color:var(--d-text-primary)}
+  #mapSide{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));right:var(--d-size-screen-margin);
+    display:flex;flex-direction:column;gap:var(--d-space-3)}
+  .ibtn{width:var(--d-size-icon-button);height:var(--d-size-icon-button);border-radius:var(--d-radius-pill);background:var(--d-surface);
+    box-shadow:var(--d-elev-1);color:var(--d-accent);display:grid;place-items:center}
+  .ibtn.on{background:var(--d-soft);color:var(--d-strong)}
+  #simbar{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2) + var(--d-size-icon-button) + var(--d-space-3));
+    left:var(--d-size-screen-margin);right:calc(var(--d-size-screen-margin) + var(--d-size-icon-button) + var(--d-space-3));
+    max-width:420px;padding:var(--d-space-2);border-radius:var(--d-radius-xl);background:var(--d-surface);box-shadow:var(--d-elev-1)} /* domy-ignore: 寬螢幕上限 */
+  .seg{display:flex;gap:var(--d-space-1)}
+  .seg button{flex:1;height:var(--d-size-picker-height);border-radius:var(--d-radius-pill);font:var(--d-callout);color:var(--d-text-primary)}
+  .seg button.on{background:var(--d-soft);color:var(--d-strong)}
+  #simhint{font:var(--d-footnote);color:var(--d-text-secondary);margin:var(--d-space-2) var(--d-space-2) var(--d-space-1)}
+  /* 記錄列：核心動作。待機＝亮金底＋實心圓；記錄中＝產品色底＋方塊，形狀跟著變，不只靠顏色 */
+  #recBar{position:fixed;z-index:5;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:var(--tab-clear);
+    max-width:520px;margin:0 auto;min-height:var(--rec-h);display:flex;align-items:center;gap:var(--d-space-4);
+    padding:var(--d-space-3) var(--d-space-3) var(--d-space-3) var(--d-space-5);border-radius:var(--d-radius-2xl);
+    background:var(--d-surface);box-shadow:var(--d-elev-2)} /* domy-ignore: 寬螢幕上限 */
+  #recText{flex:1;min-width:0;display:flex;flex-direction:column;gap:calc(var(--d-space-1) / 2)}
+  #recTitle{font:var(--d-headline)}
+  #status{font:var(--d-footnote);color:var(--d-text-secondary);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  #btnSettings{align-self:flex-start;font:var(--d-callout);color:var(--d-strong);min-height:var(--d-size-touch)}
+  #btnRec{flex:none;width:var(--rec-btn);height:var(--rec-btn);border-radius:var(--d-radius-pill);display:grid;place-items:center;
+    background:var(--d-bright);color:var(--d-on-bright);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-soft)}
+  #btnRec.rec{background:var(--d-accent);color:var(--d-on-accent);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-accent)}
+  #btnRec .ic{fill:currentColor;stroke:none}
+  #btnRec .stop{display:none}
+  #btnRec.rec .stop{display:block} #btnRec.rec .go{display:none}
+
+  /* ----- 懸浮分頁列（DomyTabBar） ----- */
+  #tabbar{position:fixed;z-index:20;left:0;right:0;bottom:calc(var(--safe-b) + var(--d-size-tab-bar-bottom));display:flex;justify-content:center;pointer-events:none}
+  #tabbar .bar{pointer-events:auto;width:var(--d-size-tab-bar-width);max-width:calc(100% - var(--d-size-screen-margin) * 2);height:var(--d-size-tab-bar);
+    border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-2);
+    padding:calc(var(--d-space-1) * 1.5);display:flex;gap:var(--d-space-1)}
+  .tab{flex:1;min-width:0;border-radius:var(--d-radius-pill);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:calc(var(--d-space-1) / 2);font:var(--d-caption);color:var(--d-text-primary)}
+  .tab[aria-selected=true]{background:var(--d-soft);color:var(--d-strong);font-weight:600}
+
+  /* ----- 分頁（DomyScreen／Section／Row） ----- */
+  .page{position:fixed;inset:0;z-index:10;background:var(--d-canvas);overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:calc(var(--safe-t) + var(--d-space-2)) var(--d-size-screen-margin) var(--tab-clear)}
+  .inner{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
+  .stack{display:flex;flex-direction:column;gap:var(--d-space-6)}
+  .page h1{margin:var(--d-space-4) 0 0;font:var(--d-large-title)}
+  .section{display:flex;flex-direction:column;gap:var(--d-space-2)}
+  .section>h2{margin:0;padding:0 var(--d-space-1);font:var(--d-title3)}
+  .group{background:var(--d-surface);border-radius:var(--d-radius-xl);overflow:hidden}
+  .group>*{position:relative}
+  .group>*+*::before{content:'';position:absolute;top:0;left:var(--d-space-4);right:var(--d-space-4);height:var(--d-size-hairline);background:var(--d-separator)}
+  .foot{margin:0;padding:0 var(--d-space-4);font:var(--d-footnote);color:var(--d-text-secondary)}
+  .row{min-height:var(--d-size-row);display:flex;align-items:center;gap:var(--d-space-3);padding:var(--d-space-2) var(--d-space-4);
+    width:100%;text-align:left;font:var(--d-body);color:var(--d-text-primary)}
+  button.row,label.row{cursor:pointer}
+  button.row:active,label.row:active{background:var(--d-surface-muted)}
+  .row .lbl{flex:1;min-width:0}
+  .row .val{color:var(--d-text-secondary);text-align:right}
+  .row.destructive .lbl{color:var(--d-destructive)}
+  .row .lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--d-space-1);padding:var(--d-space-1) 0}
+  .row .meta{font:var(--d-footnote);color:var(--d-text-secondary)}
+  .row .ttl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .chev{width:9px;height:15px;flex:none;fill:none;stroke:var(--d-text-tertiary);stroke-width:2;stroke-linecap:round;stroke-linejoin:round} /* domy-ignore: icons.tsx 的 CHEVRON */
+  .switch{flex:none;position:relative;width:var(--d-size-switch-width);height:var(--d-size-switch-height);border-radius:var(--d-radius-pill);
+    background:var(--d-surface-muted);transition:background var(--d-transition-ms)}
+  .switch::after{content:'';position:absolute;top:2px;left:2px;width:calc(var(--d-size-switch-height) - 4px);height:calc(var(--d-size-switch-height) - 4px);
+    border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-1);transition:transform var(--d-transition-ms)} /* domy-ignore: 開關圓點留 2px 邊 */
+  .switch[aria-checked=true]{background:var(--d-accent)}
+  .switch[aria-checked=true]::after{transform:translateX(calc(var(--d-size-switch-width) - var(--d-size-switch-height)))}
+  /* 統計（DomyStatGrid） */
+  .statgrid{background:var(--d-tint);border:var(--d-size-hairline) solid var(--d-soft);border-radius:var(--d-radius-xl);padding:var(--d-space-5);
+    display:flex;flex-wrap:wrap;row-gap:var(--d-space-4)}
+  .statgrid>div{width:50%;padding-right:var(--d-space-2);display:flex;flex-direction:column}
+  .statgrid b{font:var(--d-title1);color:var(--d-text-primary)}
+  .statgrid b small{font:var(--d-headline)}
+  .statgrid span{font:var(--d-subheadline);color:var(--d-text-secondary)}
+  /* 空狀態（DomyEmptyState） */
+  .empty{display:flex;flex-direction:column;align-items:center;gap:var(--d-space-3);padding:var(--d-space-8) var(--d-space-6);text-align:center}
+  .empty .badge{width:var(--d-size-empty-icon);height:var(--d-size-empty-icon);border-radius:var(--d-radius-pill);background:var(--d-soft);color:var(--d-accent);display:grid;place-items:center}
+  .empty h3{margin:0;font:var(--d-title3)}
+  .empty p{margin:0;font:var(--d-subheadline);color:var(--d-text-secondary)}
+  .empty .btn{margin-top:var(--d-space-1)}
+  /* 按鈕（DomyButton）：一個畫面最多一顆 primary */
+  .btn{height:var(--d-size-button);border-radius:var(--d-radius-pill);padding:0 var(--d-space-6);font:var(--d-headline);
+    display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+  .btn.primary{background:var(--d-accent);color:var(--d-on-accent)}
+  .btn.secondary{background:var(--d-surface-muted);color:var(--d-text-primary)}
+  .btn.plain{background:transparent;color:var(--d-strong)}
+  .btn.compact{height:var(--d-size-button-compact);padding:0 var(--d-space-4);font:var(--d-callout)}
+  .btn.full{width:100%}
+  .btn:disabled{background:var(--d-surface-muted);color:var(--d-text-disabled)}
+  .actions{display:flex;flex-direction:column;gap:var(--d-space-2)}
+
+  /* ----- 製圖頁 ----- */
+  .cardPrev{background:var(--d-surface);border-radius:var(--d-radius-xl);padding:var(--d-space-3);box-shadow:var(--d-elev-1)}
+  #cardCanvas{display:block;width:100%;height:auto;max-height:46vh;object-fit:contain;border-radius:var(--d-radius-sm)} /* domy-ignore: 預覽高度留空間給選框 */
+  #frameStrip{display:flex;gap:var(--d-space-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 calc(var(--d-size-screen-margin) * -1);
+    padding:var(--d-space-1) var(--d-size-screen-margin)}
+  #frameStrip .fr{flex:none;display:flex;flex-direction:column;align-items:center;gap:var(--d-space-1);padding:var(--d-space-2) var(--d-space-3);
+    border-radius:var(--d-radius-lg);background:var(--d-surface);font:var(--d-caption);color:var(--d-text-primary)}
+  #frameStrip .fr img{width:52px;height:78px;object-fit:contain;pointer-events:none} /* domy-ignore: 框的縮圖照 2:3 */
+  #frameStrip .fr.on{background:var(--d-soft);color:var(--d-strong);font-weight:600;box-shadow:inset 0 0 0 2px var(--d-accent)} /* domy-ignore: 選取框線 */
+
+  /* ----- 圖例：底部抽屜 ----- */
+  #legend{position:fixed;inset:0;z-index:25;background:rgba(var(--d-shadow-rgb),.4);display:flex;align-items:flex-end;justify-content:center} /* domy-ignore: 遮罩透明度 */
+  #legendSheet{width:100%;max-width:560px;background:var(--d-canvas);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
+    padding:var(--d-space-5) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-5));display:flex;flex-direction:column;gap:var(--d-space-4)} /* domy-ignore: 寬螢幕上限 */
+  #legendSheet h2{margin:0;font:var(--d-title2)}
+  #legendRows{display:grid!important;grid-template-columns:1fr 1fr;gap:var(--d-space-3) var(--d-space-4);padding:var(--d-space-4)}
+  #legendRows div{display:flex;align-items:center;gap:var(--d-space-3);font:var(--d-subheadline)}
+  /* 圖例色票是地圖畫風的縮小版，照地圖的顏色畫 */
+  #legendRows i{display:block;flex:none;width:46px;height:26px;border-radius:var(--d-radius-sm);border:1px solid rgba(46,40,32,.3);background-color:#F3ECDB} /* domy-ignore: 地圖畫風 */
+  #legendRows i.road{background:linear-gradient(#F3ECDB 0 30%,#2E2820 30% 37%,#F2CF5B 37% 63%,#2E2820 63% 70%,#F3ECDB 70%)} /* domy-ignore: 地圖畫風 */
+  #legendRows i.hwy{background:linear-gradient(#F3ECDB 0 30%,#2E2820 30% 37%,#CFC9BC 37% 63%,#2E2820 63% 70%,#F3ECDB 70%)} /* domy-ignore: 地圖畫風 */
+  #legendRows i.track{background:linear-gradient(#F3ECDB 0 44%,#2E2820 44% 56%,#F3ECDB 56%)} /* domy-ignore: 地圖畫風 */
+
+  #toast{position:fixed;z-index:30;left:50%;bottom:calc(var(--tab-clear) + var(--d-space-2));transform:translateX(-50%);
+    background:var(--d-text-primary);color:var(--d-surface);padding:var(--d-space-2) var(--d-space-4);border-radius:var(--d-radius-pill);
+    font:var(--d-subheadline);box-shadow:var(--d-elev-2);opacity:0;transition:opacity var(--d-transition-ms);pointer-events:none;
+    max-width:calc(100% - var(--d-size-screen-margin) * 2);text-align:center}
+  body[data-tab=map] #toast{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3))}
+  #toast.show{opacity:1}
 </style>
 </head>
-<body>
+<body data-tab="map">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4Z"/><path d="M9 4v13M15 6.5v13"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="5.5" r="2"/><path d="M8 18.5h7.5a3.25 3.25 0 0 0 0-6.5h-7a3.25 3.25 0 0 1 0-6.5H16"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="m4.5 16.5 4.5-4.5 4 4 2-2 4.5 4.5"/><circle cx="15" cy="8.5" r="1.6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.5"/><circle cx="10" cy="17" r="2.5"/></symbol>
+  <symbol id="i-locate" viewBox="0 0 24 24"><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3.5 9 5-9 5-9-5 9-5Z"/><path d="m3 13.5 9 5 9-5"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 9 15"><path d="m1.5 1.5 6 6-6 6"/></symbol>
+</svg>
+
 <div id="map"></div>
 <div id="vignette"></div>
 <div id="grain"></div>
-<div id="frame"></div>
-<svg id="compass" viewBox="0 0 30 46" aria-hidden="true">
-  <path d="M15 3 L20 25 L15 21 L10 25 Z" fill="#2E2820"/>
-  <text x="15" y="43" font-family="Luoyan,sans-serif" font-size="16" text-anchor="middle" fill="#2E2820">N</text>
-</svg>
 
-<div id="top" class="card">
-  <div class="brand"><span class="hl">洋蔥</span><small id="sub"></small></div>
-  <div id="stats"><b>0.000</b> km²<br>航線 0 段</div>
+<!-- ===== 地圖頁 ===== -->
+<div id="mapTop"><div id="stats" role="status"><b>0.000</b> km²</div></div>
+<div id="mapSide">
+  <button id="btnLegend" class="ibtn press" aria-label="圖例"><svg class="ic"><use href="#i-layers"/></svg></button>
+  <button id="btnLocate" class="ibtn press" aria-label="回到我的位置"><svg class="ic"><use href="#i-locate"/></svg></button>
 </div>
-
-<div id="side">
-  <button id="btnCard" class="card">製圖</button>
-  <button id="btnLocate" class="card">定位</button>
-  <button id="btnSim" class="card">模擬</button>
-  <button id="btnData" class="card">資料</button>
-  <button id="btnLegend" class="card">圖例</button>
-</div>
-
-<div id="simbar" class="card" hidden>
-  <div class="seg">
-    <button data-m="walk" class="on">步行</button>
-    <button data-m="car">汽車</button>
-    <button data-m="hsr">高鐵</button>
-    <button data-m="plane">飛機</button>
+<div id="simbar" hidden>
+  <div class="seg" role="radiogroup" aria-label="模擬的交通方式">
+    <button data-m="walk" class="on" role="radio" aria-checked="true">步行</button>
+    <button data-m="car" role="radio" aria-checked="false">汽車</button>
+    <button data-m="hsr" role="radio" aria-checked="false">高鐵</button>
+    <button data-m="plane" role="radio" aria-checked="false">飛機</button>
   </div>
   <div id="simhint">第一下點地圖＝把你放在那裡；之後每點一下，就用選的交通方式移動過去。</div>
 </div>
-
-<div id="panel" class="card">
-  <div id="status">尚未開始記錄</div>
-  <button id="btnRec">開始記錄</button>
-  <button id="btnSettings" hidden>到「設定」開啟定位權限</button>
-  <div id="note">網頁版限制：要保持螢幕開啟、Safari 在最前面才會記錄（正式版會改成背景記錄）。</div>
+<div id="recBar">
+  <div id="recText">
+    <div id="recTitle">還沒開始記錄</div>
+    <div id="status">按右邊的鈕，邊走邊把地圖刮開</div>
+    <button id="btnSettings" hidden>到「設定」開啟定位權限</button>
+  </div>
+  <button id="btnRec" class="press" aria-label="開始記錄">
+    <svg class="ic go"><use href="#i-dot"/></svg><svg class="ic stop"><use href="#i-stop"/></svg>
+  </button>
 </div>
 
-<div id="modal" hidden>
-  <div id="sheet" class="card">
-    <h3>資料</h3>
-    <p id="dataInfo"></p>
-    <div class="row">
-      <button id="btnExport">下載備份</button>
-      <label class="btn">匯入備份<input id="fileImport" type="file" accept=".json,application/json" hidden></label>
+<!-- ===== 足跡 ===== -->
+<section id="pgSteps" class="page" hidden aria-labelledby="hSteps">
+  <div class="inner">
+    <h1 id="hSteps">足跡</h1>
+    <div id="stepsBody" class="stack"></div>
+  </div>
+</section>
+
+<!-- ===== 製圖 ===== -->
+<section id="cardView" class="page" hidden aria-labelledby="hCard">
+  <div class="inner">
+    <h1 id="hCard">製圖</h1>
+    <div id="cardEmpty" class="empty" hidden>
+      <div class="badge"><svg class="ic"><use href="#i-frame"/></svg></div>
+      <h3>還沒走過任何地方</h3>
+      <p>先去記錄一段，走過的地方才畫得進卡片。</p>
+      <button class="btn primary compact press" data-go="map">去地圖</button>
     </div>
-    <div class="row">
-      <button id="btnClear" class="danger">清除全部紀錄</button>
-      <button id="btnClose">關閉</button>
+    <div id="cardMain" class="stack">
+      <div class="section">
+        <div class="cardPrev"><canvas id="cardCanvas" width="1080" height="1620" role="img" aria-label="洋蔥地圖卡片預覽"></canvas></div>
+        <p class="foot" id="cardHint">框住的是地圖畫面中間那一塊。想換範圍，回地圖移一下再進來。</p>
+      </div>
+      <div class="section">
+        <h2>邊框</h2>
+        <div id="frameStrip" role="group" aria-label="選框"></div>
+      </div>
+      <div class="actions">
+        <button id="btnCardShare" class="btn primary full press">分享這張</button>
+        <button id="btnCardClose" class="btn plain full press">回地圖換範圍</button>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
+<!-- ===== 設定 ===== -->
+<section id="pgSettings" class="page" hidden aria-labelledby="hSet">
+  <div class="inner">
+    <h1 id="hSet">設定</h1>
+    <div class="section">
+      <h2>記錄</h2>
+      <div class="group">
+        <div class="row"><span class="lbl">狀態</span><span class="val" id="recState">沒在記錄</span></div>
+        <button class="row" id="btnPerm" hidden><span class="lbl">定位權限</span><span class="val">到 iOS 設定</span><svg class="chev"><use href="#i-chev"/></svg></button>
+      </div>
+      <p class="foot" id="note">網頁版限制：要保持螢幕開啟、Safari 在最前面才會記錄（正式版會改成背景記錄）。</p>
+    </div>
+    <div class="section">
+      <h2>資料</h2>
+      <div class="group">
+        <div class="row"><span class="lbl">探索格子</span><span class="val" id="dCells">0</span></div>
+        <div class="row"><span class="lbl">軌跡點</span><span class="val" id="dPts">0</span></div>
+        <div class="row"><span class="lbl">航線</span><span class="val" id="dFl">0 段</span></div>
+        <button class="row" id="btnExport"><span class="lbl">下載備份</span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <label class="row"><span class="lbl">匯入備份</span><svg class="chev"><use href="#i-chev"/></svg><input id="fileImport" type="file" accept=".json,application/json" hidden></label>
+      </div>
+      <p class="foot" id="dataInfo"></p>
+    </div>
+    <div class="section" id="secSim">
+      <h2>測試</h2>
+      <div class="group">
+        <div class="row"><span class="lbl">模擬模式</span><button id="btnSim" class="switch" role="switch" aria-checked="false" aria-label="模擬模式"></button></div>
+      </div>
+      <p class="foot">打開後回地圖：第一下點的地方是起點，之後每點一下，就照選的交通方式走過去。開著的時候不會用真的定位。</p>
+    </div>
+    <div class="section">
+      <div class="group">
+        <button class="row destructive" id="btnClear"><span class="lbl">清除全部紀錄</span></button>
+      </div>
+      <p class="foot">清掉就救不回來，先匯出一份備份。</p>
+    </div>
+    <div class="section">
+      <h2>關於</h2>
+      <div class="group">
+        <div class="row"><span class="lbl">地圖資料</span><span class="val">OpenFreeMap · OSM</span></div>
+        <div class="row"><span class="lbl">介面</span><span class="val" id="uiVer">Domy Design v@@DOMY_VER@@</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 圖例 ===== -->
 <div id="legend" hidden>
-  <div id="legendSheet" class="card">
-    <h3>圖例</h3>
-    <div id="legendRows"></div>
-    <button id="btnLegendClose">關閉</button>
+  <div id="legendSheet" role="dialog" aria-modal="true" aria-labelledby="hLegend">
+    <h2 id="hLegend">圖例</h2>
+    <div class="group"><div id="legendRows"></div></div>
+    <button id="btnLegendClose" class="btn secondary full press">關閉</button>
   </div>
 </div>
 
-<div id="cardView" hidden>
-  <div id="cardBox"><canvas id="cardCanvas" width="1080" height="1620" role="img" aria-label="洋蔥地圖卡片預覽"></canvas></div>
-  <div id="cardBar" class="card">
-    <p id="cardHint">框住的是剛才畫面中間那一塊。想換範圍，回地圖移一下再按「製圖」。</p>
-    <div id="frameStrip" aria-label="選框"></div>
-    <div class="row">
-      <button id="btnCardShare">分享這張</button>
-      <button id="btnCardClose">回地圖</button>
-    </div>
-  </div>
-</div>
+<!-- ===== 分頁列 ===== -->
+<nav id="tabbar"><div class="bar" role="tablist" aria-label="分頁">
+  <button class="tab" role="tab" data-tab="map" aria-selected="true"><svg class="ic"><use href="#i-map"/></svg><span>地圖</span></button>
+  <button class="tab" role="tab" data-tab="steps" aria-selected="false"><svg class="ic"><use href="#i-route"/></svg><span>足跡</span></button>
+  <button class="tab" role="tab" data-tab="card" aria-selected="false"><svg class="ic"><use href="#i-frame"/></svg><span>製圖</span></button>
+  <button class="tab" role="tab" data-tab="settings" aria-selected="false"><svg class="ic"><use href="#i-sliders"/></svg><span>設定</span></button>
+</div></nav>
 
-<div id="toast"></div>
-
+<div id="toast" role="status" aria-live="polite"></div>
 <script>
 /*ENGINE_START*/
 // ===== 探索引擎：純邏輯，不碰地圖與畫面，方便獨立測試 =====
@@ -486,6 +621,7 @@ Promise.race([fontReady, new Promise(r => setTimeout(r, 4000))]).then(() => {
   if (map.isStyleLoaded()) showLabels(); else map.once('load', showLabels);
 });
 // 讀回上次的紀錄（iOS 是讀檔，所以是非同步的），讀到就把地圖移到最後一個點
+map.once('load', () => { const at = document.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show'); });
 const restored = loadSaved().then(ok => {
   if (!ok) return;
   render(true);
@@ -718,7 +854,7 @@ function render(force) {
 function updateStats() {
   const s = engine.state();
   const a = s.area < 10 ? s.area.toFixed(3) : s.area.toFixed(1);
-  $('stats').innerHTML = '<b>' + a + '</b> km²<br>航線 ' + s.flights.length + ' 段 · 地面 ' + Math.round(s.km.walk + s.km.vehicle) + ' km';
+  $('stats').innerHTML = '<b>' + a + '</b> km² · 地面 ' + Math.round(s.km.walk + s.km.vehicle) + ' km' + (s.flights.length ? ' · 航線 ' + s.flights.length + ' 段' : '');
 }
 
 // --- 處理一個定位點（真實 GPS 與模擬共用同一條路） ---
@@ -751,7 +887,9 @@ document.addEventListener('visibilitychange', () => {
   else if (recording) flushSave();
 });
 function setRecUI(on) {
-  $('btnRec').textContent = on ? '停止記錄' : '開始記錄'; $('btnRec').classList.toggle('rec', on);
+  const b = $('btnRec'); b.classList.toggle('rec', on); b.setAttribute('aria-label', on ? '停止記錄' : '開始記錄');
+  $('recTitle').textContent = on ? '記錄中' : '沒在記錄';
+  $('recState').textContent = on ? '記錄中' : '沒在記錄';
   if (!on) $('btnSettings').hidden = true;
 }
 function onFix(lat, lng, acc, t, spd) {
@@ -806,7 +944,10 @@ $('btnRec').onclick = () => recording ? stopRec() : startRec();
 $('btnSettings').onclick = () => { if (BG) BG.openSettings(); };
 if (NATIVE) {
   $('note').textContent = 'iOS 會在記錄一陣子後問你要不要改成「永遠允許」位置，選它，手機收進口袋也會繼續畫。資料只存在這支手機。';
-  $('btnExport').textContent = '匯出備份';
+  $('btnExport').querySelector('.lbl').textContent = '匯出備份';
+  $('btnPerm').hidden = false; $('btnPerm').onclick = () => BG.openSettings();
+  // 模擬模式只給開發測試，正式版藏起來（網址加 ?dev=1 才出現）
+  if (!/[?&]dev=1/.test(location.search)) $('secSim').hidden = true;
   // 上次關掉 app 前還在記錄的話，打開就自動接著記（網頁版不這樣做，避免一開網頁就跳權限視窗）
   let resume = false; try { resume = localStorage.getItem(REC_FLAG) === '1'; } catch (e) {}
   if (resume) restored.then(() => startRec());
@@ -824,14 +965,14 @@ const SIM = { walk: { kmh: 5, every: 4 }, car: { kmh: 50, every: 3 }, hsr: { kmh
 let simOn = false, simMode = 'walk', simPos = null, simClock = 0, simQueue = [], simTimer = null;
 function toggleSim() {
   simOn = !simOn;
-  $('btnSim').classList.toggle('on', simOn); $('simbar').hidden = !simOn;
+  $('btnSim').setAttribute('aria-checked', simOn); $('simbar').hidden = !simOn;
   if (simOn) { if (recording) stopRec(); simPos = null; engine.resetLast(); setStatus('模擬模式：點地圖'); }
   else { clearInterval(simTimer); simTimer = null; simQueue = []; engine.resetLast(); setStatus('已離開模擬模式'); }
 }
-$('btnSim').onclick = toggleSim;
+$('btnSim').onclick = () => { toggleSim(); if (simOn) { go('map'); toast('模擬模式：點地圖放下起點'); } };
 document.querySelectorAll('#simbar .seg button').forEach(b => b.onclick = () => {
   simMode = b.dataset.m;
-  document.querySelectorAll('#simbar .seg button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('#simbar .seg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
   if (simMode === 'plane') toast('飛機：請點 50 公里以外的地方');
 });
 function dist(a, b) { return h3.greatCircleDistance([a.lat, a.lng], [b.lat, b.lng], 'm'); }
@@ -864,17 +1005,16 @@ map.on('click', e => {
 });
 
 // --- 資料：備份、匯入、清除 ---
-$('btnData').onclick = () => {
+function refreshData() {
   const s = engine.state();
-  $('dataInfo').textContent = '探索格子 ' + Object.keys(s.cells).length.toLocaleString() + ' 個、軌跡點 ' +
-    s.points.length.toLocaleString() + ' 個、航線 ' + s.flights.length + ' 段。' + (NATIVE
-      ? '資料存在這支手機的洋蔥 app 裡，會跟著 iCloud 的手機備份走；刪掉 app 就沒了，記得定期匯出備份。'
-      : '資料只存在這支手機的瀏覽器裡，清除 Safari 網站資料就會消失，記得定期下載備份。');
-  $('btnClear').textContent = '清除全部紀錄'; $('btnClear').dataset.arm = '';
-  $('modal').hidden = false;
-};
-$('btnClose').onclick = () => { $('modal').hidden = true; };
-$('modal').onclick = e => { if (e.target === $('modal')) $('modal').hidden = true; };
+  $('dCells').textContent = Object.keys(s.cells).length.toLocaleString() + ' 個';
+  $('dPts').textContent = s.points.length.toLocaleString() + ' 個';
+  $('dFl').textContent = s.flights.length + ' 段';
+  $('dataInfo').textContent = NATIVE
+    ? '資料存在這支手機的洋蔥 app 裡，會跟著 iCloud 的手機備份走；刪掉 app 就沒了，記得定期匯出備份。'
+    : '資料只存在這支手機的瀏覽器裡，清除 Safari 網站資料就會消失，記得定期下載備份。';
+  const c = $('btnClear'); c.dataset.arm = ''; c.querySelector('.lbl').textContent = '清除全部紀錄';
+}
 $('btnExport').onclick = async () => {
   const json = JSON.stringify(engine.dump()), name = 'onion-backup-' + new Date().toISOString().slice(0, 10) + '.json';
   if (NATIVE) {
@@ -893,16 +1033,16 @@ $('btnExport').onclick = async () => {
 };
 $('fileImport').onchange = async e => {
   const file = e.target.files[0]; if (!file) return;
-  try { engine.load(JSON.parse(await file.text())); flushSave(); render(true); $('modal').hidden = true; toast('已匯入備份'); }
+  try { engine.load(JSON.parse(await file.text())); flushSave(); render(true); refreshData(); toast('已匯入備份'); }
   catch (err) { toast('這個檔案讀不了'); }
   e.target.value = '';
 };
 $('btnClear').onclick = () => {
   const b = $('btnClear');
-  if (!b.dataset.arm) { b.dataset.arm = '1'; b.textContent = '再按一次確定清除'; return; }
+  if (!b.dataset.arm) { b.dataset.arm = '1'; b.querySelector('.lbl').textContent = '再按一次，確定全部清掉'; return; }
   engine.clear(); try { localStorage.removeItem(STORE); } catch (e) {}
   if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
-  render(true); $('modal').hidden = true; toast('已清除');
+  render(true); refreshData(); toast('已清除');
 };
 // --- 手札頁面元素：鉛筆顆粒、標題日期、比例尺、圖例 ---
 (function grain() { // 整頁疊一層淡淡的顆粒，用 multiply 混合，像色鉛筆畫在粗紙上
@@ -910,10 +1050,6 @@ $('btnClear').onclick = () => {
   const g = c.getContext('2d'), d = g.createImageData(n, n);
   for (let i = 0; i < d.data.length; i += 4) { const v = 222 + Math.random() * 33; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
   g.putImageData(d, 0, 0); $('grain').style.backgroundImage = 'url(' + c.toDataURL() + ')';
-})();
-(function title() {
-  const d = new Date(), pad = n => String(n).padStart(2, '0');
-  $('sub').textContent = '探索地圖 · ' + d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate());
 })();
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: 'metric' }), 'bottom-left');
 function buildLegend() {
@@ -923,7 +1059,7 @@ function buildLegend() {
   $('legendRows').innerHTML = rows.map(([label, id, kind]) => {
     let sw;
     if (kind === 'pattern') { const c = tileCanvas(id); sw = '<i style="background-image:url(' + c.toDataURL() + ');background-size:' + (c.width / 2) + 'px ' + (c.height / 2) + 'px"></i>'; }
-    else if (kind === 'icon') sw = '<i style="background:var(--paper) url(' + tileCanvas(id).toDataURL() + ') center/auto 70% no-repeat"></i>';
+    else if (kind === 'icon') sw = '<i style="background:#F3ECDB url(' + tileCanvas(id).toDataURL() + ') center/auto 70% no-repeat"></i>';
     else sw = '<i class="' + kind + '"></i>';
     return '<div>' + sw + '<span>' + label + '</span></div>';
   }).join('');
@@ -1735,7 +1871,7 @@ function markStrip() { for (const b of $('frameStrip').children) b.classList.tog
 function buildStrip() {
   const el = $('frameStrip');
   if (!el.childElementCount) for (const f of FRAMES) {
-    const b = document.createElement('button'); b.className = 'fr'; b.dataset.id = f.id; b.setAttribute('aria-label', '換成' + f.name + '框');
+    const b = document.createElement('button'); b.className = 'fr press'; b.dataset.id = f.id; b.setAttribute('aria-label', '換成' + f.name + '框');
     b.innerHTML = '<img src="assets/frames/' + f.id + '.png" alt=""><span>' + f.name + '</span>';
     b.onclick = () => { card.frame = f.id; try { localStorage.setItem(FRAME_KEY, f.id); } catch (e) {} markStrip(); drawCard(); };
     el.appendChild(b);
@@ -1743,17 +1879,17 @@ function buildStrip() {
   markStrip();
 }
 
-$('btnCard').onclick = async () => {
-  const s = engine.state();
-  if (!Object.keys(s.cells).length) { toast('還沒走過任何地方，先去記錄一段'); return; }
-  toast('製圖中…', 1200);
+async function enterCard() {
+  const s = engine.state(), none = !Object.keys(s.cells).length;
+  $('cardEmpty').hidden = !none; $('cardMain').hidden = none;
+  if (none) return;
   card.snap = await snapMap(); card.view = viewNow();
-  buildStrip(); $('cardView').hidden = false;
+  buildStrip();
   FRAMES.forEach(f => loadFrame(f.id).catch(() => {})); // 其他框先在背景處理好，換的時候不用等
   loadAdmin().catch(() => {});
   drawCard();
 };
-$('btnCardClose').onclick = () => { $('cardView').hidden = true; card.snap = null; };
+$('btnCardClose').onclick = () => go('map');
 $('btnCardShare').onclick = async () => {
   const cv = $('cardCanvas'), name = 'onion-card-' + new Date().toISOString().slice(0, 10) + '.png';
   if (NATIVE) { // 跟匯出備份同一招：寫進暫存資料夾，再開 iOS 分享面板（存相簿、傳 LINE、發 IG 都從這裡）
@@ -1769,6 +1905,92 @@ $('btnCardShare').onclick = async () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 };
+
+// ===== 足跡：每天一列。從軌跡點算，跟引擎記里程的規則一樣（間隔太久、跳太遠的兩點不連線） =====
+const WEEKDAY = '日一二三四五六';
+function dayLog(P = engine.state().points) {
+  const days = new Map(); let prev = null;
+  for (const p of P) {
+    const t = p[0] < 1e12 ? p[0] * 1000 : p[0], d = new Date(t), key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+    let e = days.get(key);
+    if (!e) { e = { date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), t0: t, t1: t, walk: 0, veh: 0, fl: 0, w: 180, s: 90, e: -180, n: -90 }; days.set(key, e); }
+    if (prev && prev.key !== key) prev = null;
+    if (p[4] === 'f') e.fl++;
+    else if (prev) {
+      const km = h3.greatCircleDistance([prev.lat, prev.lng], [p[1], p[2]], 'km'), dt = (t - prev.t) / 1000;
+      if (dt <= (p[4] === 'v' ? CFG.interpVehSec : CFG.interpWalkSec) && km <= CFG.interpMaxKm) e[p[4] === 'v' ? 'veh' : 'walk'] += km;
+    }
+    e.t0 = Math.min(e.t0, t); e.t1 = Math.max(e.t1, t);
+    e.w = Math.min(e.w, p[2]); e.e = Math.max(e.e, p[2]); e.s = Math.min(e.s, p[1]); e.n = Math.max(e.n, p[1]);
+    prev = { key, t, lat: p[1], lng: p[2] };
+  }
+  return [...days.values()].sort((a, b) => b.date - a.date);
+}
+function weekStart(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; }
+function dayGroup(d) {
+  const w0 = weekStart(new Date()), w = weekStart(d);
+  if (+w === +w0) return '這週';
+  if (w0 - w <= 7 * 864e5 + 36e5) return '上週';
+  return d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月';
+}
+const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const kmText = km => km >= 10 ? Math.round(km) + ' km' : km >= 0.1 ? km.toFixed(1) + ' km' : Math.round(km * 1000) + ' m';
+const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+let stepDays = [];
+function renderSteps() {
+  const st = engine.state(), el = $('stepsBody');
+  stepDays = dayLog();
+  if (!stepDays.length) {
+    el.innerHTML = '<div class="empty"><div class="badge"><svg class="ic"><use href="#i-route"/></svg></div>' +
+      '<h3>還沒有足跡</h3><p>開始記錄之後，每天走過的路會一天一列排在這裡。</p>' +
+      '<button class="btn primary compact press" data-go="map">去地圖開始記錄</button></div>';
+    return;
+  }
+  const area = st.area < 10 ? st.area.toFixed(2) : st.area.toFixed(1), t = titleOf();
+  let h = '<div class="statgrid">' +
+    '<div><b>' + area + '<small> km²</small></b><span>已探索</span></div>' +
+    '<div><b>' + Math.round(st.km.walk + st.km.vehicle) + '<small> km</small></b><span>地面里程</span></div>' +
+    '<div><b>' + stepDays.length + '<small> 天</small></b><span>有出門</span></div>' +
+    '<div><b>' + st.flights.length + '<small> 段</small></b><span>航線</span></div></div>' +
+    '<div class="section"><h2>稱號</h2><div class="group"><div class="row"><div class="lines">' +
+    '<span class="ttl">' + esc(t.name) + '</span><span class="meta">' + esc(t.why) + '</span></div></div></div></div>';
+  let group = null;
+  stepDays.forEach((d, i) => {
+    const g = dayGroup(d.date);
+    if (g !== group) { if (group) h += '</div></div>'; group = g; h += '<div class="section"><h2>' + g + '</h2><div class="group">'; }
+    const parts = [];
+    if (d.walk >= 0.05) parts.push('走 ' + kmText(d.walk));
+    if (d.veh >= 0.05) parts.push('坐車 ' + kmText(d.veh));
+    if (d.fl) parts.push('飛 ' + d.fl + ' 段');
+    const meta = (d.date.getMonth() + 1) + '/' + d.date.getDate() + ' 週' + WEEKDAY[d.date.getDay()] + ' · ' + hm(d.t0) + (d.t1 - d.t0 > 6e4 ? '–' + hm(d.t1) : '');
+    h += '<button class="row" data-day="' + i + '"><div class="lines"><span class="meta">' + meta + '</span><span class="ttl">' +
+      (parts.join(' · ') || '在原地附近') + '</span></div><svg class="chev"><use href="#i-chev"/></svg></button>';
+  });
+  el.innerHTML = h + '</div></div><p class="foot">點一天，地圖會飛到那天走過的範圍。</p>';
+}
+$('stepsBody').onclick = e => {
+  const b = e.target.closest('[data-day]'); if (!b) return;
+  const d = stepDays[+b.dataset.day]; follow = false; go('map');
+  map.fitBounds([[d.w, d.s], [d.e, d.n]], { padding: { top: 90, bottom: 260, left: 40, right: 80 }, maxZoom: 16, duration: 900 });
+};
+
+// ===== 分頁：地圖一直在最底下活著（製圖要截它），其他三頁蓋在上面 =====
+const PAGES = { steps: 'pgSteps', card: 'cardView', settings: 'pgSettings' };
+let tab = 'map';
+function go(next) {
+  if (next === tab) return;
+  if (tab === 'card') card.snap = null;
+  tab = next; document.body.dataset.tab = next;
+  for (const [k, id] of Object.entries(PAGES)) $(id).hidden = k !== next;
+  document.querySelectorAll('#tabbar .tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === next));
+  if (next === 'steps') renderSteps();
+  else if (next === 'settings') refreshData();
+  else if (next === 'card') enterCard();
+  if (next !== 'map') $(PAGES[next]).scrollTop = 0;
+  else map.resize();
+}
+document.querySelectorAll('#tabbar .tab').forEach(b => b.onclick = () => go(b.dataset.tab));
+document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
 
 updateStats();
 </script>
