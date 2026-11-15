@@ -115,6 +115,11 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   .maplibregl-ctrl-attrib{background:var(--d-surface)!important;color:var(--d-text-secondary);font:var(--d-caption)}
   .maplibregl-ctrl-attrib a{color:var(--d-text-secondary)}
 
+  /* 狀態列底下墊一層畫布色：分頁捲動時內容不會鑽到瀏海底下；地圖頁只墊淡淡一層，深色模式的白色時間才看得到 */
+  body::before{content:'';position:fixed;z-index:12;top:0;left:0;right:0;height:calc(var(--safe-t) + var(--d-space-3));pointer-events:none;
+    background:linear-gradient(var(--d-canvas) var(--safe-t),transparent)}
+  body[data-tab=map]::before{z-index:4;opacity:.7;background:linear-gradient(var(--d-canvas),transparent)} /* domy-ignore: 地圖上的遮罩濃度 */
+
   /* ----- 地圖頁的控制 ----- */
   #mapTop{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));left:var(--d-size-screen-margin);
     right:calc(var(--d-size-screen-margin) + var(--d-size-icon-button) + var(--d-space-3));pointer-events:none}
@@ -141,7 +146,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     background:var(--d-surface);box-shadow:var(--d-elev-2)} /* domy-ignore: 寬螢幕上限 */
   #recText{flex:1;min-width:0;display:flex;flex-direction:column;gap:calc(var(--d-space-1) / 2)}
   #recTitle{font:var(--d-headline)}
-  #status{font:var(--d-footnote);color:var(--d-text-secondary);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  #status{font:var(--d-footnote);color:var(--d-text-secondary);max-height:2lh;overflow:hidden}
   #btnSettings{align-self:flex-start;font:var(--d-callout);color:var(--d-strong);min-height:var(--d-size-touch)}
   #btnRec{flex:none;width:var(--rec-btn);height:var(--rec-btn);border-radius:var(--d-radius-pill);display:grid;place-items:center;
     background:var(--d-bright);color:var(--d-on-bright);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-soft)}
@@ -919,17 +924,21 @@ function render(force) {
 function updateStats() {
   const s = engine.state();
   const a = s.area < 10 ? s.area.toFixed(3) : s.area.toFixed(1);
-  $('stats').innerHTML = '<b>' + a + '</b> km² · 地面 ' + Math.round(s.km.walk + s.km.vehicle) + ' km' + (s.flights.length ? ' · 航線 ' + s.flights.length + ' 段' : '');
+  $('stats').innerHTML = '<b>' + a + '</b> km² · 地面 ' + kmText(s.km.walk + s.km.vehicle) + (s.flights.length ? ' · 航線 ' + s.flights.length + ' 段' : '');
 }
 
 // --- 處理一個定位點（真實 GPS 與模擬共用同一條路） ---
 const MODE_LABEL = { walk: '步行', vehicle: '車／火車', flight: '飛行' };
-let follow = true;
+let follow = true, zoomIn = false, flyUntil = 0; // zoomIn：開始記錄後第一個點要拉近；flyUntil：定位鈕的動畫跑完前，跟隨先不動地圖
 function feed(f, quiet) {
   const r = engine.process(f);
   if (r.ok) {
     showMe(f.lng, f.lat);
-    if (follow && r.mode !== 'flight') map.easeTo({ center: [f.lng, f.lat], duration: quiet ? 0 : 600 });
+    if (follow && r.mode !== 'flight' && performance.now() > flyUntil) {
+      if (zoomIn && map.getZoom() < 14) { flyUntil = performance.now() + 1300; map.easeTo({ center: [f.lng, f.lat], zoom: 15, duration: 1200 }); }
+      else map.easeTo({ center: [f.lng, f.lat], duration: quiet ? 0 : 600 });
+      zoomIn = false;
+    }
     if (r.mode === 'flight') { map.fitBounds(flightBounds(), { padding: 80, duration: 1200 }); toast('偵測到飛行，畫上一段航線'); }
     setStatus(MODE_LABEL[r.mode] + ' · ' + Math.round(r.kmh || 0) + ' km/h · 精度 ' + Math.round(f.acc) + 'm');
     saveSoon(); renderSoon();
@@ -963,7 +972,7 @@ function onFix(lat, lng, acc, t, spd) {
 async function startRec() {
   if (recording) return;
   if (simOn) toggleSim();
-  engine.resetLast(); follow = true;
+  engine.resetLast(); follow = true; zoomIn = true;
   if (NATIVE) {
     try {
       bgWatcher = await BG.addWatcher({
@@ -1019,7 +1028,7 @@ if (NATIVE) {
 }
 $('btnLocate').onclick = () => {
   follow = true;
-  if (meShown) { map.flyTo({ center: me.getLngLat(), zoom: Math.max(map.getZoom(), 15) }); return; }
+  if (meShown) { flyUntil = performance.now() + 1700; map.flyTo({ center: me.getLngLat(), zoom: Math.max(map.getZoom(), 15), duration: 1500 }); return; }
   navigator.geolocation && navigator.geolocation.getCurrentPosition(
     p => map.flyTo({ center: [p.coords.longitude, p.coords.latitude], zoom: 15 }),
     () => toast('拿不到定位'), { enableHighAccuracy: true, timeout: 10000 });
@@ -1999,7 +2008,7 @@ function dayGroup(d) {
   return d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月';
 }
 const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
-const kmText = km => km >= 10 ? Math.round(km) + ' km' : km >= 0.1 ? km.toFixed(1) + ' km' : Math.round(km * 1000) + ' m';
+function kmText(km) { return km >= 10 ? Math.round(km) + ' km' : km >= 1 ? km.toFixed(1) + ' km' : Math.round(km * 1000) + ' m'; } // 不到一公里用公尺，免得走了半天還寫 0 km
 const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 let stepDays = [];
 function renderSteps() {
@@ -2011,10 +2020,10 @@ function renderSteps() {
       '<button class="btn primary compact press" data-go="map">去地圖開始記錄</button></div>';
     return;
   }
-  const area = st.area < 10 ? st.area.toFixed(2) : st.area.toFixed(1), t = titleOf();
+  const area = st.area < 10 ? st.area.toFixed(2) : st.area.toFixed(1), t = titleOf(), ground = kmText(st.km.walk + st.km.vehicle).split(' ');
   let h = '<div class="statgrid">' +
     '<div><b>' + area + '<small> km²</small></b><span>已探索</span></div>' +
-    '<div><b>' + Math.round(st.km.walk + st.km.vehicle) + '<small> km</small></b><span>地面里程</span></div>' +
+    '<div><b>' + ground[0] + '<small> ' + ground[1] + '</small></b><span>地面里程</span></div>' +
     '<div><b>' + stepDays.length + '<small> 天</small></b><span>有出門</span></div>' +
     '<div><b>' + st.flights.length + '<small> 段</small></b><span>航線</span></div></div>' +
     '<div class="section"><h2>稱號</h2><div class="group"><div class="row"><div class="lines">' +

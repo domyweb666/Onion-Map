@@ -26,3 +26,4 @@ __pycache__/
 daycard/*/rpg_*.png
 # 假人物紀錄與截圖，tools/daycard/make_fake_history.py 重產
 daycard/fake/
+tools/limrun/shots/
