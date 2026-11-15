@@ -174,9 +174,15 @@ try {
     '25.0330,121.5654', '25.0345,121.5668', '25.0352,121.5690', '25.0370,121.5700', '25.0385,121.5722']);
   await sleep(9000);
   const a2 = await allowIfAsked(); if (a2) log('permission alert answered (late)', a2);
-  await tapLabel('回到我的位置', { wait: 3500, fallback: [SCREEN.w - 20 - 22, 59 + 8 + 44 + 12 + 22] });
-  await sleep(14000);
+  await sleep(3000);
+  await shot('06b-autozoom'); // 沒按定位鈕，第一個定位點進來地圖就該自己拉近到街道
+  await sleep(9000);
   await shot('07-recording');
+  // 把地圖拖走（跟隨關掉），再按定位鈕：邊走邊按也要飛得回來
+  await drag(SCREEN.w / 2, SCREEN.h * 0.4, SCREEN.w / 2 - 150, SCREEN.h * 0.4 + 180);
+  await shot('07b-dragged');
+  await tapLabel('回到我的位置', { wait: 3500, fallback: [SCREEN.w - 20 - 22, 59 + 8 + 44 + 12 + 22] });
+  await shot('07c-located');
   await dump('recording');
   const rt = await texts();
   check('記錄中：狀態列有速度', rt.some(x => /km\/h/.test(x)), rt.find(x => /km\/h|定位|權限/.test(x)) ?? '');
