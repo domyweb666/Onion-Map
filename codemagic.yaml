@@ -2,7 +2,9 @@
 #
 # Codemagic 會用 App Store Connect API key 自動產生簽署憑證與 profile，不用自己弄 .p12。
 # 事前準備（都在網頁上做，詳見 docs/iOS建置說明.md）：
-#   1. Apple Developer 後台註冊 Bundle ID：org.domyweb.onion（跟 capacitor.config.json 一樣）
+#   1. Apple Developer 後台註冊兩個 Bundle ID：org.domyweb.onion（跟 capacitor.config.json 一樣）
+#      與 org.domyweb.onion.widget（小工具與即時動態），兩個都勾 App Groups，選 group.org.domyweb.onion
+#      （group 要先在 Identifiers › App Groups 建好）
 #   2. App Store Connect 建一個 app 用這個 Bundle ID；建一組 API key（App Manager 權限以上）
 #   3. Codemagic → Teams → Integrations → App Store Connect，把 key 加進去，名稱填下面 integrations 的值
 #   4. Codemagic 連上 GitHub 的 Onion-Map repo，選這份 codemagic.yaml 的 workflow 跑
@@ -16,12 +18,14 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
+        # 填主程式的就好：Codemagic 會把 org.domyweb.onion 和 org.domyweb.onion.*（含 .widget）的 profile 一起拿
         bundle_identifier: org.domyweb.onion
       node: 22
       xcode: latest
       vars:
         XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
+        WIDGET_BUNDLE_ID: org.domyweb.onion.widget
     scripts:
       - name: 安裝依賴
         script: npm ci
@@ -29,6 +33,14 @@ workflows:
         script: npm run build
       - name: 同步到 iOS 專案
         script: npx cap sync ios
+      - name: 確認小工具的 profile 有抓到（沒有的話後面會簽不過）
+        script: |
+          found=0
+          for f in "$HOME/Library/MobileDevice/Provisioning Profiles"/*.mobileprovision "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"/*.mobileprovision; do
+            [ -f "$f" ] || continue
+            if security cms -D -i "$f" | grep -q "$WIDGET_BUNDLE_ID"; then found=1; fi
+          done
+          if [ "$found" = 0 ]; then echo "沒有 $WIDGET_BUNDLE_ID 的 profile，到 Codemagic 的 Code signing identities 抓一次"; exit 1; fi
       - name: 套用簽署設定
         script: xcode-project use-profiles
       - name: 遞增 build 號

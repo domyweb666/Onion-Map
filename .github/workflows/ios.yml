@@ -3,19 +3,21 @@
 # build-check：每次 push 都跑。在 GitHub 的 macOS 機器上把 iOS 專案真的編譯一次（不簽署），
 #              確認 Capacitor 專案、Swift 套件、plugin 都能過。公開 repo 免費。
 # testflight ：手動觸發（Actions 頁 → Run workflow → 勾「上傳到 TestFlight」）。
-#              需要先在 repo Settings → Secrets 放好下面 7 個 secret，做法見 docs/iOS建置說明.md：
-#                IOS_P12_BASE64      Apple Distribution 憑證 .p12 的 base64
-#                IOS_P12_PASSWORD    匯出 .p12 時設的密碼
-#                IOS_PROFILE_BASE64  App Store 類型 provisioning profile 的 base64
-#                APPLE_TEAM_ID       開發者帳號的 Team ID（10 碼）
-#                ASC_KEY_ID          App Store Connect API key 的 Key ID
-#                ASC_ISSUER_ID       App Store Connect API key 的 Issuer ID
-#                ASC_API_KEY_P8      API key 的 .p8 檔內容（整段文字）
+#              需要先在 repo Settings → Secrets 放好下面 8 個 secret，做法見 docs/iOS建置說明.md：
+#                IOS_P12_BASE64             Apple Distribution 憑證 .p12 的 base64
+#                IOS_P12_PASSWORD           匯出 .p12 時設的密碼
+#                IOS_PROFILE_BASE64         org.domyweb.onion 的 App Store profile 的 base64
+#                IOS_WIDGET_PROFILE_BASE64  org.domyweb.onion.widget 的 App Store profile 的 base64
+#                APPLE_TEAM_ID              開發者帳號的 Team ID（10 碼）
+#                ASC_KEY_ID                 App Store Connect API key 的 Key ID
+#                ASC_ISSUER_ID              App Store Connect API key 的 Issuer ID
+#                ASC_API_KEY_P8             API key 的 .p8 檔內容（整段文字）
+#              兩個 bundle id 都要在 developer.apple.com 打開 App Groups，選 group.org.domyweb.onion，再重做 profile
 name: iOS
 
 on:
   push:
-    branches: [main, ios-capacitor]
+    branches: [main, ios-capacitor, paint-cli, 'work/**']
     paths-ignore: ['**.md', 'docs/**']
   pull_request:
   workflow_dispatch:
@@ -30,6 +32,23 @@ env:
   XCODE_SCHEME: App
 
 jobs:
+  js-test:
+    name: JS 測試
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 跑 tests 裡用 node:test 寫的
+        run: |
+          FILES=$(grep -rlE "node:test" tests --include=*.js --include=*.mjs --include=*.cjs 2>/dev/null || true)
+          if [ -z "$FILES" ]; then echo "沒有測試"; exit 0; fi
+          node --test $FILES
+
   build-check:
     name: 編譯檢查（不簽署）
     runs-on: macos-latest
@@ -54,11 +73,18 @@ jobs:
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build | tee build/xcodebuild.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
-          grep -q "BUILD SUCCEEDED" build/xcodebuild.log
+          if ! grep -q "BUILD SUCCEEDED" build/xcodebuild.log; then
+            echo "===== 編譯錯誤前後文 ====="
+            grep -nE -B2 -A12 "error:" build/xcodebuild.log | head -300 || true
+            echo "===== log 最後 60 行 ====="
+            tail -60 build/xcodebuild.log
+            exit 1
+          fi
       - name: 打包未簽署 IPA（AltStore／Sideloadly 自己裝到 iPhone 用）
         run: |
           APP=$(find build/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
           test -n "$APP"
+          test -d "$APP/PlugIns/OnionWidget.appex"
           rm -rf build/Payload && mkdir -p build/Payload && cp -R "$APP" build/Payload/
           (cd build && zip -qr onion-unsigned.ipa Payload)
           ls -la build/onion-unsigned.ipa
@@ -90,20 +116,28 @@ jobs:
       - run: npx cap sync ios
       - name: 解析 Swift 套件
         run: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
-      - name: 編譯模擬器版（Debug，arm64）
+      # 臨時簽章（不用帳號）：完全不簽的話沒有 App Group，小工具讀不到 app 寫的東西
+      - name: 編譯模擬器版（Debug，臨時簽章）
         run: |
           set -o pipefail
           mkdir -p build
           xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/DerivedDataSim \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES \
             build | tee build/xcodebuild-sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
-          grep -q "BUILD SUCCEEDED" build/xcodebuild-sim.log
+          if ! grep -q "BUILD SUCCEEDED" build/xcodebuild-sim.log; then
+            echo "===== 編譯錯誤前後文 ====="
+            grep -nE -B2 -A12 "error:" build/xcodebuild-sim.log | head -300 || true
+            echo "===== log 最後 60 行 ====="
+            tail -60 build/xcodebuild-sim.log
+            exit 1
+          fi
       - name: 壓縮 .app
         run: |
           APP=$(find build/DerivedDataSim/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -1)
           test -n "$APP"
+          test -d "$APP/PlugIns/OnionWidget.appex"
           (cd "$(dirname "$APP")" && zip -qry "$GITHUB_WORKSPACE/build/onion-simulator-app.zip" "$(basename "$APP")")
           ls -la build/onion-simulator-app.zip
       - name: 保留模擬器版 .app
@@ -111,6 +145,13 @@ jobs:
         with:
           name: onion-simulator-app
           path: build/onion-simulator-app.zip
+      - name: 保留建置 log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-sim-log
+          path: build/xcodebuild-sim.log
+          if-no-files-found: ignore
 
   testflight:
     name: 簽署並上傳 TestFlight
@@ -144,44 +185,71 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
 
-      - name: 安裝 provisioning profile
+      - name: 安裝 provisioning profile（app 與小工具各一個）
         id: profile
         env:
           IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+          IOS_WIDGET_PROFILE_BASE64: ${{ secrets.IOS_WIDGET_PROFILE_BASE64 }}
         run: |
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          echo "$IOS_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/app.mobileprovision"
-          security cms -D -i "$RUNNER_TEMP/app.mobileprovision" > "$RUNNER_TEMP/profile.plist"
-          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
-          NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")
-          cp "$RUNNER_TEMP/app.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "profile: $NAME ($UUID)"
+          DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          DIR_NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" # Xcode 16 起換到這裡，兩邊都放
+          mkdir -p "$DIR" "$DIR_NEW"
+          install_profile() { # $1 = base64，$2 = 輸出名稱，$3 = 應該是哪個 bundle id
+            if [ -z "$1" ]; then echo "::error::少了 $2 的 profile secret（$3）"; exit 1; fi
+            echo "$1" | base64 --decode > "$RUNNER_TEMP/$2.mobileprovision"
+            security cms -D -i "$RUNNER_TEMP/$2.mobileprovision" > "$RUNNER_TEMP/$2.plist"
+            UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/$2.plist")
+            NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/$2.plist")
+            APPID=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$RUNNER_TEMP/$2.plist")
+            case "$APPID" in *".$3") ;; *) echo "::error::$2 的 profile 是給 $APPID 的，要的是 $3"; exit 1;; esac
+            if ! grep -q "group.org.domyweb.onion" "$RUNNER_TEMP/$2.plist"; then
+              echo "::error::$2 的 profile 沒有 App Group group.org.domyweb.onion，先在 developer.apple.com 打開再重做 profile"; exit 1
+            fi
+            cp "$RUNNER_TEMP/$2.mobileprovision" "$DIR/$UUID.mobileprovision"
+            cp "$RUNNER_TEMP/$2.mobileprovision" "$DIR_NEW/$UUID.mobileprovision"
+            echo "$2=$NAME" >> "$GITHUB_OUTPUT"
+            echo "profile: $NAME ($UUID)"
+          }
+          BUNDLE_ID=$(node -p "require('./capacitor.config.json').appId")
+          install_profile "$IOS_PROFILE_BASE64" app "$BUNDLE_ID"
+          install_profile "$IOS_WIDGET_PROFILE_BASE64" widget "$BUNDLE_ID.widget"
 
+      # ONION_APP_PROFILE、ONION_WIDGET_PROFILE 是專案裡兩個 target 各自引用的變數。
+      # 不能直接在命令列給 PROVISIONING_PROFILE_SPECIFIER，那會套到所有 target
       - name: Archive
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          PROFILE_NAME: ${{ steps.profile.outputs.name }}
+          APP_PROFILE: ${{ steps.profile.outputs.app }}
+          WIDGET_PROFILE: ${{ steps.profile.outputs.widget }}
           BUILD_NUMBER: ${{ github.run_number }}
         run: |
-          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release \
+          set -o pipefail
+          mkdir -p build
+          if ! xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' \
             -archivePath build/App.xcarchive archive \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            ONION_APP_PROFILE="$APP_PROFILE" \
+            ONION_WIDGET_PROFILE="$WIDGET_PROFILE" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            -quiet
+            > build/archive.log 2>&1; then
+            grep -nE -B2 -A12 "error:" build/archive.log | head -200 || true
+            tail -60 build/archive.log
+            exit 1
+          fi
+          test -d build/App.xcarchive/Products/Applications/App.app/PlugIns/OnionWidget.appex
 
       - name: 匯出 IPA
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          PROFILE_NAME: ${{ steps.profile.outputs.name }}
+          APP_PROFILE: ${{ steps.profile.outputs.app }}
+          WIDGET_PROFILE: ${{ steps.profile.outputs.widget }}
         run: |
           BUNDLE_ID=$(node -p "require('./capacitor.config.json').appId")
           node -e '
-            const [team, profile, bundle] = process.argv.slice(1);
+            const [team, app, widget, bundle] = process.argv.slice(1);
             const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
             process.stdout.write(`<?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -191,11 +259,14 @@ jobs:
             <key>signingStyle</key><string>manual</string>
             <key>teamID</key><string>${esc(team)}</string>
             <key>signingCertificate</key><string>Apple Distribution</string>
-            <key>provisioningProfiles</key><dict><key>${esc(bundle)}</key><string>${esc(profile)}</string></dict>
+            <key>provisioningProfiles</key><dict>
+              <key>${esc(bundle)}</key><string>${esc(app)}</string>
+              <key>${esc(bundle)}.widget</key><string>${esc(widget)}</string>
+            </dict>
             <key>uploadSymbols</key><true/>
           </dict></plist>
           `);
-          ' "$APPLE_TEAM_ID" "$PROFILE_NAME" "$BUNDLE_ID" > "$RUNNER_TEMP/ExportOptions.plist"
+          ' "$APPLE_TEAM_ID" "$APP_PROFILE" "$WIDGET_PROFILE" "$BUNDLE_ID" > "$RUNNER_TEMP/ExportOptions.plist"
           xcodebuild -exportArchive -archivePath build/App.xcarchive \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath build/ipa -quiet
           ls -la build/ipa

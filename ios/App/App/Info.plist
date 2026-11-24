@@ -20,6 +20,19 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>org.domyweb.onion</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>onion</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -37,19 +50,15 @@
 					<string>Default Configuration</string>
 					<key>UISceneDelegateClassName</key>
 					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-					<key>UISceneStoryboardFile</key>
-					<string>Main</string>
 				</dict>
 			</array>
 		</dict>
 	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
@@ -66,10 +75,21 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>掃電腦上的 QR，連到你自己的電腦畫地圖。</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>連到你自己的電腦，請它畫地圖。</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>洋蔥要知道你在哪裡，才能把你走過的地方畫到地圖上。位置資料只存在這支手機。</string>
+	<string>洋蔥要知道你在哪裡，才能把你走過的地方畫到地圖上。走過的紀錄只存在這支手機。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>選「永遠允許」，手機收進口袋、螢幕關掉時洋蔥才能繼續畫地圖。位置資料只存在這支手機，不會上傳。</string>
+	<string>選「永遠允許」，手機收進口袋、螢幕關掉時洋蔥才能繼續畫地圖。走過的紀錄只存在這支手機；請電腦畫圖時，只會把一張沒有路線的地圖底圖送到你自己的電腦。</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

@@ -7,11 +7,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = CAPBridgeViewController()
-        window?.makeKeyAndVisible()
-
+        // 先讓 proxy 開始等畫面出來，再把畫面叫出來：冷啟動時從 onion:// 打開的網址才不會漏掉
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+
+        window = UIWindow(windowScene: windowScene)
+        window?.rootViewController = MainViewController()
+        window?.makeKeyAndVisible()
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
