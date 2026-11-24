@@ -136,7 +136,9 @@ function createEngine(h3) {
     putBackSaves(r) { r.shards.forEach(k => dirtyShards.add(k)); r.days.forEach(k => dirtyDays.add(k)); dirtyMeta = dirtyMeta || r.meta; },
     shardData(k) { const o = {}; for (const c of shards.get(k) || []) o[c] = s.cells[c]; return o; },
     dayPoints(k) { // 只認得記憶體裡的
-      const out = []; for (let i = s.points.length - 1; i >= 0; i--) { const d = dayKey(s.points[i][0]); if (d === k) out.push(s.points[i]); else if (d < k) break; }
+      const [y, m, dd] = k.split('-').map(Number), end = new Date(y, m - 1, dd + 1).getTime() / 1000; // 從那天結束的地方往回走，不然還原好幾年的備份時每一天都要從頭掃一次
+      let lo = 0, hi = s.points.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (s.points[mid][0] < end) lo = mid + 1; else hi = mid; }
+      const out = []; for (let i = lo - 1; i >= 0; i--) { const d = dayKey(s.points[i][0]); if (d === k) out.push(s.points[i]); else if (d < k) break; }
       return out.reverse();
     },
     meta: () => ({ v: 2, flights: s.flights, gaps: s.gaps, km: s.km, days: s.days, ext: s.ext }),

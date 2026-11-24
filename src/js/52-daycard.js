@@ -180,10 +180,11 @@ const DAYCORE = (() => {
     }
     return out.map(({ name, lng, lat }) => ({ name, lng, lat }));
   }
-  function pickPlaces(f, frame) { // 區名，最多三個，離得開
-    const out = [], wide = frame[2] - frame[0] > 9000, list = f.place.filter(p => (wide ? ['suburb', 'town'] : ['suburb', 'quarter', 'neighbourhood', 'town', 'village']).includes(p.cls)) // 範圍大的只寫區與鎮，免得冒出一堆老地名
+  function pickPlaces(f, frame, towns) { // 區名，最多三個，離得開。towns：現行的鄉鎮市區名（Set），有給就只取裡面的，圖資裡的老地名（「大安」「古亭」）不寫；國外沒有這份名單就照舊
+    const flat = x => x.replace(/台/g, '臺');
+    const out = [], wide = frame[2] - frame[0] > 9000, list = f.place.filter(p => (wide && !towns ? ['suburb', 'town'] : ['suburb', 'quarter', 'neighbourhood', 'town', 'village']).includes(p.cls)) // 範圍大的只寫區與鎮，免得冒出一堆老地名
       .map(p => { const [x, y] = px(frame, p.lng, p.lat); return Object.assign({ x, y }, p); })
-      .filter(p => p.x > 130 && p.x < 894 && p.y > 200 && p.y < 1330 && p.name.length <= 8);
+      .filter(p => p.x > 80 && p.x < 944 && p.y > 120 && p.y < 1416 && p.name.length <= 8 && (!towns || towns.has(flat(p.name))));
     const rk = { town: 0, suburb: 0, quarter: 1, village: 1, neighbourhood: 2 };
     list.sort((a, b) => rk[a.cls] - rk[b.cls] || (a.name < b.name ? -1 : 1));
     const stem = x => x.replace(/[區鎮鄉市里]$/, ''); // 「大安」跟「大安區」只留一個
@@ -208,7 +209,8 @@ const DAYCORE = (() => {
 
 const DC_SIZES = DAYCORE.SIZES;
 const DC_SIZE_KEY = 'onion.daycard.size', DC_PICK_KEY = 'onion.card.pick';
-const dc = { pick: 'day', key: null, rec: null, state: '', err: '', tok: 0, size: 'tall', base: null, busy: false, sending: false };
+const DC_V = 3; // 準備方式改過就加一，還沒畫的會重新準備
+const dc = { pick: 'day', key: null, rec: null, state: '', err: '', tok: 0, size: 'tall', base: null, busy: false, sending: false, sendKey: null };
 try { if (DC_SIZES[localStorage.getItem(DC_SIZE_KEY)]) dc.size = localStorage.getItem(DC_SIZE_KEY); } catch (e) {}
 
 function dcDays() { const d = engine.state().days; return Object.keys(d).filter(k => d[k].n - d[k].fl >= DAYCORE.C.minPts).sort(); }
@@ -224,13 +226,13 @@ async function dcPrepare(key, pts, D) {
   if (typeof PLACES_LOGIC !== 'undefined' && PLACES_LOGIC.homes) { // 常待的家：就算旁邊有店也不寫名字
     try { const last = engine.state().points; if (last.length) for (const h of PLACES_LOGIC.homes(last, last[last.length - 1][0])) for (const s of stops) if (DAYCORE.dist(s.lat, s.lng, h.lat, h.lng) <= 120) s.name = ''; } catch (e) {}
   }
-  const c = DAYCORE.center(D); let city = '', town = '';
-  try { const a = await loadAdmin(), t = townAt(a, c.lng, c.lat); if (t) { city = a.counties[t.c].n; town = t.n; } } catch (e) {}
+  const c = DAYCORE.center(D); let city = '', town = '', towns = null;
+  try { const a = await loadAdmin(), t = townAt(a, c.lng, c.lat); if (t) { city = a.counties[t.c].n; town = t.n; towns = new Set(a.towns.map(x => x.n.replace(/台/g, '臺'))); } } catch (e) {}
   if (!city) {
     const near = cls => { let b = null, bd = Infinity; for (const p of R.feats.place) if (cls.includes(p.cls)) { const d = DAYCORE.dist(c.lat, c.lng, p.lat, p.lng); if (d < bd) { bd = d; b = p.name; } } return b || ''; };
     city = near(['city', 'town']); town = near(['suburb', 'quarter']);
   }
-  const facts = { city, town, layer: DAYCORE.nth(engine.state().days, key), stats: D.stats, stops, marks: DAYCORE.pickMarks(R.feats, D.segs, frame, used), places: DAYCORE.pickPlaces(R.feats, frame), lines: DAYCORE.lines(D.segs, frame) };
+  const facts = { city, town, layer: DAYCORE.nth(engine.state().days, key), stats: D.stats, stops, marks: DAYCORE.pickMarks(R.feats, D.segs, frame, used), places: DAYCORE.pickPlaces(R.feats, frame, towns), lines: DAYCORE.lines(D.segs, frame) };
   return { n: engine.state().days[key].n, frame, facts, draft: R.draft.toDataURL('image/jpeg', 0.92), ref: R.ref.toDataURL('image/png') };
 }
 
@@ -275,7 +277,7 @@ async function dcFrame(id, size) { // 4:5：把框的直邊中間抽掉一截（
     for (let k = 0; k < B; k += 4) for (const x of xs) { const p = ((y + k) * W + x) * 4, q = ((y + cut + k) * W + x) * 4; d += Math.abs(s[p + 3] - s[q + 3]) * 2 + Math.abs(s[p] - s[q]) + Math.abs(s[p + 1] - s[q + 1]); }
     if (d < best) { best = d; at = y; }
   }
-  const c = document.createElement('canvas'); c.width = W; c.height = H - cut; const g = c.getContext('2d'), out = g.createImageData(W, H - cut), o = out.data;
+  const c = document.createElement('canvas'); c.width = W; c.height = H - cut; const g = c.getContext('2d', { willReadFrequently: true }), out = g.createImageData(W, H - cut), o = out.data;
   o.set(s.subarray(0, at * W * 4)); o.set(s.subarray((at + cut + B) * W * 4), (at + B) * W * 4);
   for (let k = 0; k < B; k++) { // 接縫：上半與下半交疊淡入
     const u = (k + 0.5) / B, f = u * u * (3 - 2 * u);
@@ -302,6 +304,12 @@ function dcSigAt(fr, boxes, w, h) { // 署名放窗內最下緣：框沒蓋住�
     if (!best || cost < best[0]) best = [cost, x, y];
   }
   return best ? [best[1], best[2]] : [(W - w) / 2, b - 14];
+}
+function dcOnFrame(fr, q, m) { // 這一塊（外加 m）碰不碰得到框的花紋。花紋縮成 6 像素一格記著
+  const S = 6, W = fr.canvas.width, H = fr.canvas.height, w = Math.ceil(W / S), h = Math.ceil(H / S);
+  if (!fr.solid) { const d = fr.canvas.getContext('2d').getImageData(0, 0, W, H).data, o = fr.solid = new Uint8Array(w * h); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 190) o[(y / S | 0) * w + (x / S | 0)] = 1; }
+  for (let y = Math.max(0, (q[1] - m) / S | 0); y <= Math.min(h - 1, (q[3] + m) / S | 0); y++) for (let x = Math.max(0, (q[0] - m) / S | 0); x <= Math.min(w - 1, (q[2] + m) / S | 0); x++) if (fr.solid[y * w + x]) return true;
+  return false;
 }
 function dcDash(g, pts, on, off) { g.setLineDash([on, off]); dcPath(g, pts); g.setLineDash([]); }
 function dcPath(g, pts) { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); }
@@ -378,20 +386,23 @@ async function dcDraw(cv, rec, frameId, size) { // 一張成品，畫在 cv 上
   const sp = stops.map(s => TL(s)), mk = F.marks.map(m => ({ name: m.name, p: TL(m) })).filter(m => inWin(m.p[0], m.p[1], 24) && !under(m.p[0], m.p[1], 10) && !sp.some(q => Math.hypot(q[0] - m.p[0], q[1] - m.p[1]) < 34));
   for (const m of mk) { g.fillStyle = '#FFFCF0'; g.beginPath(); g.arc(m.p[0], m.p[1], 7.6, 0, 7); g.fill(); g.fillStyle = '#5C5244'; g.beginPath(); g.arc(m.p[0], m.p[1], 5.8, 0, 7); g.fill(); boxes.push([m.p[0] - 9, m.p[1] - 9, m.p[0] + 9, m.p[1] + 9]); }
   sp.forEach((q, i) => { if (!inWin(q[0], q[1], 10) || under(q[0], q[1], -8)) return; dcBadge(g, q[0], q[1], 18, String(i + 1)); boxes.push([q[0] - 21, q[1] - 21, q[0] + 21, q[1] + 21]); });
-  const put = (text, size, gap, cands, fill, halo) => { // 候選位置一個個試，放得下就寫
+  const dots = []; for (const q of lines) q.forEach((p, i) => { const o = q[i - 1] || p, n = Math.max(1, Math.ceil(Math.hypot(p[0] - o[0], p[1] - o[1]) / 10)); for (let j = 1; j <= n; j++) dots.push([o[0] + (p[0] - o[0]) * j / n, o[1] + (p[1] - o[1]) * j / n]); });
+  const onWay = q => dots.some(p => p[0] > q[0] - 8 && p[0] < q[2] + 8 && p[1] > q[1] - 8 && p[1] < q[3] + 8);
+  const put = (text, size, gap, cands, fill, halo, way) => { // 候選位置一個個試，放得下就寫。way：非不得已可以壓在路線上（站名就在路線旁邊）
     const ws = [...text].map(ch => g.measureText(ch).width), tw = gap ? ws.reduce((a, v) => a + v, 0) + gap * (ws.length - 1) : g.measureText(text).width;
-    for (const [cx, cy] of cands(tw)) { // cx、cy 是文字框的中心
+    const list = cands(tw).map(c => [...c, false]); if (way) list.push(...cands(tw).map(c => [...c, true]));
+    for (const [cx, cy, over] of list) { // cx、cy 是文字框的中心
       const q = [cx - tw / 2, cy - size / 2, cx + tw / 2, cy + size / 2];
-      if (q[0] < l + 22 || q[2] > r - 22 || q[1] < t + 22 || q[3] > b - 22 || hit(q, 4)) continue;
+      if (q[0] < l + 22 || q[2] > r - 22 || q[1] < t + 22 || q[3] > b - 22 || hit(q, 4) || (!over && onWay(q)) || dcOnFrame(fr, q, 18)) continue; // 離框的花紋遠一點，放不下就不寫
       let x = q[0]; const y = cy + size * 0.36;
       if (gap) [...text].forEach((ch, i) => { dcHalo(g, ch, x, y, fill, halo); x += ws[i] + gap; }); else dcHalo(g, text, x, y, fill, halo);
       boxes.push(q); return;
     }
   };
   g.font = '900 37px ' + CARD_SERIF;
-  for (const q of F.places) { const [x, y] = TL(q); put(q.name, 37, 20, () => [0, -74, 74, -148, 148].map(d => [x, y + d]), '#50463A', 8); }
+  for (const q of F.places) { const [x, y] = TL(q); put(q.name, 37, 20, () => [[0, 0], [0, -74], [0, 74], [-90, 0], [90, 0], [0, -148], [0, 148]].map(d => [x + d[0], y + d[1]]), '#50463A', 8); }
   g.font = '700 22px ' + CARD_KAI;
-  for (const m of mk) { const [x, y] = m.p; put(m.name, 22, 0, tw => [[x, y + 26], [x, y - 26], [x + 16 + tw / 2, y], [x - 16 - tw / 2, y], [x + tw / 2 - 8, y + 26], [x - tw / 2 + 8, y + 26]], '#463E34', 6); }
+  for (const m of mk) { const [x, y] = m.p; put(m.name, 22, 0, tw => [[x, y + 26], [x, y - 26], [x + 16 + tw / 2, y], [x - 16 - tw / 2, y], [x + tw / 2 - 8, y + 26], [x - tw / 2 + 8, y + 26]], '#463E34', 6, true); }
   // 紙的顆粒
   g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = g.createPattern(dcGrain(), 'repeat'); g.fillRect(0, 0, S.w, S.h); g.restore();
 }
@@ -406,7 +417,7 @@ function dcShell() { // 只建一次
     '<div class="empty dcClose" id="dcClose" hidden><div class="badge"><svg class="ic"><use href="#i-route"/></svg></div><h3>這天走得太近</h3><p>畫出來會露出住家，所以這天不畫。</p></div></div>' +
     '<div class="actions" id="dcAct"></div>' +
     '<div class="section" id="dcFrameSec"><h2>邊框</h2><div class="dcStrip" id="dcStrip" role="group" aria-label="選框"></div></div>';
-  $('dcPrev').onclick = () => dcStep(-1); $('dcNext').onclick = () => dcStep(1); $('dcDay').onclick = dcChoose;
+  $('dcPrev').onclick = () => dcStep(-1); $('dcNext').onclick = () => dcStep(1); $('dcDay').onclick = () => dcChoose();
   for (const f of FRAMES) {
     const b = document.createElement('button'); b.className = 'fr press'; b.dataset.id = f.id; b.setAttribute('aria-label', '換成' + f.name + '框');
     b.innerHTML = '<img src="assets/frames/' + f.id + '.png" alt=""><span>' + f.name + '</span>';
@@ -416,9 +427,12 @@ function dcShell() { // 只建一次
 }
 function dcMark() { for (const b of $('dcStrip').children) b.classList.toggle('on', b.dataset.id === card.frame); }
 function dcStep(d) { const days = dcDays(), i = days.indexOf(dc.key) + d; if (i >= 0 && i < days.length) dcShow(days[i]); }
-function dcChoose() {
-  const el = openSheet('<h2>選一天</h2><div class="group">' + dcDays().reverse().map(k => { const d = engine.state().days[k]; return '<button class="row" data-k="' + k + '"><span class="lbl">' + dcDayText(k) + '</span><span class="val">' + (k === dc.key ? '現在這天' : kmText(d.walk + d.veh)) + '</span></button>'; }).join('') + '</div><button class="btn secondary full press" data-close>關閉</button>');
+function dcChoose(show = STEPS_FIRST) {
+  const all = dcDays().reverse(), list = all.slice(0, Math.max(show, all.indexOf(dc.key) + 1)), left = all.length - list.length;
+  const el = openSheet('<h2>選一天</h2><div class="group">' + list.map(k => { const d = engine.state().days[k]; return '<button class="row" data-k="' + k + '"><span class="lbl">' + dcDayText(k) + '</span><span class="val">' + (k === dc.key ? '現在這天' : kmText(d.walk + d.veh)) + '</span></button>'; }).join('') + (left > 0 ? '<button class="row" data-more><span class="lbl">看更早的</span><span class="val">還有 ' + left.toLocaleString() + ' 天</span></button>' : '') + '</div><button class="btn secondary full press" data-close>關閉</button>');
+  const more = el.querySelector('[data-more]'); if (more) more.onclick = () => { const y = el.scrollTop; dcChoose(list.length + STEPS_MORE).scrollTop = y; };
   el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { closeSheet(); dcShow(b.dataset.k); });
+  return el;
 }
 function dcPickUI() {
   const el = $('cardPick');
@@ -449,11 +463,15 @@ async function dcShow(key, fresh) {
     if (D.few || D.close) { dc.rec = null; dc.state = 'close'; dcRender(); return; }
     let rec = await kvJSON(dcFile(key)); if (my !== dc.tok) return;
     const n = engine.state().days[key].n;
-    if (rec && rec.next && !painterJob('day', key)) { delete rec.next; await dcSave(rec); } // 送到一半就關掉的
-    if (!rec || !rec.draft || (!rec.img && !rec.next && (rec.n !== n || rec.v !== 2))) { // 還沒準備過，或還沒畫、那天又多走了一段
-      const p = await dcPrepare(key, pts, D); if (my !== dc.tok) return;
-      rec = { v: 2, key, n: p.n, frame: p.frame, facts: p.facts, draft: p.draft, ref: p.ref };
-      await dcSave(rec); if (my !== dc.tok) return;
+    if (rec && rec.next && !painterJob('day', key) && dc.sendKey !== key) { delete rec.next; await dcSave(rec); } // 送到一半就關掉的
+    if (!rec || !rec.draft || (!rec.img && !rec.next && (rec.n !== n || rec.v !== DC_V))) { // 還沒準備過，或還沒畫、那天又多走了一段
+      let p = null; try { p = await dcPrepare(key, pts, D); } catch (e) { if (!rec || !rec.draft || rec.v !== DC_V) throw e; console.warn('[daycard]', e); } // 只是多走了一段、現在又沒網路：先用上次準備的
+      if (my !== dc.tok) return;
+      if (p) {
+        const cur = await kvJSON(dcFile(key)); if (my !== dc.tok) return;
+        if (cur && (cur.img || dc.sendKey === key || painterJob('day', key))) rec = cur; // 準備的時候已經按了畫：送出去的那份不能被蓋掉
+        else { rec = { v: DC_V, key, n: p.n, frame: p.frame, facts: p.facts, draft: p.draft, ref: p.ref }; await dcSave(rec); if (my !== dc.tok) return; }
+      }
     }
     dc.rec = rec; dc.state = 'ready';
   } catch (e) { if (my !== dc.tok) return; console.warn('[daycard]', e); dc.state = 'error'; dc.err = e.message || String(e); }
@@ -479,8 +497,7 @@ function dcRender() {
   let h = '';
   if (dc.state === 'error') h = '<button class="btn secondary full press" data-a="retry">再試一次</button>';
   else if (dc.state === 'ready' && job) {
-    const live = painterMem.live[job.id], wait = painterMem.reach === false ? '現在連不到' + (painterData().url ? '電腦' : '網路') + '，連上了會自己接著等' : live && live.status === 'queued' && live.ahead > 0 ? '前面還有 ' + live.ahead + ' 張，排到就畫，可以先離開' : 'ChatGPT 正在畫，大概要幾分鐘，可以先離開';
-    h = '<p class="dcState" role="status"><i class="dcSpin" aria-hidden="true"></i><span>' + wait + '</span></p><button class="btn plain full press" data-a="cancel">不畫了</button>';
+    h = '<p class="dcState" role="status">' + (painterMem.stale ? '' : '<i class="dcSpin" aria-hidden="true"></i>') + '<span>' + painterWait(job) + '</span></p>' + (painterMem.stale ? '<button class="btn secondary full press" data-a="pair">重新配對</button>' : '') + '<button class="btn plain full press" data-a="cancel">不畫了</button>';
   } else if (dc.state === 'ready' && rec.img) {
     h = '<div class="dcShare"><div class="seg dcSeg" role="radiogroup" aria-label="圖的比例">' + Object.entries(DC_SIZES).map(([k, s]) => '<button role="radio" data-s="' + k + '" aria-checked="' + (k === dc.size) + '"' + (k === dc.size ? ' class="on"' : '') + '>' + s.name + '</button>').join('') + '</div>' +
       '<button class="btn primary press" data-a="share">分享</button></div><button class="btn secondary full press" data-a="paint"' + (dc.sending ? ' disabled' : '') + '>' + (dc.sending ? '正在送出…' : '再畫一次') + '</button>';
@@ -492,19 +509,19 @@ function dcRender() {
 $('mountDayCard').addEventListener('click', e => {
   const s = e.target.closest('[data-s]'), a = e.target.closest('[data-a]');
   if (s) { dc.size = s.dataset.s; try { localStorage.setItem(DC_SIZE_KEY, dc.size); } catch (x) {} dcRender(); }
-  else if (a) ({ paint: dcAsk, retry: () => dcShow(dc.key, true), cancel: () => painterCancel('day', dc.key), share: dcShare })[a.dataset.a]();
+  else if (a) ({ paint: dcAsk, retry: () => dcShow(dc.key, true), cancel: () => painterCancel('day', dc.key), pair: () => painterSetup(() => {}), share: dcShare })[a.dataset.a]();
 });
 function dcAsk() { // 畫一張會用掉 ChatGPT 的額度，按下去先問一句。還沒配對就先配對，配好接著問
-  const key = dc.key, t = painterTarget(); if (dc.sending || !dc.rec) return;
+  const key = dc.key, t = painterTarget(); if (dc.sending || !dc.rec || painterJob('day', key)) return;
   if (!t) { painterSetup(() => { if (dc.key === key) dcAsk(); }); return; }
   const again = !!dc.rec.img, el = openSheet('<h2>' + (again ? '再畫一張？' : '請 ChatGPT 畫這一天？') + '</h2><p>' + (t.kind === 'pc' ? '畫一張大概用掉 ChatGPT Go 每個月額度的 3%。' : '會用掉一次畫圖額度。') + (again ? '新的畫好之後，會換掉現在這張。' : '') + '</p>' +
     '<div class="actions"><button class="btn primary full press" id="dcAskGo">' + (again ? '再畫一張' : '開始畫') + '</button><button class="btn plain full press" data-close>先不要</button></div>');
   el.querySelector('#dcAskGo').onclick = () => { closeSheet(); dcSend(); };
 }
 async function dcSend() { // 送去畫。重畫的時候舊的那張留著，新的畫好才換
-  const key = dc.key; if (dc.sending || !key || !dc.rec) return;
+  const key = dc.key; if (dc.sending || !key || !dc.rec || painterJob('day', key)) return; // 已經在畫就不再送
   if (!painterTarget()) return;
-  dc.sending = true; dcRender();
+  dc.sending = true; dc.sendKey = key; dcRender();
   try {
     let rec = dc.rec, p = rec.ref && !rec.img && rec.n === engine.state().days[key].n ? rec : null;
     if (!p) { const pts = await loadDay(key), D = DAYCORE.day(pts); if (D.few || D.close) throw new Error('這天走得太近，畫出來會露出住家'); p = await dcPrepare(key, pts, D); }
@@ -512,18 +529,19 @@ async function dcSend() { // 送去畫。重畫的時候舊的那張留著，新
     rec = Object.assign({}, rec, { next }); await dcSave(rec);
     await painterSubmit('day', next.draft, key);
     if (dc.key === key) dc.rec = rec;
-  } catch (e) { toast(e.message || String(e), 5000); }
-  dc.sending = false; dcRender();
+  } catch (e) { if (e.status === 401 && painterMem.stale) painterSetup(() => { if (dc.key === key) dcAsk(); }, '電腦的密碼換過了，重新配對就能畫'); else toast(e.message || String(e), 5000); }
+  dc.sending = false; dc.sendKey = null; dcRender();
 }
 painterOn.day = async (job, img) => {
   const rec = await kvJSON(dcFile(job.key)); if (!rec || !rec.next) return false;
   const r = await paintedIn(img, rec.next.ref), n = rec.next;
-  await dcSave({ v: 2, key: job.key, n: n.n, frame: n.frame, facts: n.facts, draft: n.draft, img: r.img, fit: r.fit, at: Date.now() });
+  if (!painterJob('day', job.key)) return false; // 收圖的時候按了「不畫了」
+  await dcSave({ v: DC_V, key: job.key, n: n.n, frame: n.frame, facts: n.facts, draft: n.draft, img: r.img, fit: r.fit, at: Date.now() });
 };
 document.addEventListener('onion:painted', async e => {
   const d = e.detail; if (d.kind !== 'day') return;
   if (d.ok) toast(dcDayText(d.key) + '畫好了', 3600); else if (d.error) toast(d.error, 5000);
-  if (!d.ok) { const rec = await kvJSON(dcFile(d.key)); if (rec && rec.next) { delete rec.next; await dcSave(rec); } }
+  if (!d.ok && dc.sendKey !== d.key) { const rec = await kvJSON(dcFile(d.key)); if (rec && rec.next && !painterJob('day', d.key)) { delete rec.next; await dcSave(rec); } }
   if (tab === 'card' && dc.pick === 'day' && dc.key === d.key) dcShow(d.key, true); else if (dc.key === d.key) dc.rec = null;
 });
 document.addEventListener('onion:painter', () => { if (tab === 'card' && dc.pick === 'day' && dc.state === 'ready' && !dc.sending) dcRender(); });

@@ -272,10 +272,10 @@ function postPaint(res, text) {
   if (w > SIDE_MAX || h > SIDE_MAX || w < SIDE_MIN || h < SIDE_MIN) {
     return send(res, 400, { error: `圖的大小不對，邊長要在 ${SIDE_MIN} 到 ${SIDE_MAX} 之間` });
   }
-  // 手機沒收到回應又送一次：同一張還在排或還在畫，就給同一個號碼，不要畫兩次
+  // 手機沒收到回應又送一次：同一張還在排、還在畫、或畫好了還沒被拿走，就給同一個號碼，不要畫兩次
   const hash = sha(`${kind}/${style}/`).toString('hex').slice(0, 8) + sha(img.buf).toString('hex');
   for (const j of jobs.values()) {
-    if (j.hash === hash && (j.status === 'queued' || j.status === 'painting')) return send(res, 202, { id: j.id });
+    if (j.hash === hash && (j.status === 'queued' || j.status === 'painting' || (j.status === 'done' && !j.taken))) return send(res, 202, { id: j.id });
   }
   if (queue.length >= WAIT_MAX) return send(res, 429, { error: '前面還有好幾張在排，等一下再試' });
   const job = addJob(kind, style, img.buf, img.info, hash);
@@ -302,6 +302,13 @@ function getImage(res, job) {
     return send(res, 404, { error: '這張圖不見了，再畫一次' });
   }
   send(res, 200, { image: buf.toString('base64'), mime: job.mime });
+  if (job.taken) return;
+  job.taken = true;
+  try {
+    saveJob(job);
+  } catch (e) {
+    log(`存不起來：${e.message}`);
+  }
 }
 
 function deleteJob(res, job) {

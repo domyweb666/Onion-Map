@@ -73,6 +73,13 @@ test('名字：住宅裡不寫、咖啡店很近才寫、捷運補站', () => {
   assert.equal(D.nameStop({ lat: 25, lng: 121.5 }, f), '某國小'); assert.equal(D.nameStop({ lat: 25, lng: 121.5 }, { ...f, home: [box(25, 121.5)] }), '');
   assert.equal(D.nameStop({ lat: 25, lng: 121.6 }, { ...f, home: [box(25, 121.6)] }), '咖啡'); assert.equal(D.nameStop({ lat: 25.2, lng: 121.5 }, f), '公館站'); assert.equal(D.nameStop({ lat: 25.3, lng: 121.5 }, f), '');
 });
+test('區名：有現行名單就只寫名單裡的，老地名不寫；沒有名單（國外）照舊', () => {
+  const f = D.extent([walk(T0, 25, 3000)]), at = (u, v) => { const lng = 121.5 + (u - 0.5) * 0.02, lat = 25.0135 + (v - 0.5) * 0.03; return { lng, lat }; };
+  const place = [{ cls: 'quarter', name: '大安', ...at(0.4, 0.2) }, { cls: 'suburb', name: '大安區', ...at(0.6, 0.8) }, { cls: 'hamlet', name: '柴頭坡', ...at(0.5, 0.5) }, { cls: 'suburb', name: '台西鄉', ...at(0.3, 0.5) }];
+  const names = t => [...D.pickPlaces({ place }, f, t)].map(p => p.name).sort();
+  assert.deepEqual(names(new Set(['大安區', '臺西鄉'])), ['台西鄉', '大安區']); assert.ok(names(new Set(['文山區'])).length === 0);
+  assert.ok(names(null).includes('台西鄉'));
+});
 test('自己命名的地方：80 公尺內優先；家不寫出來', () => {
   const s = { lat: 25, lng: 121.5 };
   assert.equal(D.ownName([{ lat: 25 + 50 * M, lng: 121.5, name: '巷口那間' }], s), '巷口那間'); assert.equal(D.ownName([{ lat: 25 + 200 * M, lng: 121.5, name: '遠' }], s), undefined);

@@ -105,13 +105,14 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   .me{width:18px;height:18px;border-radius:50%;background:var(--d-accent);border:3px solid var(--d-surface);
     animation:pulse 1.8s infinite} /* domy-ignore: 定位點大小 */
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(145,107,27,.55)}100%{box-shadow:0 0 0 18px rgba(145,107,27,0)}} /* domy-ignore: 脈衝用 accent 的透明版 */
-  .maplibregl-ctrl-bottom-left{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));left:var(--d-size-screen-margin)}
-  .maplibregl-ctrl-bottom-right{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));right:var(--d-size-screen-margin)}
+  .maplibregl-ctrl-bottom-left{bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3));left:var(--d-size-screen-margin)}
+  .maplibregl-ctrl-bottom-right{bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3));right:var(--d-size-screen-margin)}
   .maplibregl-ctrl-bottom-left .maplibregl-ctrl,.maplibregl-ctrl-bottom-right .maplibregl-ctrl{margin:0!important}
   .maplibregl-ctrl-scale{font:var(--d-caption);color:var(--d-text-secondary);background:var(--d-surface)!important;
     border:2px solid var(--d-text-secondary)!important;border-top:none!important;padding:0 var(--d-space-1)}
   .maplibregl-ctrl-attrib{background:var(--d-surface)!important;color:var(--d-text-secondary);font:var(--d-caption)}
   .maplibregl-ctrl-attrib a{color:var(--d-text-secondary)}
+  .maplibregl-ctrl-attrib-button::after{content:'';position:absolute;inset:calc((24px - var(--d-size-touch)) / 2)} /* domy-ignore: 地圖出處鈕是 24，點得到 44 */
 
   /* 狀態列底下墊一層畫布色：分頁捲動時內容不會鑽到瀏海底下；地圖頁只墊淡淡一層，深色模式的白色時間才看得到 */
   body::before{content:'';position:fixed;z-index:12;top:0;left:0;right:0;height:calc(var(--safe-t) + var(--d-space-3));pointer-events:none;
@@ -122,8 +123,9 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #mapTop{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));left:var(--d-size-screen-margin);
     right:calc(var(--d-size-screen-margin) + var(--d-size-icon-button) + var(--d-space-3));pointer-events:none}
   #stats{display:inline-flex;align-items:baseline;gap:var(--d-space-1);max-width:100%;pointer-events:auto;
-    min-height:var(--d-size-icon-button);padding:var(--d-space-3) var(--d-space-4);border-radius:var(--d-radius-pill);
-    background:var(--d-surface);box-shadow:var(--d-elev-1);font:var(--d-subheadline);color:var(--d-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    min-height:var(--d-size-icon-button);padding:var(--d-space-3) var(--d-space-4);border-radius:var(--d-radius-2xl);
+    flex-wrap:wrap;background:var(--d-surface);box-shadow:var(--d-elev-1);font:var(--d-subheadline);color:var(--d-text-secondary)}
+  #stats span{white-space:nowrap}
   #stats b{font:var(--d-headline);color:var(--d-text-primary)}
   #mapSide{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));right:var(--d-size-screen-margin);
     display:flex;flex-direction:column;gap:var(--d-space-3)}
@@ -136,6 +138,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   .seg{display:flex;gap:var(--d-space-1)}
   .seg button{flex:1;height:var(--d-size-picker-height);border-radius:var(--d-radius-pill);font:var(--d-callout);color:var(--d-text-primary)}
   .seg button.on{background:var(--d-soft);color:var(--d-strong)}
+  #simbar .seg button{height:var(--d-size-touch)}
   #simhint{font:var(--d-footnote);color:var(--d-text-secondary);margin:var(--d-space-2) var(--d-space-2) var(--d-space-1)}
   /* 記錄列：核心動作。待機＝亮金底＋實心圓；記錄中＝產品色底＋方塊，形狀跟著變，不只靠顏色 */
   #recBar{position:fixed;z-index:5;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:var(--tab-clear);
@@ -145,7 +148,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #recText{flex:1;min-width:0;display:flex;flex-direction:column;gap:calc(var(--d-space-1) / 2)}
   #recTitle{font:var(--d-headline)}
   #status{font:var(--d-footnote);color:var(--d-text-secondary);max-height:2lh;overflow:hidden}
-  #btnSettings{align-self:flex-start;font:var(--d-callout);color:var(--d-strong);min-height:var(--d-size-touch)}
+  #btnSettings{align-self:flex-start;text-align:left;font:var(--d-callout);color:var(--d-strong);min-height:var(--d-size-touch)}
   #btnRec{flex:none;width:var(--rec-btn);height:var(--rec-btn);border-radius:var(--d-radius-pill);display:grid;place-items:center;
     background:var(--d-bright);color:var(--d-on-bright);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-soft)}
   #btnRec.rec{background:var(--d-accent);color:var(--d-on-accent);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-accent)}
@@ -156,7 +159,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   /* ----- 懸浮分頁列（DomyTabBar） ----- */
   #tabbar{position:fixed;z-index:20;left:0;right:0;bottom:calc(var(--safe-b) + var(--d-size-tab-bar-bottom));display:flex;justify-content:center;pointer-events:none}
   #tabbar .bar{pointer-events:auto;width:var(--d-size-tab-bar-width);max-width:calc(100% - var(--d-size-screen-margin) * 2);height:var(--d-size-tab-bar);
-    border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-2);
+    border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-2),0 0 0 var(--d-size-hairline) var(--d-separator);
     padding:calc(var(--d-space-1) * 1.5);display:flex;gap:var(--d-space-1)}
   .tab{flex:1;min-width:0;border-radius:var(--d-radius-pill);display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:calc(var(--d-space-1) / 2);font:var(--d-caption);color:var(--d-text-primary)}
@@ -178,8 +181,8 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     width:100%;text-align:left;font:var(--d-body);color:var(--d-text-primary)}
   button.row,label.row{cursor:pointer}
   button.row:active,label.row:active{background:var(--d-surface-muted)}
-  .row .lbl{flex:1;min-width:0}
-  .row .val{color:var(--d-text-secondary);text-align:right}
+  .row .lbl{flex:1;min-width:4.5em}
+  .row .val{color:var(--d-text-secondary);text-align:right;overflow-wrap:anywhere}
   .row.destructive .lbl{color:var(--d-destructive)}
   .row .lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--d-space-1);padding:var(--d-space-1) 0}
   .row .meta{font:var(--d-footnote);color:var(--d-text-secondary)}
@@ -189,7 +192,9 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     background:var(--d-surface-muted);transition:background var(--d-transition-ms)}
   .switch::after{content:'';position:absolute;top:2px;left:2px;width:calc(var(--d-size-switch-height) - 4px);height:calc(var(--d-size-switch-height) - 4px);
     border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-1);transition:transform var(--d-transition-ms)} /* domy-ignore: 開關圓點留 2px 邊 */
+  .switch::before{content:'';position:absolute;inset:calc((var(--d-size-switch-height) - var(--d-size-touch)) / 2) 0} /* 看起來 31 高，點得到 44 高 */
   .switch[aria-checked=true]{background:var(--d-accent)}
+  @media (prefers-color-scheme:dark){.switch[aria-checked=false]::after{background:var(--d-text-secondary)}} /* 深色時圓點跟底同色，看不到關著 */
   .switch[aria-checked=true]::after{transform:translateX(calc(var(--d-size-switch-width) - var(--d-size-switch-height)))}
   /* 統計（DomyStatGrid） */
   .statgrid{background:var(--d-tint);border:var(--d-size-hairline) solid var(--d-soft);border-radius:var(--d-radius-xl);padding:var(--d-space-5);
@@ -202,7 +207,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   .empty{display:flex;flex-direction:column;align-items:center;gap:var(--d-space-3);padding:var(--d-space-8) var(--d-space-6);text-align:center}
   .empty .badge{width:var(--d-size-empty-icon);height:var(--d-size-empty-icon);border-radius:var(--d-radius-pill);background:var(--d-soft);color:var(--d-accent);display:grid;place-items:center}
   .empty h3{margin:0;font:var(--d-title3)}
-  .empty p{margin:0;font:var(--d-subheadline);color:var(--d-text-secondary)}
+  .empty p{margin:0;font:var(--d-subheadline);color:var(--d-text-secondary);text-wrap:balance}
   .empty .btn{margin-top:var(--d-space-1)}
   /* 按鈕（DomyButton）：一個畫面最多一顆 primary */
   .btn{height:var(--d-size-button);border-radius:var(--d-radius-pill);padding:0 var(--d-space-6);font:var(--d-headline);
@@ -210,7 +215,8 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   .btn.primary{background:var(--d-accent);color:var(--d-on-accent)}
   .btn.secondary{background:var(--d-surface-muted);color:var(--d-text-primary)}
   .btn.plain{background:transparent;color:var(--d-strong)}
-  .btn.compact{height:var(--d-size-button-compact);padding:0 var(--d-space-4);font:var(--d-callout)}
+  .btn.compact{position:relative;height:var(--d-size-button-compact);padding:0 var(--d-space-4);font:var(--d-callout)}
+  .btn.compact::after{content:'';position:absolute;inset:calc((var(--d-size-button-compact) - var(--d-size-touch)) / 2) 0}
   .btn.full{width:100%}
   .btn:disabled{background:var(--d-surface-muted);color:var(--d-text-disabled)}
   .actions{display:flex;flex-direction:column;gap:var(--d-space-2)}
@@ -243,19 +249,20 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     background:var(--d-text-primary);color:var(--d-surface);padding:var(--d-space-2) var(--d-space-4);border-radius:var(--d-radius-pill);
     font:var(--d-subheadline);box-shadow:var(--d-elev-2);opacity:0;transition:opacity var(--d-transition-ms);pointer-events:none;
     max-width:calc(100% - var(--d-size-screen-margin) * 2);text-align:center}
-  body[data-tab=map] #toast{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3))}
+  body[data-tab=map] #toast{bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3))}
   #toast.show{opacity:1}
 
   /* ----- 共用底部抽屜 ----- */
   #sheetHost{position:fixed;inset:0;z-index:26;background:rgba(var(--d-shadow-rgb),.4);display:flex;align-items:flex-end;justify-content:center} /* domy-ignore: 遮罩透明度 */
-  #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
+  #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);box-shadow:0 0 0 var(--d-size-hairline) var(--d-separator);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
     padding:var(--d-space-6) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-6));display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
   #sheetBody h2{margin:0;font:var(--d-title2)}
   #sheetBody p{margin:0}
   /* ----- 地圖頁的提問卡（在記錄列上方） ----- */
-  #mapAsk{position:fixed;z-index:6;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));
+  #mapAsk{position:fixed;z-index:6;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3));
     max-width:520px;margin:0 auto;padding:var(--d-space-4) var(--d-space-5);border-radius:var(--d-radius-2xl);background:var(--d-surface);box-shadow:var(--d-elev-2)} /* domy-ignore: 寬螢幕上限 */
   body:not([data-tab=map]) #mapAsk{display:none}
+  body:has(#mapAsk:not([hidden])) .maplibregl-control-container{visibility:hidden} /* 卡片蓋在比例尺上，圓角旁邊會露出一截 */
 
 /* 52-daycard.css */
   /* ----- 製圖頁：一天 ----- */
@@ -674,7 +681,9 @@ function createEngine(h3) {
     putBackSaves(r) { r.shards.forEach(k => dirtyShards.add(k)); r.days.forEach(k => dirtyDays.add(k)); dirtyMeta = dirtyMeta || r.meta; },
     shardData(k) { const o = {}; for (const c of shards.get(k) || []) o[c] = s.cells[c]; return o; },
     dayPoints(k) { // 只認得記憶體裡的
-      const out = []; for (let i = s.points.length - 1; i >= 0; i--) { const d = dayKey(s.points[i][0]); if (d === k) out.push(s.points[i]); else if (d < k) break; }
+      const [y, m, dd] = k.split('-').map(Number), end = new Date(y, m - 1, dd + 1).getTime() / 1000; // 從那天結束的地方往回走，不然還原好幾年的備份時每一天都要從頭掃一次
+      let lo = 0, hi = s.points.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (s.points[mid][0] < end) lo = mid + 1; else hi = mid; }
+      const out = []; for (let i = lo - 1; i >= 0; i--) { const d = dayKey(s.points[i][0]); if (d === k) out.push(s.points[i]); else if (d < k) break; }
       return out.reverse();
     },
     meta: () => ({ v: 2, flights: s.flights, gaps: s.gaps, km: s.km, days: s.days, ext: s.ext }),
@@ -1678,10 +1687,11 @@ function render(force) {
   map.getSource('gaps').setData({ type: 'FeatureCollection', features: s.gaps.map(g => ({ type: 'Feature', properties: {},
     geometry: { type: 'LineString', coordinates: [[g[0], g[1]], [g[2], g[3]]] } })) });
 }
+document.addEventListener('onion:restored', () => { const l = lastPoint(); if (l && map) map.jumpTo({ center: [l[2], l[1]], zoom: 15 }); }); // 換成別份紀錄，帶到那份最後走到的地方
 function updateStats() {
   const s = engine.state();
   const a = s.area < 10 ? s.area.toFixed(3) : s.area.toFixed(1);
-  $('stats').innerHTML = '<b>' + a + '</b> km² · 地面 ' + kmText(s.km.walk + s.km.vehicle) + (s.flights.length ? ' · 航線 ' + s.flights.length + ' 段' : '');
+  $('stats').innerHTML = '<span><b>' + a + '</b> km²</span><span>· 地面 ' + kmText(s.km.walk + s.km.vehicle) + '</span>'; // 航線幾段在足跡頁，這裡放不下
 }
 
 /* 30-record.js */
@@ -1709,6 +1719,9 @@ function flightBounds() {
 }
 function setStatus(t) { $('status').textContent = t; }
 map.on('dragstart', () => { follow = false; });
+
+// 記錄列會變高（兩行字、多一顆到設定的鈕）：比例尺、提示、提問卡照它現在的高度往上讓
+if (window.ResizeObserver) new ResizeObserver(() => { const h = $('recBar').offsetHeight; if (h) document.documentElement.style.setProperty('--rec-now', h + 'px'); }).observe($('recBar'));
 
 // --- 真實 GPS ---
 // iOS app：走原生 CoreLocation（背景、螢幕關掉都繼續）；網頁：navigator.geolocation，要保持螢幕開啟。
@@ -1910,16 +1923,17 @@ $('legend').onclick = e => { if (e.target === $('legend')) $('legend').hidden = 
 
 /* 42-painter.js */
 // ===== 畫圖服務：把底稿送出去，等 ChatGPT 畫好拿回來。電腦上的程式與之後的雲端是同一套介面（docs/模組約定.md） =====
-// 配對與等待中的工作存 ext('painter')：{url, token, name, kind, jobs:[{id, kind, key, at}]}。配對密碼不進備份（15-store.js）
+// 配對與等待中的工作存 ext('painter')：{url, token, name, kind, jobs:[{id, kind, key, at}], drop:[取消了但電腦還不知道的 id]}。配對密碼不進備份（15-store.js）
 // 畫好之後交給 painterOn[kind](job, 'data:image/…') 收（日卡、底圖各自登記），收好才把工作從清單拿掉，再發 document 事件：
 //   onion:painted {kind, key, ok, error}　　onion:painter 配對狀態或等待中的工作有變
 const PAINT_CLOUD_URL = ''; // 雲端畫圖服務的網址。空的就只有「用電腦的 ChatGPT 畫」
 const painterOn = {};
-const painterMem = { reach: null, left: null, timer: null, busy: false, live: {}, tries: {}, after: null };
+const painterMem = { reach: null, stale: false, left: null, timer: null, busy: false, live: {}, tries: {}, after: null };
 
 function painterData() {
   const p = ext('painter', { url: '', token: '', name: '', kind: '', jobs: [] });
   if (!Array.isArray(p.jobs)) p.jobs = [];
+  if (!Array.isArray(p.drop)) p.drop = [];
   return p;
 }
 function painterChanged() { document.dispatchEvent(new Event('onion:painter')); }
@@ -1952,6 +1966,7 @@ async function painterCall(method, path, body, ms, to) {
       status = r.status; data = await r.json().catch(() => ({}));
     } catch (e) { throw off(); } finally { clearTimeout(tm); }
   }
+  if (!to && t.kind === 'pc') painterMem.stale = status === 401; // 電腦換過密碼：要重新配對，不是連不到
   if (status >= 400) throw Object.assign(new Error((data && data.error) || (status === 401 || status === 403 ? '配對過期了，重新掃一次 QR' : '畫圖那邊出了問題（' + status + '）')), { status });
   return data || {};
 }
@@ -1968,27 +1983,30 @@ async function painterPair(text) {
   let r; try { r = await painterCall('GET', '/ping', null, 10000, { url: c.url, token: c.token, kind: 'pc' }); }
   catch (e) { throw e.offline ? new Error('連不到電腦。確認畫圖程式開著，手機跟電腦是同一個 Wi-Fi') : e; }
   const p = painterData();
-  if (p.url && p.url !== c.url) painterDropJobs('換了一台電腦');
+  if (p.url && p.url !== c.url && p.token !== c.token) { painterDropJobs('換了一台電腦'); p.drop = []; } // 密碼一樣就是同一台電腦換了網址，等待中的留著
   p.url = c.url; p.token = c.token; p.name = r.name || c.name; p.kind = r.kind || 'pc';
-  painterMem.reach = true; extSave(); flushSave(); painterChanged();
+  painterMem.reach = true; painterMem.stale = false; extSave(); flushSave(); painterChanged(); painterSoon(300);
   return { name: p.name };
 }
 function painterUnpair() {
   const p = painterData(); painterDropJobs('已經解除配對');
-  p.url = p.token = p.name = p.kind = ''; painterMem.reach = null; extSave(); painterChanged();
+  p.url = p.token = p.name = p.kind = ''; p.drop = []; painterMem.reach = null; painterMem.stale = false; extSave(); painterChanged();
 }
 async function painterPing() {
   if (!painterTarget()) { painterMem.reach = null; return null; }
-  try { const r = await painterCall('GET', '/ping', null, 6000); painterMem.reach = true; painterMem.left = r.left != null ? r.left : null; painterChanged(); return r; }
+  try { const r = await painterCall('GET', '/ping', null, 6000); painterMem.reach = true; painterMem.left = r.left != null ? r.left : null; painterChanged(); if (painterData().drop.length) painterSoon(300); return r; }
   catch (e) { painterMem.reach = false; painterChanged(); return null; }
 }
 
 // --- 工作 ---
 async function painterSubmit(kind, base64, key) {
-  const r = await painterCall('POST', '/paint', { kind, style: 'pencil', image: String(base64).replace(/^data:[^,]*,/, '') }, 60000);
+  let r; try { r = await painterCall('POST', '/paint', { kind, style: 'pencil', image: String(base64).replace(/^data:[^,]*,/, '') }, 60000); }
+  catch (e) { if (e.offline) { painterMem.reach = false; e.message = painterData().url ? '連不到電腦。確認畫圖程式開著，手機跟電腦是同一個 Wi-Fi' : '連不到網路，等一下再試'; } painterChanged(); throw e; }
   if (!r.id) throw new Error('畫圖那邊沒有收到');
   painterMem.reach = true;
-  if (key != null) { painterData().jobs.push({ id: r.id, kind, key, at: Date.now() }); extSave(); flushSave(); painterChanged(); painterSoon(3000); }
+  const p = painterData(), dup = p.jobs.find(j => j.id === r.id); p.drop = p.drop.filter(id => id !== r.id);
+  if (dup) { if (dup.kind === kind && dup.key === key) return r.id; throw new Error('這張已經在畫了'); } // 同一張底稿送兩次，電腦會給同一個號碼
+  if (key != null) { p.jobs.push({ id: r.id, kind, key, at: Date.now() }); extSave(); flushSave(); painterChanged(); painterSoon(3000); }
   return r.id;
 }
 function painterPoll(id) { return painterCall('GET', '/paint/' + encodeURIComponent(id), null, 12000); }
@@ -2004,18 +2022,32 @@ function painterEnd(job, ok, error) {
   extSave(); flushSave(); painterChanged();
   document.dispatchEvent(new CustomEvent('onion:painted', { detail: { kind: job.kind, key: job.key, ok, error } }));
 }
-function painterDropJobs(why) { for (const j of painterData().jobs.slice()) { painterCall('DELETE', '/paint/' + encodeURIComponent(j.id), null, 8000).catch(() => {}); painterEnd(j, false, why); } }
+function painterForget(id) { // 叫電腦不用畫了。這時候連不到就記著，下次連上再講，免得它照樣畫、白吃額度。回傳有沒有講到
+  const p = painterData(), done = ok => {
+    if (ok) p.drop = p.drop.filter(x => x !== id); else if (!p.drop.includes(id)) p.drop.push(id); else return ok;
+    extSave(); return ok;
+  };
+  return painterCall('DELETE', '/paint/' + encodeURIComponent(id), null, 8000).then(() => done(true), e => done(!e.offline));
+}
+function painterWait(job) { // 等的時候寫給人看的話
+  const live = painterMem.live[job.id];
+  if (painterMem.stale) return '電腦的密碼換過了，重新配對就會接著等';
+  if (painterMem.reach === false) return '現在連不到' + (painterData().url ? '電腦' : '網路') + '，連上了會自己接著等';
+  return live && live.status === 'queued' && live.ahead > 0 ? '前面還有 ' + live.ahead + ' 張，排到就畫，可以先離開' : 'ChatGPT 正在畫，大概要幾分鐘，可以先離開';
+}
+function painterDropJobs(why) { for (const j of painterData().jobs.slice()) { painterForget(j.id); painterEnd(j, false, why); } }
 function painterCancel(kind, key) {
   const j = painterJob(kind, key); if (!j) return;
-  painterCall('DELETE', '/paint/' + encodeURIComponent(j.id), null, 8000).catch(() => {});
+  painterForget(j.id);
   painterEnd(j, false, '');
 }
 function painterSoon(ms) { clearTimeout(painterMem.timer); painterMem.timer = setTimeout(painterCheck, ms); }
 async function painterCheck() { // 逐張問，有畫好的就收回來
   clearTimeout(painterMem.timer);
-  if (painterMem.busy || !painterData().jobs.length) return;
+  if (painterMem.busy || !painterTarget() || !(painterData().jobs.length + painterData().drop.length)) return;
   painterMem.busy = true;
   try {
+    for (const id of painterData().drop.slice()) if (!await painterForget(id)) break;
     for (const job of painterData().jobs.slice()) {
       let st;
       try { st = await painterPoll(job.id); painterMem.reach = true; }
@@ -2036,6 +2068,7 @@ async function painterCheck() { // 逐張問，有畫好的就收回來
         painterEnd(job, kept !== false, '');
       } catch (e) {
         console.warn('[painter] 收圖失敗', e);
+        if (e.offline) { painterMem.reach = false; break; } // 圖還在電腦上，連上了再收
         if ((painterMem.tries[job.id] = (painterMem.tries[job.id] || 0) + 1) >= 4) painterEnd(job, false, '圖收不回來：' + (e.message || e));
       }
     }
@@ -2047,11 +2080,12 @@ async function painterCheck() { // 逐張問，有畫好的就收回來
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') painterSoon(300); });
 window.addEventListener('online', () => painterSoon(500));
-document.addEventListener('onion:wiped', () => { clearTimeout(painterMem.timer); painterMem.reach = null; painterChanged(); });
+document.addEventListener('onion:sheetclosed', () => { painterMem.after = null; }); // 按了「先不要」，之後再配對就不會自己開始畫
+document.addEventListener('onion:wiped', () => { clearTimeout(painterMem.timer); painterMem.reach = null; painterMem.stale = false; painterChanged(); });
 document.addEventListener('onion:restored', () => painterSoon(500));
 
 // --- 配對的抽屜。done：配好之後接著做的事（例如把那一天送出去） ---
-function painterSetup(done) {
+function painterSetup(done, why) { // why：一打開就寫在上面的話（例如密碼換過了）
   painterMem.after = done || null;
   const p = painterData();
   if (p.url && !done) return painterSheetPaired();
@@ -2059,7 +2093,7 @@ function painterSetup(done) {
   const el = openSheet('<h2>用電腦的 ChatGPT 畫</h2><ol class="pt-steps">' +
     steps.map(([a, b], i) => '<li><span class="no">' + (i + 1) + '</span><div class="lines"><span class="ttl">' + a + '</span>' + (b ? '<span class="meta">' + b + '</span>' : '') + '</div></li>').join('') + '</ol>' +
     (NATIVE ? '' : '<input id="ptUrl" class="pt-in" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="把電腦上的配對網址貼在這裡" aria-label="配對網址">') +
-    '<p class="foot pt-err" id="ptErr" role="alert" hidden></p>' +
+    '<p class="foot pt-err" id="ptErr" role="alert"' + (why ? '>' + esc(why) : ' hidden>') + '</p>' +
     '<div class="actions"><button class="btn primary full press" id="ptGo">' + (NATIVE ? '掃 QR' : '配對') + '</button><button class="btn plain full press" data-close>先不要</button></div>');
   const err = t => { const e = el.querySelector('#ptErr'); if (e) { e.textContent = t; e.hidden = !t; } };
   el.querySelector('#ptGo').onclick = async ev => {
@@ -2080,13 +2114,14 @@ function painterPaired(r) {
   if (next) next();
 }
 function painterSheetPaired() {
-  const p = painterData(), st = () => painterMem.reach === null ? '看看連不連得到…' : painterMem.reach ? '連得到' : '連不到';
+  const p = painterData(), st = () => painterMem.stale ? '密碼換過了，要重新配對' : painterMem.reach === null ? '看看連不連得到…' : painterMem.reach ? '連得到' : '連不到';
   const el = openSheet('<h2>用電腦的 ChatGPT 畫</h2><div class="section"><div class="group">' +
     '<div class="row"><span class="lbl">電腦</span><span class="val">' + esc(p.name) + '</span></div>' +
     '<div class="row"><span class="lbl">狀態</span><span class="val" id="ptSt">' + st() + '</span></div></div>' +
     '<p class="foot">連不到的話，看電腦上的畫圖程式有沒有開、手機跟電腦是不是同一個 Wi-Fi。</p></div>' +
-    '<div class="group"><button class="row destructive" id="ptOff"><span class="lbl">解除配對</span></button></div>' +
+    '<div class="group"><button class="row" id="ptAgain"><span class="lbl">重新配對</span></button><button class="row destructive" id="ptOff"><span class="lbl">解除配對</span></button></div>' +
     '<button class="btn secondary full press" data-close>關閉</button>');
+  el.querySelector('#ptAgain').onclick = () => painterSetup(() => {});
   el.querySelector('#ptOff').onclick = () => { painterUnpair(); closeSheet(); toast('已經解除配對'); };
   painterMem.reach = null;
   painterPing().then(() => { const x = $('ptSt'); if (x) x.textContent = st(); });
@@ -2107,7 +2142,7 @@ function painterNative() { try { return NATIVE_ONION || null; } catch (e) { retu
 function painterSettings() {
   const el = $('mountPaint'); if (!el) return;
   const p = painterData(), r = painterMem.reach;
-  const val = p.url ? esc(p.name) + (r === false ? '（連不到）' : '') : '還沒配對';
+  const val = p.url ? esc(p.name) + (painterMem.stale ? '（要重新配對）' : r === false ? '（連不到）' : '') : '還沒配對';
   el.innerHTML = '<div class="section"><h2>畫圖</h2><div class="group">' +
     '<button class="row" id="rowPainter"><span class="lbl">用電腦的 ChatGPT 畫</span><span class="val pt-val">' + val + '</span><svg class="chev"><use href="#i-chev"/></svg></button>' +
     (typeof baseRow === 'function' ? baseRow() : '') + '</div></div>';
@@ -2133,7 +2168,8 @@ const SHEET_FADE = ['interpolate', ['linear'], ['zoom'], 13.6, 1, 14.4, 0];
 const SHEET_TOP = 'freq'; // 底圖都插在這一層下面
 function addSheets() {
   for (const s of SHEETS) {
-    map.addSource('sheet-' + s.id, { type: 'raster', tiles: [s.tiles], tileSize: 256, bounds: s.bounds, minzoom: s.minzoom, maxzoom: s.maxzoom });
+    const b = s.bounds, e = 1e-5, inside = [b[0] + e, b[1] + e, b[2] - e, b[3] - e]; // 邊界剛好壓在圖磚線上，會多要一排沒有的圖磚（404），往內縮一公尺
+    map.addSource('sheet-' + s.id, { type: 'raster', tiles: [s.tiles], tileSize: 256, bounds: inside, minzoom: s.minzoom, maxzoom: s.maxzoom });
     map.addLayer({ id: 'sheet-' + s.id, type: 'raster', source: 'sheet-' + s.id, maxzoom: 14.5, paint: { 'raster-fade-duration': 0, 'raster-opacity': SHEET_FADE } }, SHEET_TOP);
   }
 }
@@ -2287,7 +2323,7 @@ async function baseShow(b) { // 邊緣羽化，兩張相鄰的疊起來沒有硬
       g.fillStyle = gr; g.fillRect(0, 0, DRAFT_W, DRAFT_H);
     }
     const url = baseMem.urls[b.id] = URL.createObjectURL(await new Promise(r => c.toBlob(r, 'image/png')));
-    map.addSource('base-' + b.id, { type: 'image', url, coordinates: b.quad });
+    if (!map.getSource('base-' + b.id)) map.addSource('base-' + b.id, { type: 'image', url, coordinates: b.quad });
   }
   if (!map.getLayer('base-' + b.id)) map.addLayer({ id: 'base-' + b.id, type: 'raster', source: 'base-' + b.id, maxzoom: BASE_FADE_B, paint: { 'raster-fade-duration': 0, 'raster-opacity': BASE_FADE } }, map.getLayer('base-names') ? 'base-names' : SHEET_TOP);
 }
@@ -2313,7 +2349,9 @@ async function baseDelete(id) {
 async function baseStart() { // 以地圖中心這一帶送一張
   if (baseMem.busy) return;
   if (!painterTarget()) { painterSetup(baseStart); return; }
-  const c = map.getCenter(); closeSheet();
+  const c = map.getCenter(), fr = baseFrame(c.lng, c.lat), dup = baseMem.list.find(b => !b.img && painterJob('base', b.id) && Math.max(...fr.map((v, i) => Math.abs(v - b.frame[i]))) < (fr[2] - fr[0]) * 0.1);
+  closeSheet();
+  if (dup) { toast('這一帶已經在畫了，畫好會自己出現', 4000); return; } // 同一個地方按兩次，不要畫兩張
   baseMem.busy = true; painterSettings(); toast('正在準備底稿…', 6000);
   try {
     const frame = baseFrame(c.lng, c.lat), r = await draftRender(frame), id = Date.now().toString(36);
@@ -2322,18 +2360,19 @@ async function baseStart() { // 以地圖中心這一帶送一張
     await kvSafeSet('base/' + id + '.json', JSON.stringify(b)); baseMem.list.push(b);
     try { await painterSubmit('base', draft, id); } catch (e) { await baseDelete(id); throw e; }
     toast('送出去了，畫好會自己出現在地圖上', 4000);
-  } catch (e) { toast(e.message || String(e), 5000); }
+  } catch (e) { if (e.status === 401 && painterMem.stale) painterSetup(baseStart, '電腦的密碼換過了，重新配對就能畫'); else toast(e.message || String(e), 5000); }
   baseMem.busy = false; painterSettings();
 }
 painterOn.base = async (job, img) => {
   const b = baseMem.list.find(x => x.id === job.key) || await kvJSON('base/' + job.key + '.json'); if (!b || !b.ref) return false;
   const r = await paintedIn(img, b.ref), f = r.fit;
+  if (!painterJob('base', b.id)) return false; // 收圖的時候按了取消
   // AI 圖的四個角落在哪：對位後的框換回經緯度（左上、右上、右下、左下）
   const x0 = f.ox / 2, y0 = f.oy / 2, x1 = (f.ox + f.sx * DRAFT_W) / 2, y1 = (f.oy + f.sy * DRAFT_H) / 2;
   Object.assign(b, { img: r.img, fit: f, quad: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => frameLL(b.frame, x, y).map(v => +v.toFixed(6))) }); delete b.ref;
   await kvSafeSet('base/' + b.id + '.json', JSON.stringify(b));
   if (!baseMem.list.includes(b)) baseMem.list.push(b);
-  await mapReady; await baseShow(b); baseLabels();
+  mapReady.then(() => baseShow(b)).then(baseLabels).catch(e => console.warn('[base]', e)); // 不等地圖：離線時地圖載不完，後面的圖會跟著收不到
 };
 document.addEventListener('onion:painted', e => {
   const d = e.detail; if (d.kind !== 'base') return;
@@ -2341,6 +2380,7 @@ document.addEventListener('onion:painted', e => {
   if (d.ok) toast((b ? b.name + '一帶' : '手繪地圖') + '畫好了，回地圖看看', 4000);
   else { if (b && !b.img) baseDelete(b.id); if (d.error) toast('手繪地圖：' + d.error, 5000); }
   painterSettings();
+  if ($('baseGo') && !$('sheetHost').hidden) baseSheet(); // 抽屜正開著就換成新的
 });
 // 設定頁的列與抽屜
 function baseRow() {
@@ -2350,7 +2390,7 @@ function baseRow() {
 function baseRowBind() { const b = $('rowBase'); if (b) b.onclick = baseSheet; }
 async function baseSheet() {
   const c = map.getCenter(), far = map.getZoom() < 8, name = far ? '' : await baseName(c.lng, c.lat);
-  const rows = baseMem.list.slice().reverse().map(b => { const d = new Date(b.at); return '<div class="row"><div class="lines"><span class="ttl">' + esc(b.name) + '一帶</span><span class="meta">' + (b.img ? (d.getMonth() + 1) + '/' + d.getDate() + ' 畫的' : '正在畫，大概要幾分鐘') + '</span></div><button class="btn plain compact press" data-del="' + esc(b.id) + '">' + (b.img ? '刪掉' : '取消') + '</button></div>'; }).join('');
+  const rows = baseMem.list.slice().reverse().map(b => { const d = new Date(b.at); return '<div class="row"><div class="lines"><span class="ttl">' + esc(b.name) + '一帶</span><span class="meta">' + (b.img ? (d.getMonth() + 1) + '/' + d.getDate() + ' 畫的' : (painterJob('base', b.id) ? painterWait(painterJob('base', b.id)) : '正在準備')) + '</span></div><button class="btn plain compact press" data-del="' + esc(b.id) + '">' + (b.img ? '刪掉' : '取消') + '</button></div>'; }).join('');
   const el = openSheet('<h2>把這一帶畫成手繪地圖</h2><p>' + (far ? '先回地圖，拉近到想畫的地方，再來這裡。' : '現在地圖停在<b>' + esc(name) + '</b>。會把這附近約 12 公里寬、18 公里高，請 ChatGPT 畫成手繪地圖，畫好自動疊在你的地圖上。畫一張大概用掉 ChatGPT Go 每個月額度的 3%。') + '</p>' +
     (rows ? '<div class="section"><h2 class="pt-h3">畫過的</h2><div class="group">' + rows + '</div></div>' : '') +
     '<div class="actions">' + (far ? '<button class="btn primary full press" id="baseGo" data-far="1">回地圖</button>' : '<button class="btn primary full press" id="baseGo"' + (baseMem.busy ? ' disabled' : '') + '>畫這一帶</button>') + '<button class="btn plain full press" data-close>關閉</button></div>');
@@ -2697,10 +2737,11 @@ const DAYCORE = (() => {
     }
     return out.map(({ name, lng, lat }) => ({ name, lng, lat }));
   }
-  function pickPlaces(f, frame) { // 區名，最多三個，離得開
-    const out = [], wide = frame[2] - frame[0] > 9000, list = f.place.filter(p => (wide ? ['suburb', 'town'] : ['suburb', 'quarter', 'neighbourhood', 'town', 'village']).includes(p.cls)) // 範圍大的只寫區與鎮，免得冒出一堆老地名
+  function pickPlaces(f, frame, towns) { // 區名，最多三個，離得開。towns：現行的鄉鎮市區名（Set），有給就只取裡面的，圖資裡的老地名（「大安」「古亭」）不寫；國外沒有這份名單就照舊
+    const flat = x => x.replace(/台/g, '臺');
+    const out = [], wide = frame[2] - frame[0] > 9000, list = f.place.filter(p => (wide && !towns ? ['suburb', 'town'] : ['suburb', 'quarter', 'neighbourhood', 'town', 'village']).includes(p.cls)) // 範圍大的只寫區與鎮，免得冒出一堆老地名
       .map(p => { const [x, y] = px(frame, p.lng, p.lat); return Object.assign({ x, y }, p); })
-      .filter(p => p.x > 130 && p.x < 894 && p.y > 200 && p.y < 1330 && p.name.length <= 8);
+      .filter(p => p.x > 80 && p.x < 944 && p.y > 120 && p.y < 1416 && p.name.length <= 8 && (!towns || towns.has(flat(p.name))));
     const rk = { town: 0, suburb: 0, quarter: 1, village: 1, neighbourhood: 2 };
     list.sort((a, b) => rk[a.cls] - rk[b.cls] || (a.name < b.name ? -1 : 1));
     const stem = x => x.replace(/[區鎮鄉市里]$/, ''); // 「大安」跟「大安區」只留一個
@@ -2725,7 +2766,8 @@ const DAYCORE = (() => {
 
 const DC_SIZES = DAYCORE.SIZES;
 const DC_SIZE_KEY = 'onion.daycard.size', DC_PICK_KEY = 'onion.card.pick';
-const dc = { pick: 'day', key: null, rec: null, state: '', err: '', tok: 0, size: 'tall', base: null, busy: false, sending: false };
+const DC_V = 3; // 準備方式改過就加一，還沒畫的會重新準備
+const dc = { pick: 'day', key: null, rec: null, state: '', err: '', tok: 0, size: 'tall', base: null, busy: false, sending: false, sendKey: null };
 try { if (DC_SIZES[localStorage.getItem(DC_SIZE_KEY)]) dc.size = localStorage.getItem(DC_SIZE_KEY); } catch (e) {}
 
 function dcDays() { const d = engine.state().days; return Object.keys(d).filter(k => d[k].n - d[k].fl >= DAYCORE.C.minPts).sort(); }
@@ -2741,13 +2783,13 @@ async function dcPrepare(key, pts, D) {
   if (typeof PLACES_LOGIC !== 'undefined' && PLACES_LOGIC.homes) { // 常待的家：就算旁邊有店也不寫名字
     try { const last = engine.state().points; if (last.length) for (const h of PLACES_LOGIC.homes(last, last[last.length - 1][0])) for (const s of stops) if (DAYCORE.dist(s.lat, s.lng, h.lat, h.lng) <= 120) s.name = ''; } catch (e) {}
   }
-  const c = DAYCORE.center(D); let city = '', town = '';
-  try { const a = await loadAdmin(), t = townAt(a, c.lng, c.lat); if (t) { city = a.counties[t.c].n; town = t.n; } } catch (e) {}
+  const c = DAYCORE.center(D); let city = '', town = '', towns = null;
+  try { const a = await loadAdmin(), t = townAt(a, c.lng, c.lat); if (t) { city = a.counties[t.c].n; town = t.n; towns = new Set(a.towns.map(x => x.n.replace(/台/g, '臺'))); } } catch (e) {}
   if (!city) {
     const near = cls => { let b = null, bd = Infinity; for (const p of R.feats.place) if (cls.includes(p.cls)) { const d = DAYCORE.dist(c.lat, c.lng, p.lat, p.lng); if (d < bd) { bd = d; b = p.name; } } return b || ''; };
     city = near(['city', 'town']); town = near(['suburb', 'quarter']);
   }
-  const facts = { city, town, layer: DAYCORE.nth(engine.state().days, key), stats: D.stats, stops, marks: DAYCORE.pickMarks(R.feats, D.segs, frame, used), places: DAYCORE.pickPlaces(R.feats, frame), lines: DAYCORE.lines(D.segs, frame) };
+  const facts = { city, town, layer: DAYCORE.nth(engine.state().days, key), stats: D.stats, stops, marks: DAYCORE.pickMarks(R.feats, D.segs, frame, used), places: DAYCORE.pickPlaces(R.feats, frame, towns), lines: DAYCORE.lines(D.segs, frame) };
   return { n: engine.state().days[key].n, frame, facts, draft: R.draft.toDataURL('image/jpeg', 0.92), ref: R.ref.toDataURL('image/png') };
 }
 
@@ -2792,7 +2834,7 @@ async function dcFrame(id, size) { // 4:5：把框的直邊中間抽掉一截（
     for (let k = 0; k < B; k += 4) for (const x of xs) { const p = ((y + k) * W + x) * 4, q = ((y + cut + k) * W + x) * 4; d += Math.abs(s[p + 3] - s[q + 3]) * 2 + Math.abs(s[p] - s[q]) + Math.abs(s[p + 1] - s[q + 1]); }
     if (d < best) { best = d; at = y; }
   }
-  const c = document.createElement('canvas'); c.width = W; c.height = H - cut; const g = c.getContext('2d'), out = g.createImageData(W, H - cut), o = out.data;
+  const c = document.createElement('canvas'); c.width = W; c.height = H - cut; const g = c.getContext('2d', { willReadFrequently: true }), out = g.createImageData(W, H - cut), o = out.data;
   o.set(s.subarray(0, at * W * 4)); o.set(s.subarray((at + cut + B) * W * 4), (at + B) * W * 4);
   for (let k = 0; k < B; k++) { // 接縫：上半與下半交疊淡入
     const u = (k + 0.5) / B, f = u * u * (3 - 2 * u);
@@ -2819,6 +2861,12 @@ function dcSigAt(fr, boxes, w, h) { // 署名放窗內最下緣：框沒蓋住�
     if (!best || cost < best[0]) best = [cost, x, y];
   }
   return best ? [best[1], best[2]] : [(W - w) / 2, b - 14];
+}
+function dcOnFrame(fr, q, m) { // 這一塊（外加 m）碰不碰得到框的花紋。花紋縮成 6 像素一格記著
+  const S = 6, W = fr.canvas.width, H = fr.canvas.height, w = Math.ceil(W / S), h = Math.ceil(H / S);
+  if (!fr.solid) { const d = fr.canvas.getContext('2d').getImageData(0, 0, W, H).data, o = fr.solid = new Uint8Array(w * h); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 190) o[(y / S | 0) * w + (x / S | 0)] = 1; }
+  for (let y = Math.max(0, (q[1] - m) / S | 0); y <= Math.min(h - 1, (q[3] + m) / S | 0); y++) for (let x = Math.max(0, (q[0] - m) / S | 0); x <= Math.min(w - 1, (q[2] + m) / S | 0); x++) if (fr.solid[y * w + x]) return true;
+  return false;
 }
 function dcDash(g, pts, on, off) { g.setLineDash([on, off]); dcPath(g, pts); g.setLineDash([]); }
 function dcPath(g, pts) { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); }
@@ -2895,20 +2943,23 @@ async function dcDraw(cv, rec, frameId, size) { // 一張成品，畫在 cv 上
   const sp = stops.map(s => TL(s)), mk = F.marks.map(m => ({ name: m.name, p: TL(m) })).filter(m => inWin(m.p[0], m.p[1], 24) && !under(m.p[0], m.p[1], 10) && !sp.some(q => Math.hypot(q[0] - m.p[0], q[1] - m.p[1]) < 34));
   for (const m of mk) { g.fillStyle = '#FFFCF0'; g.beginPath(); g.arc(m.p[0], m.p[1], 7.6, 0, 7); g.fill(); g.fillStyle = '#5C5244'; g.beginPath(); g.arc(m.p[0], m.p[1], 5.8, 0, 7); g.fill(); boxes.push([m.p[0] - 9, m.p[1] - 9, m.p[0] + 9, m.p[1] + 9]); }
   sp.forEach((q, i) => { if (!inWin(q[0], q[1], 10) || under(q[0], q[1], -8)) return; dcBadge(g, q[0], q[1], 18, String(i + 1)); boxes.push([q[0] - 21, q[1] - 21, q[0] + 21, q[1] + 21]); });
-  const put = (text, size, gap, cands, fill, halo) => { // 候選位置一個個試，放得下就寫
+  const dots = []; for (const q of lines) q.forEach((p, i) => { const o = q[i - 1] || p, n = Math.max(1, Math.ceil(Math.hypot(p[0] - o[0], p[1] - o[1]) / 10)); for (let j = 1; j <= n; j++) dots.push([o[0] + (p[0] - o[0]) * j / n, o[1] + (p[1] - o[1]) * j / n]); });
+  const onWay = q => dots.some(p => p[0] > q[0] - 8 && p[0] < q[2] + 8 && p[1] > q[1] - 8 && p[1] < q[3] + 8);
+  const put = (text, size, gap, cands, fill, halo, way) => { // 候選位置一個個試，放得下就寫。way：非不得已可以壓在路線上（站名就在路線旁邊）
     const ws = [...text].map(ch => g.measureText(ch).width), tw = gap ? ws.reduce((a, v) => a + v, 0) + gap * (ws.length - 1) : g.measureText(text).width;
-    for (const [cx, cy] of cands(tw)) { // cx、cy 是文字框的中心
+    const list = cands(tw).map(c => [...c, false]); if (way) list.push(...cands(tw).map(c => [...c, true]));
+    for (const [cx, cy, over] of list) { // cx、cy 是文字框的中心
       const q = [cx - tw / 2, cy - size / 2, cx + tw / 2, cy + size / 2];
-      if (q[0] < l + 22 || q[2] > r - 22 || q[1] < t + 22 || q[3] > b - 22 || hit(q, 4)) continue;
+      if (q[0] < l + 22 || q[2] > r - 22 || q[1] < t + 22 || q[3] > b - 22 || hit(q, 4) || (!over && onWay(q)) || dcOnFrame(fr, q, 18)) continue; // 離框的花紋遠一點，放不下就不寫
       let x = q[0]; const y = cy + size * 0.36;
       if (gap) [...text].forEach((ch, i) => { dcHalo(g, ch, x, y, fill, halo); x += ws[i] + gap; }); else dcHalo(g, text, x, y, fill, halo);
       boxes.push(q); return;
     }
   };
   g.font = '900 37px ' + CARD_SERIF;
-  for (const q of F.places) { const [x, y] = TL(q); put(q.name, 37, 20, () => [0, -74, 74, -148, 148].map(d => [x, y + d]), '#50463A', 8); }
+  for (const q of F.places) { const [x, y] = TL(q); put(q.name, 37, 20, () => [[0, 0], [0, -74], [0, 74], [-90, 0], [90, 0], [0, -148], [0, 148]].map(d => [x + d[0], y + d[1]]), '#50463A', 8); }
   g.font = '700 22px ' + CARD_KAI;
-  for (const m of mk) { const [x, y] = m.p; put(m.name, 22, 0, tw => [[x, y + 26], [x, y - 26], [x + 16 + tw / 2, y], [x - 16 - tw / 2, y], [x + tw / 2 - 8, y + 26], [x - tw / 2 + 8, y + 26]], '#463E34', 6); }
+  for (const m of mk) { const [x, y] = m.p; put(m.name, 22, 0, tw => [[x, y + 26], [x, y - 26], [x + 16 + tw / 2, y], [x - 16 - tw / 2, y], [x + tw / 2 - 8, y + 26], [x - tw / 2 + 8, y + 26]], '#463E34', 6, true); }
   // 紙的顆粒
   g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = g.createPattern(dcGrain(), 'repeat'); g.fillRect(0, 0, S.w, S.h); g.restore();
 }
@@ -2923,7 +2974,7 @@ function dcShell() { // 只建一次
     '<div class="empty dcClose" id="dcClose" hidden><div class="badge"><svg class="ic"><use href="#i-route"/></svg></div><h3>這天走得太近</h3><p>畫出來會露出住家，所以這天不畫。</p></div></div>' +
     '<div class="actions" id="dcAct"></div>' +
     '<div class="section" id="dcFrameSec"><h2>邊框</h2><div class="dcStrip" id="dcStrip" role="group" aria-label="選框"></div></div>';
-  $('dcPrev').onclick = () => dcStep(-1); $('dcNext').onclick = () => dcStep(1); $('dcDay').onclick = dcChoose;
+  $('dcPrev').onclick = () => dcStep(-1); $('dcNext').onclick = () => dcStep(1); $('dcDay').onclick = () => dcChoose();
   for (const f of FRAMES) {
     const b = document.createElement('button'); b.className = 'fr press'; b.dataset.id = f.id; b.setAttribute('aria-label', '換成' + f.name + '框');
     b.innerHTML = '<img src="assets/frames/' + f.id + '.png" alt=""><span>' + f.name + '</span>';
@@ -2933,9 +2984,12 @@ function dcShell() { // 只建一次
 }
 function dcMark() { for (const b of $('dcStrip').children) b.classList.toggle('on', b.dataset.id === card.frame); }
 function dcStep(d) { const days = dcDays(), i = days.indexOf(dc.key) + d; if (i >= 0 && i < days.length) dcShow(days[i]); }
-function dcChoose() {
-  const el = openSheet('<h2>選一天</h2><div class="group">' + dcDays().reverse().map(k => { const d = engine.state().days[k]; return '<button class="row" data-k="' + k + '"><span class="lbl">' + dcDayText(k) + '</span><span class="val">' + (k === dc.key ? '現在這天' : kmText(d.walk + d.veh)) + '</span></button>'; }).join('') + '</div><button class="btn secondary full press" data-close>關閉</button>');
+function dcChoose(show = STEPS_FIRST) {
+  const all = dcDays().reverse(), list = all.slice(0, Math.max(show, all.indexOf(dc.key) + 1)), left = all.length - list.length;
+  const el = openSheet('<h2>選一天</h2><div class="group">' + list.map(k => { const d = engine.state().days[k]; return '<button class="row" data-k="' + k + '"><span class="lbl">' + dcDayText(k) + '</span><span class="val">' + (k === dc.key ? '現在這天' : kmText(d.walk + d.veh)) + '</span></button>'; }).join('') + (left > 0 ? '<button class="row" data-more><span class="lbl">看更早的</span><span class="val">還有 ' + left.toLocaleString() + ' 天</span></button>' : '') + '</div><button class="btn secondary full press" data-close>關閉</button>');
+  const more = el.querySelector('[data-more]'); if (more) more.onclick = () => { const y = el.scrollTop; dcChoose(list.length + STEPS_MORE).scrollTop = y; };
   el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { closeSheet(); dcShow(b.dataset.k); });
+  return el;
 }
 function dcPickUI() {
   const el = $('cardPick');
@@ -2966,11 +3020,15 @@ async function dcShow(key, fresh) {
     if (D.few || D.close) { dc.rec = null; dc.state = 'close'; dcRender(); return; }
     let rec = await kvJSON(dcFile(key)); if (my !== dc.tok) return;
     const n = engine.state().days[key].n;
-    if (rec && rec.next && !painterJob('day', key)) { delete rec.next; await dcSave(rec); } // 送到一半就關掉的
-    if (!rec || !rec.draft || (!rec.img && !rec.next && (rec.n !== n || rec.v !== 2))) { // 還沒準備過，或還沒畫、那天又多走了一段
-      const p = await dcPrepare(key, pts, D); if (my !== dc.tok) return;
-      rec = { v: 2, key, n: p.n, frame: p.frame, facts: p.facts, draft: p.draft, ref: p.ref };
-      await dcSave(rec); if (my !== dc.tok) return;
+    if (rec && rec.next && !painterJob('day', key) && dc.sendKey !== key) { delete rec.next; await dcSave(rec); } // 送到一半就關掉的
+    if (!rec || !rec.draft || (!rec.img && !rec.next && (rec.n !== n || rec.v !== DC_V))) { // 還沒準備過，或還沒畫、那天又多走了一段
+      let p = null; try { p = await dcPrepare(key, pts, D); } catch (e) { if (!rec || !rec.draft || rec.v !== DC_V) throw e; console.warn('[daycard]', e); } // 只是多走了一段、現在又沒網路：先用上次準備的
+      if (my !== dc.tok) return;
+      if (p) {
+        const cur = await kvJSON(dcFile(key)); if (my !== dc.tok) return;
+        if (cur && (cur.img || dc.sendKey === key || painterJob('day', key))) rec = cur; // 準備的時候已經按了畫：送出去的那份不能被蓋掉
+        else { rec = { v: DC_V, key, n: p.n, frame: p.frame, facts: p.facts, draft: p.draft, ref: p.ref }; await dcSave(rec); if (my !== dc.tok) return; }
+      }
     }
     dc.rec = rec; dc.state = 'ready';
   } catch (e) { if (my !== dc.tok) return; console.warn('[daycard]', e); dc.state = 'error'; dc.err = e.message || String(e); }
@@ -2996,8 +3054,7 @@ function dcRender() {
   let h = '';
   if (dc.state === 'error') h = '<button class="btn secondary full press" data-a="retry">再試一次</button>';
   else if (dc.state === 'ready' && job) {
-    const live = painterMem.live[job.id], wait = painterMem.reach === false ? '現在連不到' + (painterData().url ? '電腦' : '網路') + '，連上了會自己接著等' : live && live.status === 'queued' && live.ahead > 0 ? '前面還有 ' + live.ahead + ' 張，排到就畫，可以先離開' : 'ChatGPT 正在畫，大概要幾分鐘，可以先離開';
-    h = '<p class="dcState" role="status"><i class="dcSpin" aria-hidden="true"></i><span>' + wait + '</span></p><button class="btn plain full press" data-a="cancel">不畫了</button>';
+    h = '<p class="dcState" role="status">' + (painterMem.stale ? '' : '<i class="dcSpin" aria-hidden="true"></i>') + '<span>' + painterWait(job) + '</span></p>' + (painterMem.stale ? '<button class="btn secondary full press" data-a="pair">重新配對</button>' : '') + '<button class="btn plain full press" data-a="cancel">不畫了</button>';
   } else if (dc.state === 'ready' && rec.img) {
     h = '<div class="dcShare"><div class="seg dcSeg" role="radiogroup" aria-label="圖的比例">' + Object.entries(DC_SIZES).map(([k, s]) => '<button role="radio" data-s="' + k + '" aria-checked="' + (k === dc.size) + '"' + (k === dc.size ? ' class="on"' : '') + '>' + s.name + '</button>').join('') + '</div>' +
       '<button class="btn primary press" data-a="share">分享</button></div><button class="btn secondary full press" data-a="paint"' + (dc.sending ? ' disabled' : '') + '>' + (dc.sending ? '正在送出…' : '再畫一次') + '</button>';
@@ -3009,19 +3066,19 @@ function dcRender() {
 $('mountDayCard').addEventListener('click', e => {
   const s = e.target.closest('[data-s]'), a = e.target.closest('[data-a]');
   if (s) { dc.size = s.dataset.s; try { localStorage.setItem(DC_SIZE_KEY, dc.size); } catch (x) {} dcRender(); }
-  else if (a) ({ paint: dcAsk, retry: () => dcShow(dc.key, true), cancel: () => painterCancel('day', dc.key), share: dcShare })[a.dataset.a]();
+  else if (a) ({ paint: dcAsk, retry: () => dcShow(dc.key, true), cancel: () => painterCancel('day', dc.key), pair: () => painterSetup(() => {}), share: dcShare })[a.dataset.a]();
 });
 function dcAsk() { // 畫一張會用掉 ChatGPT 的額度，按下去先問一句。還沒配對就先配對，配好接著問
-  const key = dc.key, t = painterTarget(); if (dc.sending || !dc.rec) return;
+  const key = dc.key, t = painterTarget(); if (dc.sending || !dc.rec || painterJob('day', key)) return;
   if (!t) { painterSetup(() => { if (dc.key === key) dcAsk(); }); return; }
   const again = !!dc.rec.img, el = openSheet('<h2>' + (again ? '再畫一張？' : '請 ChatGPT 畫這一天？') + '</h2><p>' + (t.kind === 'pc' ? '畫一張大概用掉 ChatGPT Go 每個月額度的 3%。' : '會用掉一次畫圖額度。') + (again ? '新的畫好之後，會換掉現在這張。' : '') + '</p>' +
     '<div class="actions"><button class="btn primary full press" id="dcAskGo">' + (again ? '再畫一張' : '開始畫') + '</button><button class="btn plain full press" data-close>先不要</button></div>');
   el.querySelector('#dcAskGo').onclick = () => { closeSheet(); dcSend(); };
 }
 async function dcSend() { // 送去畫。重畫的時候舊的那張留著，新的畫好才換
-  const key = dc.key; if (dc.sending || !key || !dc.rec) return;
+  const key = dc.key; if (dc.sending || !key || !dc.rec || painterJob('day', key)) return; // 已經在畫就不再送
   if (!painterTarget()) return;
-  dc.sending = true; dcRender();
+  dc.sending = true; dc.sendKey = key; dcRender();
   try {
     let rec = dc.rec, p = rec.ref && !rec.img && rec.n === engine.state().days[key].n ? rec : null;
     if (!p) { const pts = await loadDay(key), D = DAYCORE.day(pts); if (D.few || D.close) throw new Error('這天走得太近，畫出來會露出住家'); p = await dcPrepare(key, pts, D); }
@@ -3029,18 +3086,19 @@ async function dcSend() { // 送去畫。重畫的時候舊的那張留著，新
     rec = Object.assign({}, rec, { next }); await dcSave(rec);
     await painterSubmit('day', next.draft, key);
     if (dc.key === key) dc.rec = rec;
-  } catch (e) { toast(e.message || String(e), 5000); }
-  dc.sending = false; dcRender();
+  } catch (e) { if (e.status === 401 && painterMem.stale) painterSetup(() => { if (dc.key === key) dcAsk(); }, '電腦的密碼換過了，重新配對就能畫'); else toast(e.message || String(e), 5000); }
+  dc.sending = false; dc.sendKey = null; dcRender();
 }
 painterOn.day = async (job, img) => {
   const rec = await kvJSON(dcFile(job.key)); if (!rec || !rec.next) return false;
   const r = await paintedIn(img, rec.next.ref), n = rec.next;
-  await dcSave({ v: 2, key: job.key, n: n.n, frame: n.frame, facts: n.facts, draft: n.draft, img: r.img, fit: r.fit, at: Date.now() });
+  if (!painterJob('day', job.key)) return false; // 收圖的時候按了「不畫了」
+  await dcSave({ v: DC_V, key: job.key, n: n.n, frame: n.frame, facts: n.facts, draft: n.draft, img: r.img, fit: r.fit, at: Date.now() });
 };
 document.addEventListener('onion:painted', async e => {
   const d = e.detail; if (d.kind !== 'day') return;
   if (d.ok) toast(dcDayText(d.key) + '畫好了', 3600); else if (d.error) toast(d.error, 5000);
-  if (!d.ok) { const rec = await kvJSON(dcFile(d.key)); if (rec && rec.next) { delete rec.next; await dcSave(rec); } }
+  if (!d.ok && dc.sendKey !== d.key) { const rec = await kvJSON(dcFile(d.key)); if (rec && rec.next && !painterJob('day', d.key)) { delete rec.next; await dcSave(rec); } }
   if (tab === 'card' && dc.pick === 'day' && dc.key === d.key) dcShow(d.key, true); else if (dc.key === d.key) dc.rec = null;
 });
 document.addEventListener('onion:painter', () => { if (tab === 'card' && dc.pick === 'day' && dc.state === 'ready' && !dc.sending) dcRender(); });
@@ -3420,7 +3478,9 @@ function dayGroup(d) {
 }
 const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 function kmText(km) { return km >= 10 ? Math.round(km) + ' km' : km >= 1 ? km.toFixed(1) + ' km' : Math.round(km * 1000) + ' m'; } // 不到一公里用公尺，免得走了半天還寫 0 km
-let stepDays = [];
+const STEPS_FIRST = 60, STEPS_MORE = 180; // 先列這麼多天，按「看更早的」再加
+let stepDays = [], stepShow = STEPS_FIRST;
+hook.tab.push(t => { if (t !== 'steps') stepShow = STEPS_FIRST; });
 function renderSteps() {
   const st = engine.state(), el = $('stepsBody');
   stepDays = dayLog();
@@ -3440,7 +3500,7 @@ function renderSteps() {
     '<span class="ttl">' + esc(t.name) + '</span><span class="meta">' + esc(t.why) + '</span></div></div></div></div>';
   h += '<div id="mountStamps"></div><div id="mountPlaces"></div>';
   let group = null;
-  stepDays.forEach((d, i) => {
+  stepDays.slice(0, stepShow).forEach((d, i) => {
     const g = dayGroup(d.date);
     if (g !== group) { if (group) h += '</div></div>'; group = g; h += '<div class="section"><h2>' + g + '</h2><div class="group">'; }
     const parts = [];
@@ -3451,10 +3511,13 @@ function renderSteps() {
     h += '<button class="row" data-day="' + i + '"><div class="lines"><span class="meta">' + meta + '</span><span class="ttl">' +
       (parts.join(' · ') || '在原地附近') + '</span></div><svg class="chev"><use href="#i-chev"/></svg></button>';
   });
-  el.innerHTML = h + '</div></div><p class="foot">點一天，地圖會飛到那天走過的範圍。</p>';
+  const left = stepDays.length - stepShow;
+  if (left > 0) h += '<button class="row" data-more><span class="lbl">看更早的</span><span class="val">還有 ' + left.toLocaleString() + ' 天</span></button>';
+  el.innerHTML = h + '</div><p class="foot">點一天，地圖會飛到那天走過的範圍。</p></div>';
   document.dispatchEvent(new Event('onion:steps')); // 其他模組（印章、地點）在這裡把自己的區塊補進去
 }
 $('stepsBody').onclick = e => {
+  if (e.target.closest('[data-more]')) { const y = $('pgSteps').scrollTop; stepShow += STEPS_MORE; renderSteps(); $('pgSteps').scrollTop = y; return; }
   const b = e.target.closest('[data-day]'); if (!b) return;
   const d = stepDays[+b.dataset.day]; follow = false; go('map');
   map.fitBounds([[d.w, d.s], [d.e, d.n]], { padding: { top: 90, bottom: 260, left: 40, right: 80 }, maxZoom: 16, duration: 900 });
@@ -4595,10 +4658,10 @@ const importer = (() => {
     $('impFill').style.width = (job.pct * 100).toFixed(1) + '%'; $('impFill').parentNode.setAttribute('aria-valuenow', Math.round(job.pct * 100));
     $('impStop').disabled = !!job.saving;
   }
-  function done(text, again) {
+  function done(text, again, title) {
     job = null; paintRow();
     if (!onSheet()) { toast(text, 5000); return; }
-    const b = body('<div class="impText"><h2>' + (again ? '沒有匯入' : '匯入好了') + '</h2><p>' + esc(text) + '</p></div><div class="actions">' +
+    const b = body('<div class="impText"><h2>' + (title || (again ? '沒有匯入' : '匯入好了')) + '</h2><p>' + esc(text) + '</p></div><div class="actions">' +
       (again ? '<button class="btn primary full press" id="impAgain">重選檔案</button><button class="btn plain full press" data-close>先不要</button>'
         : '<button class="btn primary full press" data-close>好</button>') + '</div>');
     if (again) b.querySelector('#impAgain').onclick = open;
@@ -4609,9 +4672,9 @@ const importer = (() => {
     const b = body('<div class="impText"><h2>這是洋蔥的備份</h2><p>' + (unread ? '還原之後，手機裡現在的紀錄會整個換成備份裡的。' : n ? '還原之後，手機裡現在的 ' + n + ' 天紀錄會整個換成備份裡的。' : '還原之後就接著備份裡的紀錄繼續。') + '</p></div>' +
       '<div class="actions"><button class="btn primary full press" id="impRestore">還原備份</button><button class="btn plain full press" data-close>先不要</button></div>');
     b.querySelector('#impRestore').onclick = async e => {
-      e.target.disabled = true;
-      try { await importAll(data); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); done('備份還原好了。'); }
-      catch (x) { done(x.save ? '存不進去。看看手機空間夠不夠，再還原一次。' : '這份備份讀不了。', true); }
+      e.target.disabled = true; e.target.textContent = '還原中…'; b.querySelector('.actions [data-close]').hidden = true;
+      try { await importAll(data); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); done('備份裡的紀錄都回來了。', false, '還原好了'); }
+      catch (x) { done(x.save ? '存不進去。看看手機空間夠不夠，再還原一次。' : '這份備份讀不了。', true, '沒有還原'); }
     };
   }
 

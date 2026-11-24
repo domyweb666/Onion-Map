@@ -7,9 +7,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url), h3 = require('h3-js');
 const src = n => fs.readFileSync(new URL('../src/js/' + n, import.meta.url), 'utf8');
 const cut = (s, a, b) => s.slice(s.indexOf(a), s.indexOf(b));
-const { CFG, createEngine, VIEW, revealTierAt, freqResAt, parentOf, growBox, bucketBox, cellsNear, revealOf, mergeTiers, mergeCells, FREQ, freqOf } = new Function('h3',
+const { CFG, dayKey, createEngine, VIEW, revealTierAt, freqResAt, parentOf, growBox, bucketBox, cellsNear, revealOf, mergeTiers, mergeCells, FREQ, freqOf } = new Function('h3',
   cut(src('00-engine.js'), '/*ENGINE_START*/', '/*ENGINE_END*/') + cut(src('20-map.js'), '/*VIEW_START*/', '/*VIEW_END*/') +
-  ';return {CFG,createEngine,VIEW,revealTierAt,freqResAt,parentOf,growBox,bucketBox,cellsNear,revealOf,mergeTiers,mergeCells,FREQ,freqOf}')(h3);
+  ';return {CFG,dayKey,createEngine,VIEW,revealTierAt,freqResAt,parentOf,growBox,bucketBox,cellsNear,revealOf,mergeTiers,mergeCells,FREQ,freqOf}')(h3);
 
 const rng = k => () => (k = (k * 16807) % 2147483647) / 2147483647;
 // 台北每天走、通勤同一條路走十幾趟（每趟 GPS 偏幾公尺）、各縣市走走、全台鐵公路一條窄帶
@@ -170,7 +170,19 @@ test('6 萬格的計算時間（新舊對照）', t => {
     for (const [label, x, y, z] of [['全台 z6.5', 121, 23.7, 6.5], ['全台 z8', 121, 23.7, 8], ['北部 z9', 121.4, 24.9, 9], ['大台北 z10.9', 121.53, 25.04, 10.9], ['大台北 z11', 121.53, 25.04, 11], ['大台北 z12', 121.53, 25.04, 12], ['台北 z13', 121.53, 25.04, 13], ['台北 z14', 121.53, 25.04, 14], ['台北 z15', 121.53, 25.04, 15]]) {
       const v = view(x, y, z); let r; const ms = med(() => { r = nowAt(e, z, v); });
       t.diagnostic(name + ' 新 ' + label + '：' + ms.toFixed(0) + ' ms，取 ' + r.ids.length + ' 格');
-      if (z === 8 || z === 14) assert.ok(ms < 300, label + ' ' + ms);
+      if (z === 8 || z === 14) assert.ok(ms < (process.env.CI ? 3000 : 300), label + ' ' + ms);
     }
   }
+});
+
+test('某一天的點：二分搜尋跟整份挑一樣；五年份每天拿一次要夠快', t => {
+  const e = createEngine(h3), pts = [], t0 = new Date(2021, 10, 25, 9).getTime() / 1000;
+  for (let d = 0; d < 1800; d++) if (d % 4) for (let i = 0; i < 100; i++) pts.push([t0 + d * 86400 + i * 60, 25.03 + i * 1e-4, 121.5, 8, 'w']);
+  pts.push([new Date(2026, 10, 1, 23, 59, 59).getTime() / 1000, 25, 121, 8, 'w'], [new Date(2026, 10, 2).getTime() / 1000, 25, 121, 8, 'w']);
+  e.load({ v: 2, cells: {}, points: pts });
+  const keys = Object.keys(e.state().days), by = {}; for (const p of e.state().points) (by[dayKey(p[0])] ||= []).push(p);
+  const a = performance.now(), got = keys.map(k => e.dayPoints(k)), ms = performance.now() - a;
+  keys.forEach((k, i) => assert.deepEqual(got[i], by[k], k));
+  assert.deepEqual(e.dayPoints('2020-01-01'), []); assert.deepEqual(e.dayPoints('2030-01-01'), []);
+  t.diagnostic(`${keys.length} 天、${pts.length} 點，每天拿一次 ${ms.toFixed(0)} ms`); assert.ok(ms < 1500, ms);
 });

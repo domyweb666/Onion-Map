@@ -26,13 +26,14 @@
   .me{width:18px;height:18px;border-radius:50%;background:var(--d-accent);border:3px solid var(--d-surface);
     animation:pulse 1.8s infinite} /* domy-ignore: 定位點大小 */
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(145,107,27,.55)}100%{box-shadow:0 0 0 18px rgba(145,107,27,0)}} /* domy-ignore: 脈衝用 accent 的透明版 */
-  .maplibregl-ctrl-bottom-left{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));left:var(--d-size-screen-margin)}
-  .maplibregl-ctrl-bottom-right{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));right:var(--d-size-screen-margin)}
+  .maplibregl-ctrl-bottom-left{bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3));left:var(--d-size-screen-margin)}
+  .maplibregl-ctrl-bottom-right{bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3));right:var(--d-size-screen-margin)}
   .maplibregl-ctrl-bottom-left .maplibregl-ctrl,.maplibregl-ctrl-bottom-right .maplibregl-ctrl{margin:0!important}
   .maplibregl-ctrl-scale{font:var(--d-caption);color:var(--d-text-secondary);background:var(--d-surface)!important;
     border:2px solid var(--d-text-secondary)!important;border-top:none!important;padding:0 var(--d-space-1)}
   .maplibregl-ctrl-attrib{background:var(--d-surface)!important;color:var(--d-text-secondary);font:var(--d-caption)}
   .maplibregl-ctrl-attrib a{color:var(--d-text-secondary)}
+  .maplibregl-ctrl-attrib-button::after{content:'';position:absolute;inset:calc((24px - var(--d-size-touch)) / 2)} /* domy-ignore: 地圖出處鈕是 24，點得到 44 */
 
   /* 狀態列底下墊一層畫布色：分頁捲動時內容不會鑽到瀏海底下；地圖頁只墊淡淡一層，深色模式的白色時間才看得到 */
   body::before{content:'';position:fixed;z-index:12;top:0;left:0;right:0;height:calc(var(--safe-t) + var(--d-space-3));pointer-events:none;
@@ -43,8 +44,9 @@
   #mapTop{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));left:var(--d-size-screen-margin);
     right:calc(var(--d-size-screen-margin) + var(--d-size-icon-button) + var(--d-space-3));pointer-events:none}
   #stats{display:inline-flex;align-items:baseline;gap:var(--d-space-1);max-width:100%;pointer-events:auto;
-    min-height:var(--d-size-icon-button);padding:var(--d-space-3) var(--d-space-4);border-radius:var(--d-radius-pill);
-    background:var(--d-surface);box-shadow:var(--d-elev-1);font:var(--d-subheadline);color:var(--d-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    min-height:var(--d-size-icon-button);padding:var(--d-space-3) var(--d-space-4);border-radius:var(--d-radius-2xl);
+    flex-wrap:wrap;background:var(--d-surface);box-shadow:var(--d-elev-1);font:var(--d-subheadline);color:var(--d-text-secondary)}
+  #stats span{white-space:nowrap}
   #stats b{font:var(--d-headline);color:var(--d-text-primary)}
   #mapSide{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));right:var(--d-size-screen-margin);
     display:flex;flex-direction:column;gap:var(--d-space-3)}
@@ -57,6 +59,7 @@
   .seg{display:flex;gap:var(--d-space-1)}
   .seg button{flex:1;height:var(--d-size-picker-height);border-radius:var(--d-radius-pill);font:var(--d-callout);color:var(--d-text-primary)}
   .seg button.on{background:var(--d-soft);color:var(--d-strong)}
+  #simbar .seg button{height:var(--d-size-touch)}
   #simhint{font:var(--d-footnote);color:var(--d-text-secondary);margin:var(--d-space-2) var(--d-space-2) var(--d-space-1)}
   /* 記錄列：核心動作。待機＝亮金底＋實心圓；記錄中＝產品色底＋方塊，形狀跟著變，不只靠顏色 */
   #recBar{position:fixed;z-index:5;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:var(--tab-clear);
@@ -66,7 +69,7 @@
   #recText{flex:1;min-width:0;display:flex;flex-direction:column;gap:calc(var(--d-space-1) / 2)}
   #recTitle{font:var(--d-headline)}
   #status{font:var(--d-footnote);color:var(--d-text-secondary);max-height:2lh;overflow:hidden}
-  #btnSettings{align-self:flex-start;font:var(--d-callout);color:var(--d-strong);min-height:var(--d-size-touch)}
+  #btnSettings{align-self:flex-start;text-align:left;font:var(--d-callout);color:var(--d-strong);min-height:var(--d-size-touch)}
   #btnRec{flex:none;width:var(--rec-btn);height:var(--rec-btn);border-radius:var(--d-radius-pill);display:grid;place-items:center;
     background:var(--d-bright);color:var(--d-on-bright);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-soft)}
   #btnRec.rec{background:var(--d-accent);color:var(--d-on-accent);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-accent)}
@@ -77,7 +80,7 @@
   /* ----- 懸浮分頁列（DomyTabBar） ----- */
   #tabbar{position:fixed;z-index:20;left:0;right:0;bottom:calc(var(--safe-b) + var(--d-size-tab-bar-bottom));display:flex;justify-content:center;pointer-events:none}
   #tabbar .bar{pointer-events:auto;width:var(--d-size-tab-bar-width);max-width:calc(100% - var(--d-size-screen-margin) * 2);height:var(--d-size-tab-bar);
-    border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-2);
+    border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-2),0 0 0 var(--d-size-hairline) var(--d-separator);
     padding:calc(var(--d-space-1) * 1.5);display:flex;gap:var(--d-space-1)}
   .tab{flex:1;min-width:0;border-radius:var(--d-radius-pill);display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:calc(var(--d-space-1) / 2);font:var(--d-caption);color:var(--d-text-primary)}
@@ -99,8 +102,8 @@
     width:100%;text-align:left;font:var(--d-body);color:var(--d-text-primary)}
   button.row,label.row{cursor:pointer}
   button.row:active,label.row:active{background:var(--d-surface-muted)}
-  .row .lbl{flex:1;min-width:0}
-  .row .val{color:var(--d-text-secondary);text-align:right}
+  .row .lbl{flex:1;min-width:4.5em}
+  .row .val{color:var(--d-text-secondary);text-align:right;overflow-wrap:anywhere}
   .row.destructive .lbl{color:var(--d-destructive)}
   .row .lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--d-space-1);padding:var(--d-space-1) 0}
   .row .meta{font:var(--d-footnote);color:var(--d-text-secondary)}
@@ -110,7 +113,9 @@
     background:var(--d-surface-muted);transition:background var(--d-transition-ms)}
   .switch::after{content:'';position:absolute;top:2px;left:2px;width:calc(var(--d-size-switch-height) - 4px);height:calc(var(--d-size-switch-height) - 4px);
     border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-1);transition:transform var(--d-transition-ms)} /* domy-ignore: 開關圓點留 2px 邊 */
+  .switch::before{content:'';position:absolute;inset:calc((var(--d-size-switch-height) - var(--d-size-touch)) / 2) 0} /* 看起來 31 高，點得到 44 高 */
   .switch[aria-checked=true]{background:var(--d-accent)}
+  @media (prefers-color-scheme:dark){.switch[aria-checked=false]::after{background:var(--d-text-secondary)}} /* 深色時圓點跟底同色，看不到關著 */
   .switch[aria-checked=true]::after{transform:translateX(calc(var(--d-size-switch-width) - var(--d-size-switch-height)))}
   /* 統計（DomyStatGrid） */
   .statgrid{background:var(--d-tint);border:var(--d-size-hairline) solid var(--d-soft);border-radius:var(--d-radius-xl);padding:var(--d-space-5);
@@ -123,7 +128,7 @@
   .empty{display:flex;flex-direction:column;align-items:center;gap:var(--d-space-3);padding:var(--d-space-8) var(--d-space-6);text-align:center}
   .empty .badge{width:var(--d-size-empty-icon);height:var(--d-size-empty-icon);border-radius:var(--d-radius-pill);background:var(--d-soft);color:var(--d-accent);display:grid;place-items:center}
   .empty h3{margin:0;font:var(--d-title3)}
-  .empty p{margin:0;font:var(--d-subheadline);color:var(--d-text-secondary)}
+  .empty p{margin:0;font:var(--d-subheadline);color:var(--d-text-secondary);text-wrap:balance}
   .empty .btn{margin-top:var(--d-space-1)}
   /* 按鈕（DomyButton）：一個畫面最多一顆 primary */
   .btn{height:var(--d-size-button);border-radius:var(--d-radius-pill);padding:0 var(--d-space-6);font:var(--d-headline);
@@ -131,7 +136,8 @@
   .btn.primary{background:var(--d-accent);color:var(--d-on-accent)}
   .btn.secondary{background:var(--d-surface-muted);color:var(--d-text-primary)}
   .btn.plain{background:transparent;color:var(--d-strong)}
-  .btn.compact{height:var(--d-size-button-compact);padding:0 var(--d-space-4);font:var(--d-callout)}
+  .btn.compact{position:relative;height:var(--d-size-button-compact);padding:0 var(--d-space-4);font:var(--d-callout)}
+  .btn.compact::after{content:'';position:absolute;inset:calc((var(--d-size-button-compact) - var(--d-size-touch)) / 2) 0}
   .btn.full{width:100%}
   .btn:disabled{background:var(--d-surface-muted);color:var(--d-text-disabled)}
   .actions{display:flex;flex-direction:column;gap:var(--d-space-2)}
@@ -164,16 +170,17 @@
     background:var(--d-text-primary);color:var(--d-surface);padding:var(--d-space-2) var(--d-space-4);border-radius:var(--d-radius-pill);
     font:var(--d-subheadline);box-shadow:var(--d-elev-2);opacity:0;transition:opacity var(--d-transition-ms);pointer-events:none;
     max-width:calc(100% - var(--d-size-screen-margin) * 2);text-align:center}
-  body[data-tab=map] #toast{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3))}
+  body[data-tab=map] #toast{bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3))}
   #toast.show{opacity:1}
 
   /* ----- 共用底部抽屜 ----- */
   #sheetHost{position:fixed;inset:0;z-index:26;background:rgba(var(--d-shadow-rgb),.4);display:flex;align-items:flex-end;justify-content:center} /* domy-ignore: 遮罩透明度 */
-  #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
+  #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);box-shadow:0 0 0 var(--d-size-hairline) var(--d-separator);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
     padding:var(--d-space-6) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-6));display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
   #sheetBody h2{margin:0;font:var(--d-title2)}
   #sheetBody p{margin:0}
   /* ----- 地圖頁的提問卡（在記錄列上方） ----- */
-  #mapAsk{position:fixed;z-index:6;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));
+  #mapAsk{position:fixed;z-index:6;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3));
     max-width:520px;margin:0 auto;padding:var(--d-space-4) var(--d-space-5);border-radius:var(--d-radius-2xl);background:var(--d-surface);box-shadow:var(--d-elev-2)} /* domy-ignore: 寬螢幕上限 */
   body:not([data-tab=map]) #mapAsk{display:none}
+  body:has(#mapAsk:not([hidden])) .maplibregl-control-container{visibility:hidden} /* 卡片蓋在比例尺上，圓角旁邊會露出一截 */

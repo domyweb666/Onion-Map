@@ -224,7 +224,7 @@ test('還原備份：先問一次，按了才整個換掉，發 onion:restored�
   assert.equal(Object.keys(s.cells).length, 1); assert.equal(s.days['2026-11-20'], undefined, '舊的整個換掉'); assert.equal(s.days[dayKey(1700000000)].n, 2);
   assert.equal(s.ext.places[0].name, '測試'); assert.equal(s.ext.painter.token, '假的');
   assert.ok(!u.kvs.has('days/2026-11-20.json')); assert.deepEqual(u.events, ['onion:restored']);
-  assert.deepEqual(u.log.filter(x => x !== 'onion:restored'), ['save', 'render', 'refresh']); assert.match(u.text(), /備份還原好了/);
+  assert.deepEqual(u.log.filter(x => x !== 'onion:restored'), ['save', 'render', 'refresh']); assert.match(u.text(), /備份裡的紀錄都回來了/);
 });
 test('紀錄讀不完整（鎖住）時，備份還是能還原，足跡不能匯', async () => {
   const bad = Promise.reject(new Error('讀檔壞了')); bad.catch(() => {});

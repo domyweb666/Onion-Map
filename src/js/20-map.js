@@ -438,8 +438,9 @@ function render(force) {
   map.getSource('gaps').setData({ type: 'FeatureCollection', features: s.gaps.map(g => ({ type: 'Feature', properties: {},
     geometry: { type: 'LineString', coordinates: [[g[0], g[1]], [g[2], g[3]]] } })) });
 }
+document.addEventListener('onion:restored', () => { const l = lastPoint(); if (l && map) map.jumpTo({ center: [l[2], l[1]], zoom: 15 }); }); // 換成別份紀錄，帶到那份最後走到的地方
 function updateStats() {
   const s = engine.state();
   const a = s.area < 10 ? s.area.toFixed(3) : s.area.toFixed(1);
-  $('stats').innerHTML = '<b>' + a + '</b> km² · 地面 ' + kmText(s.km.walk + s.km.vehicle) + (s.flights.length ? ' · 航線 ' + s.flights.length + ' 段' : '');
+  $('stats').innerHTML = '<span><b>' + a + '</b> km²</span><span>· 地面 ' + kmText(s.km.walk + s.km.vehicle) + '</span>'; // 航線幾段在足跡頁，這裡放不下
 }

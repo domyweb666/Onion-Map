@@ -182,6 +182,16 @@ test('一張在畫、三張在排，第五張 429；同一張送兩次拿到同�
   await s.stop();
 });
 
+test('畫好了手機還沒拿走：同一張再送一次不會重畫；拿走之後再送才畫新的', async () => {
+  const s = await fake('untaken', 100);
+  const { id } = (await s.paint(7)).body;
+  await s.finish(id);
+  assert.equal((await s.paint(7)).body.id, id);
+  await s.call('GET', `/paint/${id}/image`);
+  assert.notEqual((await s.paint(7)).body.id, id);
+  await s.stop();
+});
+
 test('重開之後：密碼不變、畫好的還拿得到、沒畫完的算失敗、過一天的清掉', async () => {
   const home = path.join(TMP, 'restart');
   const env = { ONION_FAKE: '1', ONION_FAKE_MS: '300' };

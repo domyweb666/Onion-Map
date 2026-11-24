@@ -369,10 +369,10 @@ const importer = (() => {
     $('impFill').style.width = (job.pct * 100).toFixed(1) + '%'; $('impFill').parentNode.setAttribute('aria-valuenow', Math.round(job.pct * 100));
     $('impStop').disabled = !!job.saving;
   }
-  function done(text, again) {
+  function done(text, again, title) {
     job = null; paintRow();
     if (!onSheet()) { toast(text, 5000); return; }
-    const b = body('<div class="impText"><h2>' + (again ? '沒有匯入' : '匯入好了') + '</h2><p>' + esc(text) + '</p></div><div class="actions">' +
+    const b = body('<div class="impText"><h2>' + (title || (again ? '沒有匯入' : '匯入好了')) + '</h2><p>' + esc(text) + '</p></div><div class="actions">' +
       (again ? '<button class="btn primary full press" id="impAgain">重選檔案</button><button class="btn plain full press" data-close>先不要</button>'
         : '<button class="btn primary full press" data-close>好</button>') + '</div>');
     if (again) b.querySelector('#impAgain').onclick = open;
@@ -383,9 +383,9 @@ const importer = (() => {
     const b = body('<div class="impText"><h2>這是洋蔥的備份</h2><p>' + (unread ? '還原之後，手機裡現在的紀錄會整個換成備份裡的。' : n ? '還原之後，手機裡現在的 ' + n + ' 天紀錄會整個換成備份裡的。' : '還原之後就接著備份裡的紀錄繼續。') + '</p></div>' +
       '<div class="actions"><button class="btn primary full press" id="impRestore">還原備份</button><button class="btn plain full press" data-close>先不要</button></div>');
     b.querySelector('#impRestore').onclick = async e => {
-      e.target.disabled = true;
-      try { await importAll(data); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); done('備份還原好了。'); }
-      catch (x) { done(x.save ? '存不進去。看看手機空間夠不夠，再還原一次。' : '這份備份讀不了。', true); }
+      e.target.disabled = true; e.target.textContent = '還原中…'; b.querySelector('.actions [data-close]').hidden = true;
+      try { await importAll(data); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); done('備份裡的紀錄都回來了。', false, '還原好了'); }
+      catch (x) { done(x.save ? '存不進去。看看手機空間夠不夠，再還原一次。' : '這份備份讀不了。', true, '沒有還原'); }
     };
   }
 

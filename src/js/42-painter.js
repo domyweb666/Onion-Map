@@ -1,14 +1,15 @@
 // ===== 畫圖服務：把底稿送出去，等 ChatGPT 畫好拿回來。電腦上的程式與之後的雲端是同一套介面（docs/模組約定.md） =====
-// 配對與等待中的工作存 ext('painter')：{url, token, name, kind, jobs:[{id, kind, key, at}]}。配對密碼不進備份（15-store.js）
+// 配對與等待中的工作存 ext('painter')：{url, token, name, kind, jobs:[{id, kind, key, at}], drop:[取消了但電腦還不知道的 id]}。配對密碼不進備份（15-store.js）
 // 畫好之後交給 painterOn[kind](job, 'data:image/…') 收（日卡、底圖各自登記），收好才把工作從清單拿掉，再發 document 事件：
 //   onion:painted {kind, key, ok, error}　　onion:painter 配對狀態或等待中的工作有變
 const PAINT_CLOUD_URL = ''; // 雲端畫圖服務的網址。空的就只有「用電腦的 ChatGPT 畫」
 const painterOn = {};
-const painterMem = { reach: null, left: null, timer: null, busy: false, live: {}, tries: {}, after: null };
+const painterMem = { reach: null, stale: false, left: null, timer: null, busy: false, live: {}, tries: {}, after: null };
 
 function painterData() {
   const p = ext('painter', { url: '', token: '', name: '', kind: '', jobs: [] });
   if (!Array.isArray(p.jobs)) p.jobs = [];
+  if (!Array.isArray(p.drop)) p.drop = [];
   return p;
 }
 function painterChanged() { document.dispatchEvent(new Event('onion:painter')); }
@@ -41,6 +42,7 @@ async function painterCall(method, path, body, ms, to) {
       status = r.status; data = await r.json().catch(() => ({}));
     } catch (e) { throw off(); } finally { clearTimeout(tm); }
   }
+  if (!to && t.kind === 'pc') painterMem.stale = status === 401; // 電腦換過密碼：要重新配對，不是連不到
   if (status >= 400) throw Object.assign(new Error((data && data.error) || (status === 401 || status === 403 ? '配對過期了，重新掃一次 QR' : '畫圖那邊出了問題（' + status + '）')), { status });
   return data || {};
 }
@@ -57,27 +59,30 @@ async function painterPair(text) {
   let r; try { r = await painterCall('GET', '/ping', null, 10000, { url: c.url, token: c.token, kind: 'pc' }); }
   catch (e) { throw e.offline ? new Error('連不到電腦。確認畫圖程式開著，手機跟電腦是同一個 Wi-Fi') : e; }
   const p = painterData();
-  if (p.url && p.url !== c.url) painterDropJobs('換了一台電腦');
+  if (p.url && p.url !== c.url && p.token !== c.token) { painterDropJobs('換了一台電腦'); p.drop = []; } // 密碼一樣就是同一台電腦換了網址，等待中的留著
   p.url = c.url; p.token = c.token; p.name = r.name || c.name; p.kind = r.kind || 'pc';
-  painterMem.reach = true; extSave(); flushSave(); painterChanged();
+  painterMem.reach = true; painterMem.stale = false; extSave(); flushSave(); painterChanged(); painterSoon(300);
   return { name: p.name };
 }
 function painterUnpair() {
   const p = painterData(); painterDropJobs('已經解除配對');
-  p.url = p.token = p.name = p.kind = ''; painterMem.reach = null; extSave(); painterChanged();
+  p.url = p.token = p.name = p.kind = ''; p.drop = []; painterMem.reach = null; painterMem.stale = false; extSave(); painterChanged();
 }
 async function painterPing() {
   if (!painterTarget()) { painterMem.reach = null; return null; }
-  try { const r = await painterCall('GET', '/ping', null, 6000); painterMem.reach = true; painterMem.left = r.left != null ? r.left : null; painterChanged(); return r; }
+  try { const r = await painterCall('GET', '/ping', null, 6000); painterMem.reach = true; painterMem.left = r.left != null ? r.left : null; painterChanged(); if (painterData().drop.length) painterSoon(300); return r; }
   catch (e) { painterMem.reach = false; painterChanged(); return null; }
 }
 
 // --- 工作 ---
 async function painterSubmit(kind, base64, key) {
-  const r = await painterCall('POST', '/paint', { kind, style: 'pencil', image: String(base64).replace(/^data:[^,]*,/, '') }, 60000);
+  let r; try { r = await painterCall('POST', '/paint', { kind, style: 'pencil', image: String(base64).replace(/^data:[^,]*,/, '') }, 60000); }
+  catch (e) { if (e.offline) { painterMem.reach = false; e.message = painterData().url ? '連不到電腦。確認畫圖程式開著，手機跟電腦是同一個 Wi-Fi' : '連不到網路，等一下再試'; } painterChanged(); throw e; }
   if (!r.id) throw new Error('畫圖那邊沒有收到');
   painterMem.reach = true;
-  if (key != null) { painterData().jobs.push({ id: r.id, kind, key, at: Date.now() }); extSave(); flushSave(); painterChanged(); painterSoon(3000); }
+  const p = painterData(), dup = p.jobs.find(j => j.id === r.id); p.drop = p.drop.filter(id => id !== r.id);
+  if (dup) { if (dup.kind === kind && dup.key === key) return r.id; throw new Error('這張已經在畫了'); } // 同一張底稿送兩次，電腦會給同一個號碼
+  if (key != null) { p.jobs.push({ id: r.id, kind, key, at: Date.now() }); extSave(); flushSave(); painterChanged(); painterSoon(3000); }
   return r.id;
 }
 function painterPoll(id) { return painterCall('GET', '/paint/' + encodeURIComponent(id), null, 12000); }
@@ -93,18 +98,32 @@ function painterEnd(job, ok, error) {
   extSave(); flushSave(); painterChanged();
   document.dispatchEvent(new CustomEvent('onion:painted', { detail: { kind: job.kind, key: job.key, ok, error } }));
 }
-function painterDropJobs(why) { for (const j of painterData().jobs.slice()) { painterCall('DELETE', '/paint/' + encodeURIComponent(j.id), null, 8000).catch(() => {}); painterEnd(j, false, why); } }
+function painterForget(id) { // 叫電腦不用畫了。這時候連不到就記著，下次連上再講，免得它照樣畫、白吃額度。回傳有沒有講到
+  const p = painterData(), done = ok => {
+    if (ok) p.drop = p.drop.filter(x => x !== id); else if (!p.drop.includes(id)) p.drop.push(id); else return ok;
+    extSave(); return ok;
+  };
+  return painterCall('DELETE', '/paint/' + encodeURIComponent(id), null, 8000).then(() => done(true), e => done(!e.offline));
+}
+function painterWait(job) { // 等的時候寫給人看的話
+  const live = painterMem.live[job.id];
+  if (painterMem.stale) return '電腦的密碼換過了，重新配對就會接著等';
+  if (painterMem.reach === false) return '現在連不到' + (painterData().url ? '電腦' : '網路') + '，連上了會自己接著等';
+  return live && live.status === 'queued' && live.ahead > 0 ? '前面還有 ' + live.ahead + ' 張，排到就畫，可以先離開' : 'ChatGPT 正在畫，大概要幾分鐘，可以先離開';
+}
+function painterDropJobs(why) { for (const j of painterData().jobs.slice()) { painterForget(j.id); painterEnd(j, false, why); } }
 function painterCancel(kind, key) {
   const j = painterJob(kind, key); if (!j) return;
-  painterCall('DELETE', '/paint/' + encodeURIComponent(j.id), null, 8000).catch(() => {});
+  painterForget(j.id);
   painterEnd(j, false, '');
 }
 function painterSoon(ms) { clearTimeout(painterMem.timer); painterMem.timer = setTimeout(painterCheck, ms); }
 async function painterCheck() { // 逐張問，有畫好的就收回來
   clearTimeout(painterMem.timer);
-  if (painterMem.busy || !painterData().jobs.length) return;
+  if (painterMem.busy || !painterTarget() || !(painterData().jobs.length + painterData().drop.length)) return;
   painterMem.busy = true;
   try {
+    for (const id of painterData().drop.slice()) if (!await painterForget(id)) break;
     for (const job of painterData().jobs.slice()) {
       let st;
       try { st = await painterPoll(job.id); painterMem.reach = true; }
@@ -125,6 +144,7 @@ async function painterCheck() { // 逐張問，有畫好的就收回來
         painterEnd(job, kept !== false, '');
       } catch (e) {
         console.warn('[painter] 收圖失敗', e);
+        if (e.offline) { painterMem.reach = false; break; } // 圖還在電腦上，連上了再收
         if ((painterMem.tries[job.id] = (painterMem.tries[job.id] || 0) + 1) >= 4) painterEnd(job, false, '圖收不回來：' + (e.message || e));
       }
     }
@@ -136,11 +156,12 @@ async function painterCheck() { // 逐張問，有畫好的就收回來
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') painterSoon(300); });
 window.addEventListener('online', () => painterSoon(500));
-document.addEventListener('onion:wiped', () => { clearTimeout(painterMem.timer); painterMem.reach = null; painterChanged(); });
+document.addEventListener('onion:sheetclosed', () => { painterMem.after = null; }); // 按了「先不要」，之後再配對就不會自己開始畫
+document.addEventListener('onion:wiped', () => { clearTimeout(painterMem.timer); painterMem.reach = null; painterMem.stale = false; painterChanged(); });
 document.addEventListener('onion:restored', () => painterSoon(500));
 
 // --- 配對的抽屜。done：配好之後接著做的事（例如把那一天送出去） ---
-function painterSetup(done) {
+function painterSetup(done, why) { // why：一打開就寫在上面的話（例如密碼換過了）
   painterMem.after = done || null;
   const p = painterData();
   if (p.url && !done) return painterSheetPaired();
@@ -148,7 +169,7 @@ function painterSetup(done) {
   const el = openSheet('<h2>用電腦的 ChatGPT 畫</h2><ol class="pt-steps">' +
     steps.map(([a, b], i) => '<li><span class="no">' + (i + 1) + '</span><div class="lines"><span class="ttl">' + a + '</span>' + (b ? '<span class="meta">' + b + '</span>' : '') + '</div></li>').join('') + '</ol>' +
     (NATIVE ? '' : '<input id="ptUrl" class="pt-in" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="把電腦上的配對網址貼在這裡" aria-label="配對網址">') +
-    '<p class="foot pt-err" id="ptErr" role="alert" hidden></p>' +
+    '<p class="foot pt-err" id="ptErr" role="alert"' + (why ? '>' + esc(why) : ' hidden>') + '</p>' +
     '<div class="actions"><button class="btn primary full press" id="ptGo">' + (NATIVE ? '掃 QR' : '配對') + '</button><button class="btn plain full press" data-close>先不要</button></div>');
   const err = t => { const e = el.querySelector('#ptErr'); if (e) { e.textContent = t; e.hidden = !t; } };
   el.querySelector('#ptGo').onclick = async ev => {
@@ -169,13 +190,14 @@ function painterPaired(r) {
   if (next) next();
 }
 function painterSheetPaired() {
-  const p = painterData(), st = () => painterMem.reach === null ? '看看連不連得到…' : painterMem.reach ? '連得到' : '連不到';
+  const p = painterData(), st = () => painterMem.stale ? '密碼換過了，要重新配對' : painterMem.reach === null ? '看看連不連得到…' : painterMem.reach ? '連得到' : '連不到';
   const el = openSheet('<h2>用電腦的 ChatGPT 畫</h2><div class="section"><div class="group">' +
     '<div class="row"><span class="lbl">電腦</span><span class="val">' + esc(p.name) + '</span></div>' +
     '<div class="row"><span class="lbl">狀態</span><span class="val" id="ptSt">' + st() + '</span></div></div>' +
     '<p class="foot">連不到的話，看電腦上的畫圖程式有沒有開、手機跟電腦是不是同一個 Wi-Fi。</p></div>' +
-    '<div class="group"><button class="row destructive" id="ptOff"><span class="lbl">解除配對</span></button></div>' +
+    '<div class="group"><button class="row" id="ptAgain"><span class="lbl">重新配對</span></button><button class="row destructive" id="ptOff"><span class="lbl">解除配對</span></button></div>' +
     '<button class="btn secondary full press" data-close>關閉</button>');
+  el.querySelector('#ptAgain').onclick = () => painterSetup(() => {});
   el.querySelector('#ptOff').onclick = () => { painterUnpair(); closeSheet(); toast('已經解除配對'); };
   painterMem.reach = null;
   painterPing().then(() => { const x = $('ptSt'); if (x) x.textContent = st(); });
@@ -196,7 +218,7 @@ function painterNative() { try { return NATIVE_ONION || null; } catch (e) { retu
 function painterSettings() {
   const el = $('mountPaint'); if (!el) return;
   const p = painterData(), r = painterMem.reach;
-  const val = p.url ? esc(p.name) + (r === false ? '（連不到）' : '') : '還沒配對';
+  const val = p.url ? esc(p.name) + (painterMem.stale ? '（要重新配對）' : r === false ? '（連不到）' : '') : '還沒配對';
   el.innerHTML = '<div class="section"><h2>畫圖</h2><div class="group">' +
     '<button class="row" id="rowPainter"><span class="lbl">用電腦的 ChatGPT 畫</span><span class="val pt-val">' + val + '</span><svg class="chev"><use href="#i-chev"/></svg></button>' +
     (typeof baseRow === 'function' ? baseRow() : '') + '</div></div>';

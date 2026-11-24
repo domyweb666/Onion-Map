@@ -146,7 +146,7 @@ async function baseShow(b) { // 邊緣羽化，兩張相鄰的疊起來沒有硬
       g.fillStyle = gr; g.fillRect(0, 0, DRAFT_W, DRAFT_H);
     }
     const url = baseMem.urls[b.id] = URL.createObjectURL(await new Promise(r => c.toBlob(r, 'image/png')));
-    map.addSource('base-' + b.id, { type: 'image', url, coordinates: b.quad });
+    if (!map.getSource('base-' + b.id)) map.addSource('base-' + b.id, { type: 'image', url, coordinates: b.quad });
   }
   if (!map.getLayer('base-' + b.id)) map.addLayer({ id: 'base-' + b.id, type: 'raster', source: 'base-' + b.id, maxzoom: BASE_FADE_B, paint: { 'raster-fade-duration': 0, 'raster-opacity': BASE_FADE } }, map.getLayer('base-names') ? 'base-names' : SHEET_TOP);
 }
@@ -172,7 +172,9 @@ async function baseDelete(id) {
 async function baseStart() { // 以地圖中心這一帶送一張
   if (baseMem.busy) return;
   if (!painterTarget()) { painterSetup(baseStart); return; }
-  const c = map.getCenter(); closeSheet();
+  const c = map.getCenter(), fr = baseFrame(c.lng, c.lat), dup = baseMem.list.find(b => !b.img && painterJob('base', b.id) && Math.max(...fr.map((v, i) => Math.abs(v - b.frame[i]))) < (fr[2] - fr[0]) * 0.1);
+  closeSheet();
+  if (dup) { toast('這一帶已經在畫了，畫好會自己出現', 4000); return; } // 同一個地方按兩次，不要畫兩張
   baseMem.busy = true; painterSettings(); toast('正在準備底稿…', 6000);
   try {
     const frame = baseFrame(c.lng, c.lat), r = await draftRender(frame), id = Date.now().toString(36);
@@ -181,18 +183,19 @@ async function baseStart() { // 以地圖中心這一帶送一張
     await kvSafeSet('base/' + id + '.json', JSON.stringify(b)); baseMem.list.push(b);
     try { await painterSubmit('base', draft, id); } catch (e) { await baseDelete(id); throw e; }
     toast('送出去了，畫好會自己出現在地圖上', 4000);
-  } catch (e) { toast(e.message || String(e), 5000); }
+  } catch (e) { if (e.status === 401 && painterMem.stale) painterSetup(baseStart, '電腦的密碼換過了，重新配對就能畫'); else toast(e.message || String(e), 5000); }
   baseMem.busy = false; painterSettings();
 }
 painterOn.base = async (job, img) => {
   const b = baseMem.list.find(x => x.id === job.key) || await kvJSON('base/' + job.key + '.json'); if (!b || !b.ref) return false;
   const r = await paintedIn(img, b.ref), f = r.fit;
+  if (!painterJob('base', b.id)) return false; // 收圖的時候按了取消
   // AI 圖的四個角落在哪：對位後的框換回經緯度（左上、右上、右下、左下）
   const x0 = f.ox / 2, y0 = f.oy / 2, x1 = (f.ox + f.sx * DRAFT_W) / 2, y1 = (f.oy + f.sy * DRAFT_H) / 2;
   Object.assign(b, { img: r.img, fit: f, quad: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => frameLL(b.frame, x, y).map(v => +v.toFixed(6))) }); delete b.ref;
   await kvSafeSet('base/' + b.id + '.json', JSON.stringify(b));
   if (!baseMem.list.includes(b)) baseMem.list.push(b);
-  await mapReady; await baseShow(b); baseLabels();
+  mapReady.then(() => baseShow(b)).then(baseLabels).catch(e => console.warn('[base]', e)); // 不等地圖：離線時地圖載不完，後面的圖會跟著收不到
 };
 document.addEventListener('onion:painted', e => {
   const d = e.detail; if (d.kind !== 'base') return;
@@ -200,6 +203,7 @@ document.addEventListener('onion:painted', e => {
   if (d.ok) toast((b ? b.name + '一帶' : '手繪地圖') + '畫好了，回地圖看看', 4000);
   else { if (b && !b.img) baseDelete(b.id); if (d.error) toast('手繪地圖：' + d.error, 5000); }
   painterSettings();
+  if ($('baseGo') && !$('sheetHost').hidden) baseSheet(); // 抽屜正開著就換成新的
 });
 // 設定頁的列與抽屜
 function baseRow() {
@@ -209,7 +213,7 @@ function baseRow() {
 function baseRowBind() { const b = $('rowBase'); if (b) b.onclick = baseSheet; }
 async function baseSheet() {
   const c = map.getCenter(), far = map.getZoom() < 8, name = far ? '' : await baseName(c.lng, c.lat);
-  const rows = baseMem.list.slice().reverse().map(b => { const d = new Date(b.at); return '<div class="row"><div class="lines"><span class="ttl">' + esc(b.name) + '一帶</span><span class="meta">' + (b.img ? (d.getMonth() + 1) + '/' + d.getDate() + ' 畫的' : '正在畫，大概要幾分鐘') + '</span></div><button class="btn plain compact press" data-del="' + esc(b.id) + '">' + (b.img ? '刪掉' : '取消') + '</button></div>'; }).join('');
+  const rows = baseMem.list.slice().reverse().map(b => { const d = new Date(b.at); return '<div class="row"><div class="lines"><span class="ttl">' + esc(b.name) + '一帶</span><span class="meta">' + (b.img ? (d.getMonth() + 1) + '/' + d.getDate() + ' 畫的' : (painterJob('base', b.id) ? painterWait(painterJob('base', b.id)) : '正在準備')) + '</span></div><button class="btn plain compact press" data-del="' + esc(b.id) + '">' + (b.img ? '刪掉' : '取消') + '</button></div>'; }).join('');
   const el = openSheet('<h2>把這一帶畫成手繪地圖</h2><p>' + (far ? '先回地圖，拉近到想畫的地方，再來這裡。' : '現在地圖停在<b>' + esc(name) + '</b>。會把這附近約 12 公里寬、18 公里高，請 ChatGPT 畫成手繪地圖，畫好自動疊在你的地圖上。畫一張大概用掉 ChatGPT Go 每個月額度的 3%。') + '</p>' +
     (rows ? '<div class="section"><h2 class="pt-h3">畫過的</h2><div class="group">' + rows + '</div></div>' : '') +
     '<div class="actions">' + (far ? '<button class="btn primary full press" id="baseGo" data-far="1">回地圖</button>' : '<button class="btn primary full press" id="baseGo"' + (baseMem.busy ? ' disabled' : '') + '>畫這一帶</button>') + '<button class="btn plain full press" data-close>關閉</button></div>');

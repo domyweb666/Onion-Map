@@ -23,6 +23,9 @@ function flightBounds() {
 function setStatus(t) { $('status').textContent = t; }
 map.on('dragstart', () => { follow = false; });
 
+// 記錄列會變高（兩行字、多一顆到設定的鈕）：比例尺、提示、提問卡照它現在的高度往上讓
+if (window.ResizeObserver) new ResizeObserver(() => { const h = $('recBar').offsetHeight; if (h) document.documentElement.style.setProperty('--rec-now', h + 'px'); }).observe($('recBar'));
+
 // --- 真實 GPS ---
 // iOS app：走原生 CoreLocation（背景、螢幕關掉都繼續）；網頁：navigator.geolocation，要保持螢幕開啟。
 let watchId = null, bgWatcher = null, wakeLock = null;

@@ -15,7 +15,9 @@ function dayGroup(d) {
 }
 const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 function kmText(km) { return km >= 10 ? Math.round(km) + ' km' : km >= 1 ? km.toFixed(1) + ' km' : Math.round(km * 1000) + ' m'; } // 不到一公里用公尺，免得走了半天還寫 0 km
-let stepDays = [];
+const STEPS_FIRST = 60, STEPS_MORE = 180; // 先列這麼多天，按「看更早的」再加
+let stepDays = [], stepShow = STEPS_FIRST;
+hook.tab.push(t => { if (t !== 'steps') stepShow = STEPS_FIRST; });
 function renderSteps() {
   const st = engine.state(), el = $('stepsBody');
   stepDays = dayLog();
@@ -35,7 +37,7 @@ function renderSteps() {
     '<span class="ttl">' + esc(t.name) + '</span><span class="meta">' + esc(t.why) + '</span></div></div></div></div>';
   h += '<div id="mountStamps"></div><div id="mountPlaces"></div>';
   let group = null;
-  stepDays.forEach((d, i) => {
+  stepDays.slice(0, stepShow).forEach((d, i) => {
     const g = dayGroup(d.date);
     if (g !== group) { if (group) h += '</div></div>'; group = g; h += '<div class="section"><h2>' + g + '</h2><div class="group">'; }
     const parts = [];
@@ -46,10 +48,13 @@ function renderSteps() {
     h += '<button class="row" data-day="' + i + '"><div class="lines"><span class="meta">' + meta + '</span><span class="ttl">' +
       (parts.join(' · ') || '在原地附近') + '</span></div><svg class="chev"><use href="#i-chev"/></svg></button>';
   });
-  el.innerHTML = h + '</div></div><p class="foot">點一天，地圖會飛到那天走過的範圍。</p>';
+  const left = stepDays.length - stepShow;
+  if (left > 0) h += '<button class="row" data-more><span class="lbl">看更早的</span><span class="val">還有 ' + left.toLocaleString() + ' 天</span></button>';
+  el.innerHTML = h + '</div><p class="foot">點一天，地圖會飛到那天走過的範圍。</p></div>';
   document.dispatchEvent(new Event('onion:steps')); // 其他模組（印章、地點）在這裡把自己的區塊補進去
 }
 $('stepsBody').onclick = e => {
+  if (e.target.closest('[data-more]')) { const y = $('pgSteps').scrollTop; stepShow += STEPS_MORE; renderSteps(); $('pgSteps').scrollTop = y; return; }
   const b = e.target.closest('[data-day]'); if (!b) return;
   const d = stepDays[+b.dataset.day]; follow = false; go('map');
   map.fitBounds([[d.w, d.s], [d.e, d.n]], { padding: { top: 90, bottom: 260, left: 40, right: 80 }, maxZoom: 16, duration: 900 });
