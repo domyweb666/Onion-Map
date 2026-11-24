@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "onion-painter",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-07-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [
+      { "name": "JOB", "class_name": "PaintJob" },
+      { "name": "QUOTA", "class_name": "PaintQuota" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PaintJob", "PaintQuota"] }],
+  // 同一個 IP 一分鐘最多送 6 張（每個機房各自算，只是擋亂按）
+  "ratelimits": [{ "name": "POST_LIMIT", "namespace_id": "8790", "simple": { "limit": 6, "period": 60 } }],
+  "vars": {
+    "IMAGE_MODEL": "gpt-image-2.6-sunburst",
+    "IMAGE_QUALITY": "medium",
+    "DAILY_PER_DEVICE": "1",
+    "DAILY_TOTAL": "50"
+  }
+  // 金鑰不寫在這裡，用 npx wrangler secret put OPENAI_API_KEY
+}
