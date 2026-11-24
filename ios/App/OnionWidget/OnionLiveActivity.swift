@@ -123,6 +123,7 @@ struct OnionIslandFooter: View {
                 .frame(maxWidth: 80)
         }
         .padding(.top, 4)
+        .padding(.horizontal, 8) // 下緣圓角大，貼邊的時間會被切到一角
     }
 }
 
@@ -147,7 +148,7 @@ struct OnionIslandNumber: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 8)
         .accessibilityElement(children: .combine)
     }
 }

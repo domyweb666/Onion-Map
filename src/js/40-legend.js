@@ -7,7 +7,7 @@
 })();
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: 'metric' }), 'bottom-left');
 function buildLegend() {
-  const rows = [['沒去過（迷霧）', null, 'mist'], ['走過的路', null, 'track'], ['森林', 'trees', 'pattern'], ['草地、公園', 'grass', 'pattern'],
+  const rows = [['沒去過', null, 'mist'], ['走過的路', null, 'track'], ['森林', 'trees', 'pattern'], ['草地、公園', 'grass', 'pattern'],
     ['湖泊、河流', 'water-hatch', 'pattern'], ['農田', 'farm', 'pattern'], ['主要道路', null, 'road'], ['高速公路', null, 'hwy'],
     ['村莊', 'village', 'icon'], ['城鎮', 'church', 'icon'], ['城市', 'castle', 'icon'], ['山頂', 'peak', 'icon']];
   $('legendRows').innerHTML = rows.map(([label, id, kind]) => {

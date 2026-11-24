@@ -229,8 +229,11 @@ function placeFly(lat, lng, zoom) { follow = false; closeSheet(); go('map'); map
   });
   map.on('touchmove', e => { if (hold && (e.points.length !== 1 || Math.hypot(e.point.x - hold.x, e.point.y - hold.y) > 10)) unhold(); });
   map.on('touchend', unhold); map.on('touchcancel', unhold); map.on('dragstart', unhold);
-  // 長按放開時的點擊要吃掉，不然會落在剛打開的抽屜外面，馬上又被關掉
-  map.getCanvasContainer().addEventListener('touchend', e => { if (fired) { fired = false; if (e.cancelable) e.preventDefault(); } }, { passive: false, capture: true });
+  // 長按放開時的點擊要吃掉，不然會落在剛打開的抽屜上（外面＝馬上被關掉，裡面＝按到建議的名字）。iOS 長按放開還是會補一下點擊，擋 touchend 擋不住
+  let deaf = 0;
+  document.addEventListener('touchstart', () => { fired = false; }, { passive: true, capture: true });
+  for (const ev of ['touchend', 'touchcancel']) document.addEventListener(ev, e => { if (fired) { fired = false; deaf = performance.now() + 450; if (e.cancelable) e.preventDefault(); } }, { passive: false, capture: true });
+  document.addEventListener('click', e => { if (performance.now() < deaf) { e.preventDefault(); e.stopPropagation(); } }, true);
   map.on('contextmenu', e => { if (e.originalEvent.target.closest && e.originalEvent.target.closest('.plMk')) return; e.preventDefault(); if (!fired) pressAt(e.lngLat); });
 
   // --- 待過的地方，問一句 ---

@@ -35,4 +35,18 @@ const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 // --- 共用底部抽屜 ---
 function openSheet(html) { $('sheetBody').innerHTML = html; $('sheetHost').hidden = false; $('sheetBody').scrollTop = 0; return $('sheetBody'); }
 function closeSheet() { $('sheetHost').hidden = true; $('sheetBody').innerHTML = ''; document.dispatchEvent(new Event('onion:sheetclosed')); }
+// 鍵盤跳出來時，抽屜縮到鍵盤上面那一塊。不縮的話 iOS 會把整頁往上推，標題鑽到瀏海底下、按鈕藏在鍵盤後面
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const fit = () => {
+    const host = $('sheetHost'), kb = !host.hidden && innerHeight - vv.height > 120;
+    if (kb === host.classList.contains('kb') && !kb) return;
+    host.classList.toggle('kb', kb); host.style.top = kb ? vv.offsetTop + 'px' : ''; host.style.height = kb ? vv.height + 'px' : '';
+    const a = document.activeElement;
+    if (kb && a && $('sheetBody').contains(a)) a.scrollIntoView({ block: 'nearest' });
+    if (!kb && window.scrollY) window.scrollTo(0, 0);
+  };
+  vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit);
+  document.addEventListener('onion:sheetclosed', fit);
+}
 $('sheetHost').onclick = e => { if (e.target === $('sheetHost') || e.target.closest('[data-close]')) closeSheet(); };

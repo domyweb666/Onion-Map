@@ -257,10 +257,12 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);box-shadow:0 0 0 var(--d-size-hairline) var(--d-separator);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
     padding:var(--d-space-6) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-6));display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
   #sheetBody>*{flex-shrink:0}
+  #sheetHost.kb{bottom:auto}
+  #sheetHost.kb #sheetBody{max-height:calc(100% - var(--safe-t) - var(--d-space-2));padding-bottom:var(--d-space-6)}
   #sheetBody h2{margin:0;font:var(--d-title2)}
   #sheetBody p{margin:0}
   /* ----- 地圖頁的提問卡（在記錄列上方） ----- */
-  #mapAsk{position:fixed;z-index:6;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-3));
+  #mapAsk{position:fixed;z-index:6;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:calc(var(--tab-clear) + var(--rec-now,var(--rec-h)) + var(--d-space-6));
     max-width:520px;margin:0 auto;padding:var(--d-space-4) var(--d-space-5);border-radius:var(--d-radius-2xl);background:var(--d-surface);box-shadow:var(--d-elev-2)} /* domy-ignore: 寬螢幕上限 */
   body:not([data-tab=map]) #mapAsk{display:none}
   body:has(#mapAsk:not([hidden])) .maplibregl-control-container{visibility:hidden} /* 卡片蓋在比例尺上，圓角旁邊會露出一截 */
@@ -761,6 +763,20 @@ const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 // --- 共用底部抽屜 ---
 function openSheet(html) { $('sheetBody').innerHTML = html; $('sheetHost').hidden = false; $('sheetBody').scrollTop = 0; return $('sheetBody'); }
 function closeSheet() { $('sheetHost').hidden = true; $('sheetBody').innerHTML = ''; document.dispatchEvent(new Event('onion:sheetclosed')); }
+// 鍵盤跳出來時，抽屜縮到鍵盤上面那一塊。不縮的話 iOS 會把整頁往上推，標題鑽到瀏海底下、按鈕藏在鍵盤後面
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const fit = () => {
+    const host = $('sheetHost'), kb = !host.hidden && innerHeight - vv.height > 120;
+    if (kb === host.classList.contains('kb') && !kb) return;
+    host.classList.toggle('kb', kb); host.style.top = kb ? vv.offsetTop + 'px' : ''; host.style.height = kb ? vv.height + 'px' : '';
+    const a = document.activeElement;
+    if (kb && a && $('sheetBody').contains(a)) a.scrollIntoView({ block: 'nearest' });
+    if (!kb && window.scrollY) window.scrollTo(0, 0);
+  };
+  vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit);
+  document.addEventListener('onion:sheetclosed', fit);
+}
 $('sheetHost').onclick = e => { if (e.target === $('sheetHost') || e.target.closest('[data-close]')) closeSheet(); };
 
 /* 15-store.js */
@@ -1906,7 +1922,7 @@ $('btnClear').onclick = () => {
 })();
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: 'metric' }), 'bottom-left');
 function buildLegend() {
-  const rows = [['沒去過（迷霧）', null, 'mist'], ['走過的路', null, 'track'], ['森林', 'trees', 'pattern'], ['草地、公園', 'grass', 'pattern'],
+  const rows = [['沒去過', null, 'mist'], ['走過的路', null, 'track'], ['森林', 'trees', 'pattern'], ['草地、公園', 'grass', 'pattern'],
     ['湖泊、河流', 'water-hatch', 'pattern'], ['農田', 'farm', 'pattern'], ['主要道路', null, 'road'], ['高速公路', null, 'hwy'],
     ['村莊', 'village', 'icon'], ['城鎮', 'church', 'icon'], ['城市', 'castle', 'icon'], ['山頂', 'peak', 'icon']];
   $('legendRows').innerHTML = rows.map(([label, id, kind]) => {
@@ -3757,8 +3773,11 @@ function placeFly(lat, lng, zoom) { follow = false; closeSheet(); go('map'); map
   });
   map.on('touchmove', e => { if (hold && (e.points.length !== 1 || Math.hypot(e.point.x - hold.x, e.point.y - hold.y) > 10)) unhold(); });
   map.on('touchend', unhold); map.on('touchcancel', unhold); map.on('dragstart', unhold);
-  // 長按放開時的點擊要吃掉，不然會落在剛打開的抽屜外面，馬上又被關掉
-  map.getCanvasContainer().addEventListener('touchend', e => { if (fired) { fired = false; if (e.cancelable) e.preventDefault(); } }, { passive: false, capture: true });
+  // 長按放開時的點擊要吃掉，不然會落在剛打開的抽屜上（外面＝馬上被關掉，裡面＝按到建議的名字）。iOS 長按放開還是會補一下點擊，擋 touchend 擋不住
+  let deaf = 0;
+  document.addEventListener('touchstart', () => { fired = false; }, { passive: true, capture: true });
+  for (const ev of ['touchend', 'touchcancel']) document.addEventListener(ev, e => { if (fired) { fired = false; deaf = performance.now() + 450; if (e.cancelable) e.preventDefault(); } }, { passive: false, capture: true });
+  document.addEventListener('click', e => { if (performance.now() < deaf) { e.preventDefault(); e.stopPropagation(); } }, true);
   map.on('contextmenu', e => { if (e.originalEvent.target.closest && e.originalEvent.target.closest('.plMk')) return; e.preventDefault(); if (!fired) pressAt(e.lngLat); });
 
   // --- 待過的地方，問一句 ---
