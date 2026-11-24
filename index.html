@@ -256,6 +256,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #sheetHost{position:fixed;inset:0;z-index:26;background:rgba(var(--d-shadow-rgb),.4);display:flex;align-items:flex-end;justify-content:center} /* domy-ignore: 遮罩透明度 */
   #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);box-shadow:0 0 0 var(--d-size-hairline) var(--d-separator);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
     padding:var(--d-space-6) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-6));display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
+  #sheetBody>*{flex-shrink:0}
   #sheetBody h2{margin:0;font:var(--d-title2)}
   #sheetBody p{margin:0}
   /* ----- 地圖頁的提問卡（在記錄列上方） ----- */
