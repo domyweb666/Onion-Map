@@ -45,12 +45,14 @@ const PLACES_LOGIC = (() => {
   }
   // 現在該問哪一個（沒有就 null）。asked：{skip, day, seen}；today 是 'YYYY-MM-DD'
   function nextAsk({ pts, places, asked, nowSec, today, recording }) {
+    const old = (asked && asked.old) || [];
     const cut = nowSec - C.askDays * 86400, recent = pts.filter(p => p[0] >= cut); if (!recent.length) return null;
     const skip = (asked && asked.skip) || [], seen = asked && asked.day === today ? asked.seen || [] : [];
     const stops = findStops(recent), home = homes(pts, nowSec), last = recent[recent.length - 1];
     for (const s of stops.reverse()) { // 新的先問
       if (recording && s.i1 === recent.length - 1) continue; // 還在那裡
       if (recording && dist(last[1], last[2], s.lat, s.lng) <= C.radius) continue;
+      if (old.some(r => s.t0 >= r[0] && s.t0 <= r[1])) continue; // 匯入的足跡不問
       if (isNear(places, s.lat, s.lng, C.near) || isNear(skip, s.lat, s.lng, C.near) || isNear(home, s.lat, s.lng, C.homeNear)) continue;
       if (seen.length >= C.perDay && !isNear(seen, s.lat, s.lng, C.near)) continue;
       return s;
@@ -64,6 +66,12 @@ const PLACES_LOGIC = (() => {
     return asked;
   }
   function markSkip(asked, s) { asked.skip = asked.skip || []; if (!isNear(asked.skip, s.lat, s.lng, C.near)) asked.skip.push([+s.lat.toFixed(5), +s.lng.toFixed(5)]); return asked; }
+  // 匯入的那幾天記下來，待過的地方不問。只要記最近幾天的，更早的本來就不問。list：[[開始秒, 結束秒]…]，回傳有沒有變
+  function markOld(asked, list, nowSec) {
+    const cut = nowSec - C.askDays * 86400, was = asked.old || [], now = [...was, ...list].filter(r => r[1] >= cut);
+    if (!now.length && !was.length) return false;
+    asked.old = now; return true;
+  }
   function stayText(min) {
     if (min < 60) return min + ' 分鐘';
     const h = Math.floor(min / 60), m = min % 60;
@@ -92,7 +100,7 @@ const PLACES_LOGIC = (() => {
     shop: 'shop', grocery: 'shop', clothing_store: 'shop', mall: 'shop', park: 'tree', garden: 'tree', playground: 'tree', place_of_worship: 'temple',
     railway: 'station', bus: 'station', airport: 'station', harbor: 'water', swimming: 'water', school: 'book', college: 'book', library: 'book', museum: 'book', art_gallery: 'book' };
   function guessIcon(name, cls) { for (const [id, re] of BY_NAME) if (re.test(name || '')) return id; return BY_CLS[cls] || 'flag'; }
-  return { C, dist, findStops, homes, nextAsk, markSeen, markSkip, stayText, suggest, guessIcon, isNear };
+  return { C, dist, findStops, homes, nextAsk, markSeen, markSkip, markOld, stayText, suggest, guessIcon, isNear };
 })();
 /*PLACES_LOGIC_END*/
 
@@ -296,5 +304,10 @@ function placeFly(lat, lng, zoom) { follow = false; closeSheet(); go('map'); map
   const reset = () => { hideAsk(); offered = false; draw(); fill(); };
   document.addEventListener('onion:wiped', reset);
   document.addEventListener('onion:restored', reset);
+  document.addEventListener('onion:imported', e => {
+    const days = engine.state().days, gone = e.detail.gone || [];
+    if (L.markOld(asked(), e.detail.days.filter(k => days[k]).map(k => [days[k].t0 / 1000, days[k].t1 / 1000]), nowSec())) extSave();
+    if (ask && gone.includes(dayKey(ask.t0))) { offered = false; hideAsk(); } // 問的那天被收掉了
+  });
   hook.ready.push(() => { draw(); setTimeout(maybeAsk, 1500); });
 })();

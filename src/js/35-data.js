@@ -1,4 +1,4 @@
-// --- 資料：備份、匯入、清除 ---
+// --- 資料：備份、清除（匯入與還原備份在 66-import.js） ---
 function refreshData() {
   const s = engine.state();
   $('dCells').textContent = Object.keys(s.cells).length.toLocaleString() + ' 個';
@@ -25,12 +25,16 @@ $('btnExport').onclick = async () => {
   a.download = name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 };
-$('fileImport').onchange = async e => {
-  const file = e.target.files[0]; if (!file) return;
-  try { await importAll(JSON.parse(await file.text())); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); toast('已匯入備份'); }
-  catch (err) { toast('這個檔案讀不了'); }
-  e.target.value = '';
-};
+// 上次匯入存到一半被關掉：66-import.js 開 app 時會把半套的天收掉，但不發事件。這裡等它收完，補發一次 onion:imported（days 是空的、gone 是收掉的天）。
+// 印章等這個 promise，免得照半套的天蓋章
+const importSettled = (async () => {
+  await restored.catch(() => {});
+  const FLAG = 'import-pending.json', raw = await kvTry(FLAG); if (raw == null || store.locked) return;
+  for (let i = 0; i < 120 && await kvTry(FLAG) != null; i++) await new Promise(ok => setTimeout(ok, 250));
+  let gone = []; try { gone = JSON.parse(raw); } catch (e) {}
+  gone = gone.filter(k => !engine.state().days[k]);
+  if (gone.length) setTimeout(() => document.dispatchEvent(new CustomEvent('onion:imported', { detail: { days: [], gone } })));
+})();
 $('btnClear').onclick = () => {
   const b = $('btnClear');
   if (!b.dataset.arm) { b.dataset.arm = '1'; b.querySelector('.lbl').textContent = '再按一次，確定全部清掉'; return; }

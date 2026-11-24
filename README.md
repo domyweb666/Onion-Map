@@ -1,30 +1,88 @@
 # 洋蔥 Onion Map
 
-只畫出你去過的地方的地圖。走路、坐車、高鐵、飛機都會記錄，沒去過的地方是一張空白羊皮紙。
+只畫出你去過的地方的地圖。沒去過的地方蓋著黑霧，走路、坐車、高鐵、飛機經過才會露出來。
 
-目前是網頁原型，用 iPhone Safari 開：https://domyweb666.github.io/onion-map/
+網頁 https://domyweb666.github.io/onion-map/ 放的是 `main` 分支，還是最早的原型。這份寫的是 `paint-cli` 分支，主要是 iPhone app，還沒上架，也還沒出 TestFlight。
 
 ## 怎麼用
-- **模擬**：在桌上點地圖測試。第一下把你放在那裡，之後選步行／汽車／高鐵／飛機再點下一個地方。
-- **開始記錄**：真的帶出門走。網頁版要保持螢幕開啟、Safari 在最前面。
-- **資料**：下載或匯入備份。資料只存在這支手機的瀏覽器裡。
+
+- 地圖：按記錄鈕就開始畫。iPhone app 收進口袋也會記，網頁版要一直開著螢幕。長按地圖可以幫那個點取名字。
+- 足跡：每天走了多遠、拿到的印章、取過名字的地方。印章有 23 個，走到河邊、搭高鐵、走滿 10 公里這類。
+- 製圖：「一天」是某一天的地圖卡，「走過的地方」是把現在的地圖裝進框。框有四款。
+- 設定：畫圖、匯入、備份、離線地圖。
+
+在一個地方待滿 12 分鐘，洋蔥會問要不要取名，一天最多問三個，家和公司這種常待的地方不問。剛開始用的頭幾個小時它還不知道你家在哪，可能會問到。
+
+### 一日地圖卡
+
+製圖頁選「一天」，按「請 ChatGPT 畫這一天」，畫好就能分享，可選直式或 IG 4:5。卡上有當天的路線、停過的地方、走了多遠。出門和回家那頭各 300 公尺一定會剪掉，走得太近、剪完沒剩的那天就不畫。
+
+### 用電腦畫圖
+
+圖是你的電腦用你的 ChatGPT 帳號畫的。手機送出去的底稿沒有路線、沒有字，路線和字等圖回來才在手機上加。
+
+1. 電腦裝 [Node.js](https://nodejs.org/) 20 版以上，再打 `npm install -g @openai/codex`，接著 `codex login` 登入 ChatGPT
+2. 到 `tools/painter`，雙擊 `開始畫圖.cmd`，等它印出 QR，視窗不要關
+3. 手機和電腦連同一個 Wi-Fi，打開洋蔥的設定 › 畫圖 › 用電腦的 ChatGPT 畫，掃 QR。掃一次就好
+4. 回製圖頁畫某一天，或在設定按「把這一帶畫成手繪地圖」，畫地圖中間那一帶（約 12 × 18 公里），畫好會自動疊在地圖上
+
+第一次，Windows 防火牆和 iPhone 的「區域網路」都會跳出來問，兩個都按允許。ChatGPT Go 畫一張大概用掉每月額度的 3%，2026-11-25 實際畫了一張，等了 157 秒。連不上、換電腦、換密碼看 `tools/painter/README.md`。
+
+沒有電腦的人要用的雲端版寫在 `server/painter`，還沒部署。
+
+### 匯入足跡或備份
+
+設定 › 資料 › 匯入足跡或備份，選檔案就好，它自己認得：
+
+- Google 時間軸（iPhone、Android 匯出的，舊的 Takeout 也行）
+- GPX
+- 洋蔥的備份檔
+
+壓縮檔要先解開。時間軸和 GPX 只會加進新的日子，已經有紀錄的日子不動。備份檔會把手機裡的紀錄整個換掉，換之前會先問。
+
+備份裡有足跡、地點、印章，沒有畫好的圖。還原備份的時候，手機裡畫好的手繪地圖會留著，日卡留備份裡有的那幾天。
+
+### 離線地圖
+
+看過的地方和你附近 10 公里會自動留在手機裡，沒網路也看得到。要去收訊不好的地方，先把地圖移過去，再到設定 › 離線地圖下載那個縣市（只有台灣）。最多占 400 MB。
+
+### 小工具與即時動態
+
+主畫面的小工具有小、中兩種，鎖定畫面有長條、圓形。記錄的時候，鎖定畫面和動態島會顯示這一趟走了多遠。都要 iOS 16.2 以上，app 本身 iOS 15 就能裝。
+
+## 還沒在 iPhone 真機驗過
+
+這個分支新加的東西都還沒拿真的 iPhone 跑過，只在電腦的瀏覽器看過、跑過測試，雲端有編譯成功。下面這些最可能出狀況：
+
+- 掃 QR、用區域網路的 http 連電腦、收圖、分享
+- 在手機上準備底稿的時間，以及畫好的圖跟路線對不對得準
+- 小工具、鎖定畫面與動態島，還有 iOS 15 的手機打不打得開
+- 日卡照現在的範圍請 ChatGPT 真的畫一張、手繪地圖真的畫一張
+- 匯入用的是自己做的範例檔，沒拿真的 Google 時間軸匯出檔試過
+- 離線地圖不一定分得出 Wi-Fi，行動網路也可能自動補附近的地圖
+- 走在口袋裡的印章，要等地圖載到那一帶才補發
 
 ## 開發
-程式寫在 `src/index.src.html`，改完執行：
 
 ```
 npm install
 npm run build
+npm test
 ```
 
-會把地圖程式庫（MapLibre、H3）打包進根目錄的 `index.html`，GitHub Pages 直接發佈這個檔案。
+程式在 `src/js` 和 `src/css`，畫面骨架在 `src/index.src.html`。`npm run build` 照檔名順序接成一個檔，連同 MapLibre、H3 打包成根目錄的 `index.html`（網頁版）和 `www/index.html`（app 用）。`index.html` 不要直接改。檔案怎麼分工、怎麼互相叫，看 `docs/模組約定.md`。
 
-地圖資料：© OpenStreetMap contributors，圖磚由 OpenFreeMap 提供。地形陰影用 AWS Open Data 的 Terrain Tiles。
+`npm test` 會跑 `tests` 底下全部的測試，再跑 `tools/painter` 和 `server/painter` 自己的。後面兩個沒先進那個資料夾 `npm install` 的話會印 `skip` 跳過，不算失敗。測試不叫 Codex、不叫 OpenAI、不花額度。`tools/limrun/test.mjs` 是去租雲端 iPhone 模擬器、照時間收錢的腳本，`npm test` 不會跑到它，要用的時候自己下。
 
-地名用手寫字型「辰宇落雁體」（SIL Open Font License 1.1），字型檔與授權在 `fonts/`。中文字由 MapLibre 在裝置上用這套字型畫，英數與標點用 `fonts/glyphs/` 裡自產的 glyph，缺的區段用 OpenFreeMap 的 Noto Sans 補。
+iOS app 用 Capacitor 包同一份程式，build 完跑 `npx cap sync ios` 同步進 `ios/`。沒有 Mac 也能建置，裝到手機、上 TestFlight、雲端畫圖上線要改的東西都在 `docs/iOS建置說明.md`。
 
-## iOS app
+一日地圖卡另有桌面版腳本 `tools/daycard`（Python），內建的台北手繪圖幅由 `tools/sheet` 產生。
 
-同一份程式用 Capacitor 包成 iOS app，定位改走原生的背景定位，螢幕關掉也會繼續畫。`npm run build` 會多產一份 `www/index.html` 給 app 用，再跑 `npx cap sync ios` 同步進 `ios/` 的 Xcode 專案。
+## 資料與授權
 
-沒有 Mac 也能建置：GitHub Actions 每次 push 會在雲端 Mac 上編譯一次並產出未簽署的 IPA，可用 AltStore 裝到自己的 iPhone；要上 TestFlight 走 Codemagic 或 GitHub Actions 的簽署流程。細節在 `docs/iOS建置說明.md`。
+足跡存在自己的手機裡。app 版會跟著 iCloud 的手機備份走，網頁版存在瀏覽器裡，清掉網站資料就沒了。地圖資料要上網抓，所以圖磚伺服器看得到你在看哪一帶。
+
+- 地圖：© OpenStreetMap contributors，圖磚由 OpenFreeMap 提供
+- 地形陰影：AWS Open Data 的 Terrain Tiles
+- 行政區界線：內政部「鄉鎮市區界線」，取自 taiwan-atlas
+- 手寫字型：辰宇落雁體（SIL Open Font License 1.1），字型檔與授權在 `fonts/`。中文字由 MapLibre 在裝置上用這套字型畫，英數與標點用 `fonts/glyphs/` 裡自產的 glyph

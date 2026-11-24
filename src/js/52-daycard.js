@@ -201,7 +201,8 @@ const DAYCORE = (() => {
     if (!best) return undefined;
     return best.icon === 'home' || best.icon === 'house' || /^(我|老|爸媽|外婆|奶奶|阿嬤)?(的)?(家|住處|住家|宿舍)$/.test(best.name) ? '' : best.name;
   }
-  return { C, SIZES, TITLE_H, STAT_H, rowsH, boards, bestView, dist, trim, stops, stats, day, extent, px, lines, nameStop, pickMarks, pickPlaces, center, ownName, inPoly };
+  function nth(days, key) { let n = 0; for (const k in days) if (k <= key) n++; return n; } // 第幾天出門。匯入更早的足跡之後會變，所以畫的時候才算
+  return { nth, C, SIZES, TITLE_H, STAT_H, rowsH, boards, bestView, dist, trim, stops, stats, day, extent, px, lines, nameStop, pickMarks, pickPlaces, center, ownName, inPoly };
 })();
 /*DAYCORE_END*/
 
@@ -229,7 +230,7 @@ async function dcPrepare(key, pts, D) {
     const near = cls => { let b = null, bd = Infinity; for (const p of R.feats.place) if (cls.includes(p.cls)) { const d = DAYCORE.dist(c.lat, c.lng, p.lat, p.lng); if (d < bd) { bd = d; b = p.name; } } return b || ''; };
     city = near(['city', 'town']); town = near(['suburb', 'quarter']);
   }
-  const facts = { city, town, layer: Object.keys(engine.state().days).sort().indexOf(key) + 1, stats: D.stats, stops, marks: DAYCORE.pickMarks(R.feats, D.segs, frame, used), places: DAYCORE.pickPlaces(R.feats, frame), lines: DAYCORE.lines(D.segs, frame) };
+  const facts = { city, town, layer: DAYCORE.nth(engine.state().days, key), stats: D.stats, stops, marks: DAYCORE.pickMarks(R.feats, D.segs, frame, used), places: DAYCORE.pickPlaces(R.feats, frame), lines: DAYCORE.lines(D.segs, frame) };
   return { n: engine.state().days[key].n, frame, facts, draft: R.draft.toDataURL('image/jpeg', 0.92), ref: R.ref.toDataURL('image/png') };
 }
 
@@ -321,7 +322,7 @@ const dcHm = t => { const d = new Date(t * 1000); return String(d.getHours()).pa
 
 function dcMeasure(g, rec, size) { // 三塊板子的字與寬
   const F = rec.facts, pad = 32, fT = '900 48px ' + CARD_SERIF, fS = '400 22px ' + CARD_KAI, fR = '700 22px ' + CARD_KAI, U = DC_SIZES[size].ui, st = F.stats, hh = Math.floor(st.moving_min / 60), W = (f, x) => { g.font = f; return g.measureText(x).width; };
-  const title = [F.city, F.town].filter(Boolean).join('・') || '洋蔥地圖', sub = rec.key.replace(/-/g, '.') + '　第 ' + F.layer + ' 天出門';
+  const title = [F.city, F.town].filter(Boolean).join('・') || '洋蔥地圖', sub = rec.key.replace(/-/g, '.') + '　第 ' + (DAYCORE.nth(engine.state().days, rec.key) || F.layer) + ' 天出門';
   const l1 = st.km + ' km　' + (st.car >= 0.5 ? '在路上 ' : '走了 ') + (hh ? hh + ' 小時 ' : '') + st.moving_min % 60 + ' 分', l2 = st.start + ' 到 ' + st.end + (st.stops ? '　停留 ' + st.stops + ' 處' : '');
   const tw = Math.ceil(Math.max(W(fT, title), W(fS, sub)) + pad * 2), sw = Math.ceil(Math.max(W(fR, l1), W(fS, l2)) + 56), stops = dcStops(F); let rows = [], lw = 0;
   if (stops.length) {
@@ -527,7 +528,12 @@ document.addEventListener('onion:painted', async e => {
 });
 document.addEventListener('onion:painter', () => { if (tab === 'card' && dc.pick === 'day' && dc.state === 'ready' && !dc.sending) dcRender(); });
 document.addEventListener('onion:places', () => { if (tab === 'card' && dc.pick === 'day' && dc.state === 'ready') dcPaintCanvas(); });
-for (const ev of ['onion:wiped', 'onion:restored']) document.addEventListener(ev, () => { dc.tok++; dc.key = null; dc.rec = null; dc.base = null; dc.out = null; dc.state = ''; if (tab === 'card') dcApply(); });
+function dcReset() { dc.tok++; dc.key = null; dc.rec = null; dc.base = null; dc.out = null; dc.state = ''; }
+for (const ev of ['onion:wiped', 'onion:restored']) document.addEventListener(ev, () => { dcReset(); if (tab === 'card') dcApply(); });
+document.addEventListener('onion:imported', () => { // 匯入只會多出新的天，正在看的那天還在就留著，重畫一次（第幾天出門會變）
+  if (dc.key && !engine.state().days[dc.key]) dcReset();
+  setTimeout(() => { if (tab === 'card') { enterCard(); dcApply(); } }, 200); // 等匯入把霧重畫好再截圖；跟切到製圖頁做的事一樣
+});
 
 async function dcShare() { // 跟「分享這張」同一招：iOS 先寫進暫存再開分享面板
   const out = document.createElement('canvas'), name = 'onion-' + dc.key + (dc.size === 'ig' ? '-4x5' : '') + '.png', title = '我的一日洋蔥地圖';

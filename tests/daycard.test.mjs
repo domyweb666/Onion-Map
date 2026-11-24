@@ -15,6 +15,12 @@ const walk = (t0, lat0, meters, step = 10, dt = 8, lng = 121.5) => Array.from({ 
 const T0 = new Date('2026-11-07T09:00:00+08:00') / 1000;
 const demo = path.join(ROOT, 'daycard/demo-track.json');
 
+test('第幾天出門：匯入更早的足跡之後會往後排，收掉的天回 0 以外的順位', () => {
+  const days = { '2026-11-07': {}, '2026-11-20': {} };
+  assert.equal(D.nth(days, '2026-11-07'), 1); assert.equal(D.nth(days, '2026-11-20'), 2);
+  days['2024-03-01'] = {}; assert.equal(D.nth(days, '2026-11-07'), 2); assert.equal(D.nth(days, '2024-03-01'), 1);
+  assert.equal(D.nth({}, '2026-11-07'), 0);
+});
 test('示範軌跡：不剪的時候跟 Python 的數字一樣（6.9 km、98 分、4 處、09:30 到 13:35）', { skip: !fs.existsSync(demo) }, t => {
   const pts = JSON.parse(fs.readFileSync(demo, 'utf8')).points, d = D.day(pts, 0);
   t.diagnostic(JSON.stringify(d.stats)); assert.deepEqual({ ...d.stats }, { km: 6.9, car: 0, moving_min: 98, stops: 4, start: '09:30', end: '13:35' });

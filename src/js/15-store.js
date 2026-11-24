@@ -101,11 +101,26 @@ async function exportAll() { // 備份檔 v2：跟 v1 一樣是一個 JSON，多
   const ext = Object.assign({}, s.ext); delete ext.painter; // 配對密碼不進備份
   return { v: 2, cells: s.cells, flights: s.flights, gaps: s.gaps, points, km: s.km, ext };
 }
-async function importAll(d) { // 還原備份（v1、v2 都吃）：整個換掉
-  if (!d || typeof d !== 'object' || !d.cells) throw new Error('不是洋蔥的備份檔');
+function checkBackup(d) { // 動手換掉之前先看格式，壞的備份不能碰到手機裡的紀錄
+  const obj = o => !!o && typeof o === 'object' && !Array.isArray(o), list = a => a == null || Array.isArray(a);
+  if (!obj(d) || !obj(d.cells) || !list(d.points) || !list(d.flights) || !list(d.gaps) || (d.ext != null && !obj(d.ext))) throw new Error('不是洋蔥的備份檔');
+  for (const p of d.points || []) if (!Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1]) || !Number.isFinite(p[2])) throw new Error('不是洋蔥的備份檔');
+}
+async function importAll(d) { // 還原備份（v1、v2 都吃）：整個換掉。先寫新的再刪舊的，中途被關掉也不會兩邊都沒有。畫好的圖不在備份裡，留著
+  checkBackup(d);
+  clearTimeout(saveTimer); saveTimer = null; if (saving) await saving;
   const painter = engine.state().ext.painter;
-  await wipeFiles(); engine.load(d); if (painter) engine.state().ext.painter = painter;
-  store.locked = false; await flushSave();
+  engine.load(d); if (painter) engine.state().ext.painter = painter; else delete engine.state().ext.painter;
+  const r = engine.takeSaves(); engine.putBackSaves(r);
+  store.locked = false;
+  if (!await flushSave()) throw Object.assign(new Error('存檔失敗'), { save: true });
+  const keep = new Set(['meta.json', ...r.shards.map(k => 'cells/' + k + '.json')]), days = engine.state().days;
+  for (const p of ['', 'days/', 'cells/', 'cards/']) for (const k of await kv.list(p)) {
+    const day = /^(?:days|cards)\/(.+?)\.json/.exec(k);
+    if (!keep.has(k) && !(day && days[day[1]])) await kv.del(k);
+  }
+  try { localStorage.removeItem(STORE); localStorage.removeItem('digua.v1'); } catch (e) {}
+  if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
 }
 async function wipeFiles() {
   clearTimeout(saveTimer); saveTimer = null; if (saving) await saving;

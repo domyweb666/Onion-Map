@@ -16,6 +16,16 @@ test('待滿 12 分鐘算停留，11 分鐘不算', () => {
   assert.equal(L.findStops(stay(...CAFE, at(0, 14), 12)).length, 1);
   assert.equal(L.findStops(stay(...CAFE, at(0, 14), 11)).length, 0);
 });
+test('匯入的足跡不問，自己記錄的照問', () => {
+  const pts = [...stay(...CAFE, at(2, 14), 40), ...walk(CAFE, BOOK, at(2, 15), 60), ...stay(...BOOK, at(1, 14), 40)], asked = { skip: [], day: '', seen: [] };
+  assert.equal(L.markOld(asked, [], NOW), false); assert.equal(asked.old, undefined, '沒有新的就不存');
+  assert.ok(L.markOld(asked, [[at(1, 0), at(1, 23)], [at(400, 0), at(400, 23)]], NOW));
+  assert.deepEqual(asked.old, [[at(1, 0), at(1, 23)]], '只記最近幾天');
+  const s = L.nextAsk({ ...base, pts, asked }); assert.ok(L.dist(s.lat, s.lng, ...CAFE) < 40, '跳過匯入的書店那天，問前一天的咖啡店');
+  L.markOld(asked, [[at(2, 0), at(2, 23)]], NOW); assert.equal(L.nextAsk({ ...base, pts, asked }), null);
+  assert.ok(L.nextAsk({ ...base, pts: [...pts, ...stay(...SHOP, at(0, 15), 30)], asked }), '之後自己走的還是會問');
+  L.markOld(asked, [], NOW + 30 * DAY); assert.deepEqual(asked.old, [], '過期的清掉');
+});
 test('走路不算停留；停留的中心與時間對', () => {
   const pts = [...walk(HOME, CAFE, at(0, 13, 30), 60), ...stay(...CAFE, at(0, 14), 40), ...walk(CAFE, PARK, at(0, 14, 41), 60)];
   const s = L.findStops(pts); assert.equal(s.length, 1);

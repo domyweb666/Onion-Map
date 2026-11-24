@@ -191,3 +191,94 @@ test('十萬點的 GPX（一秒一點）', async () => {
   console.log('十萬點 GPX：' + sec.toFixed(1) + ' 秒、' + Math.round(r.km) + ' 公里');
   assert.ok(Math.abs(r.km - 133.4) < 2, String(r.km)); assert.ok(sec < 60);
 });
+
+// ---------- 畫面那一段：還原備份（原本另有一個「匯入備份」，現在只剩這個入口） ----------
+// 用最小的假 DOM 跑 66-import.js 的後半段；引擎與 importAll 都是真的
+class Chan { port1 = {}; port2 = { postMessage: () => setImmediate(() => this.port1.onmessage()) }; } // 真的 MessageChannel 會讓 node 一直不結束
+function ui({ locked = false, restored = Promise.resolve(true), days = {}, saved = true } = {}) {
+  const els = {}, log = [], kvs = new Map(), events = [];
+  const el = id => els[id] || (els[id] = { id, style: {}, dataset: {}, hidden: false, parentNode: { setAttribute() {} }, set innerHTML(h) { this.html = h; }, get innerHTML() { return this.html; } });
+  let sheet = ''; const $ = id => id === 'sheetHost' ? { hidden: !sheet } : id === 'mountImport' || sheet.includes('id="' + id + '"') || id === 'impRow' || id === 'impVal' ? el(id) : null;
+  const engine = createEngine(h3); Object.assign(engine.state().days, days);
+  const store = { locked }, kv = { set: async (k, v) => { kvs.set(k, v); }, get: async k => kvs.get(k), del: async k => { kvs.delete(k); }, list: async p => [...kvs.keys()].filter(k => k.startsWith(p) && !k.slice(p.length).includes('/')) };
+  const g = { $, engine, store, kv, restored, h3, createEngine, ImportCore, IMP, dayKey, CFG, esc: String, hook: { ready: [] }, recording: false, saving: null, saveTimer: null, NATIVE: false, STORE: 'x', console: { error() {} },
+    openSheet: h => { sheet = h; for (const id of ['impFile', 'impStop', 'impAgain', 'impRestore']) delete els[id]; return { querySelector: q => el(q.slice(1)) }; }, closeSheet: () => { sheet = ''; },
+    toast: t => log.push('toast ' + t), render: () => log.push('render'), refreshData: () => log.push('refresh'), flushSave: async () => { log.push('save'); return saved; }, saveSoon() {},
+    kvTry: async k => kvs.get(k) ?? null, kvSafeSet: async (k, v) => { kvs.set(k, v); }, kvJSON: async k => kvs.has(k) ? JSON.parse(kvs.get(k)) : undefined,
+    document: { dispatchEvent: e => { events.push(e.type); log.push(e.type); } }, Event, CustomEvent, MessageChannel: Chan, localStorage: { removeItem() {} } };
+  const st = src('15-store.js'), all = cut(st, 'function checkBackup', 'async function wipeAll') + src('66-import.js').split('/*IMPORT_CORE_END*/')[1] + ';return importer;';
+  const importer = new Function(...Object.keys(g), all)(...Object.values(g));
+  return { importer, engine, store, kvs, log, events, els, text: () => sheet, row: () => els.mountImport.html };
+}
+const backup = () => blob({ v: 2, cells: { '8c4ba0a41c9a1ff': [1, 1700000000000] }, flights: [], gaps: [], points: [[1700000000, 23.5, 120.5, 8, 'w'], [1700000060, 23.501, 120.5, 8, 'w']], km: { walk: 0.1 }, ext: { places: [{ id: 'a', name: '測試', lat: 23.5, lng: 120.5 }] } });
+const named = (b, name) => Object.assign(b, { name });
+
+test('還原備份：先問一次，按了才整個換掉，發 onion:restored，配對密碼留著', async () => {
+  const u = ui({ days: { '2026-11-20': { n: 1, t0: 0, t1: 0 } } }); u.engine.state().ext.painter = { token: '假的' }; u.kvs.set('days/2026-11-20.json', '[]');
+  assert.match(u.row(), /匯入足跡或備份/);
+  await u.importer.start([named(backup(), 'onion-backup-2026-11-20.json')]);
+  assert.match(u.text(), /這是洋蔥的備份/); assert.match(u.text(), /現在的 1 天紀錄會整個換成/);
+  assert.equal(Object.keys(u.engine.state().cells).length, 0, '還沒按之前不動'); assert.deepEqual(u.events, []);
+  await u.els.impRestore.onclick({ target: {} });
+  const s = u.engine.state();
+  assert.equal(Object.keys(s.cells).length, 1); assert.equal(s.days['2026-11-20'], undefined, '舊的整個換掉'); assert.equal(s.days[dayKey(1700000000)].n, 2);
+  assert.equal(s.ext.places[0].name, '測試'); assert.equal(s.ext.painter.token, '假的');
+  assert.ok(!u.kvs.has('days/2026-11-20.json')); assert.deepEqual(u.events, ['onion:restored']);
+  assert.deepEqual(u.log.filter(x => x !== 'onion:restored'), ['save', 'render', 'refresh']); assert.match(u.text(), /備份還原好了/);
+});
+test('紀錄讀不完整（鎖住）時，備份還是能還原，足跡不能匯', async () => {
+  const bad = Promise.reject(new Error('讀檔壞了')); bad.catch(() => {});
+  for (const o of [{ locked: true }, { restored: bad }]) {
+    const u = ui(o); await u.importer.start([named(backup(), 'b.json')]);
+    assert.match(u.text(), /手機裡現在的紀錄會整個換成備份裡的/);
+    await u.els.impRestore.onclick({ target: {} });
+    assert.equal(u.store.locked, false); assert.deepEqual(u.events, ['onion:restored']);
+  }
+  const u = ui({ locked: true }); await u.importer.start([named(fx('import-track.gpx'), 't.gpx')]);
+  assert.match(u.text(), /沒有匯入/); assert.match(u.text(), /沒讀完整/); assert.deepEqual(u.events, []); assert.equal(Object.keys(u.engine.state().days).length, 0);
+});
+test('壞掉的備份：講讀不了，什麼都不動', async () => {
+  const u = ui({ days: { '2026-11-20': { n: 1 } } }); await u.importer.start([named(blob('{"v":2,"cells":{"8c4ba0a'), 'b.json')]);
+  assert.match(u.text(), /讀不了/); assert.ok(u.engine.state().days['2026-11-20']); assert.deepEqual(u.events, []);
+  const z = ui({ days: { '2026-11-20': { n: 1 } } }); await z.importer.start([named(blob({ v: 2, cells: null }), 'b.json')]);
+  await z.els.impRestore.onclick({ target: {} }); assert.match(z.text(), /這份備份讀不了/); assert.ok(z.engine.state().days['2026-11-20']); assert.deepEqual(z.events, []);
+});
+test('備份格式怪怪的：先看完格式才動手，紀錄和檔案都不動', async () => {
+  for (const bad of [{ cells: [] }, { points: {} }, { points: [null] }, { points: [['x', 1, 2]] }, { flights: 3 }, { ext: [] }]) {
+    const u = ui({ days: { '2026-11-20': { n: 1 } } }); u.kvs.set('days/2026-11-20.json', '[]');
+    await u.importer.start([named(blob(Object.assign({ v: 2, cells: {}, points: [] }, bad)), 'b.json')]);
+    if (u.els.impRestore) await u.els.impRestore.onclick({ target: {} });
+    assert.match(u.text(), /讀不了|看不懂/, JSON.stringify(bad)); assert.ok(u.engine.state().days['2026-11-20']); assert.ok(u.kvs.has('days/2026-11-20.json')); assert.deepEqual(u.events, []);
+  }
+});
+test('還原備份：手繪地圖留著，日卡只留備份裡有的那幾天，舊的片與天清掉', async () => {
+  const u = ui(), day = dayKey(1700000000);
+  for (const k of ['base/b1.json', 'cards/' + day + '.json', 'cards/2026-11-20.json', 'days/2026-11-20.json', 'cells/舊的片.json', 'import-pending.json']) u.kvs.set(k, '{}');
+  await u.importer.start([named(backup(), 'b.json')]); await u.els.impRestore.onclick({ target: {} });
+  assert.deepEqual([...u.kvs.keys()].sort(), ['base/b1.json', 'cards/' + day + '.json'].sort());
+});
+test('還原備份：存不進去就不刪舊檔，講得出原因', async () => {
+  const u = ui({ saved: false }); u.kvs.set('days/2026-11-20.json', '[]'); u.kvs.set('cards/2026-11-20.json', '{}');
+  await u.importer.start([named(backup(), 'b.json')]); await u.els.impRestore.onclick({ target: {} });
+  assert.match(u.text(), /存不進去/); assert.ok(u.kvs.has('days/2026-11-20.json')); assert.ok(u.kvs.has('cards/2026-11-20.json'));
+});
+test('匯入足跡：發一次 onion:imported；匯入列只剩一個', async () => {
+  const u = ui(); await u.importer.start([named(fx('import-track.gpx'), 't.gpx')]);
+  assert.deepEqual(u.events, ['onion:imported']); assert.ok(u.engine.state().days['2024-03-01']); assert.ok(u.kvs.has('days/2024-03-01.json'));
+  const html = fs.readFileSync(new URL('../src/index.src.html', import.meta.url), 'utf8') + src('35-data.js');
+  assert.ok(!/fileImport|匯入備份/.test(html));
+});
+test('上次匯入到一半：等收完才算數，收完補發 onion:imported 帶 gone', async () => {
+  const run = async (pending, { locked = false, after = {} } = {}) => {
+    const got = []; let left = pending ? 2 : 0;
+    const part = cut(src('35-data.js') + '/*END*/', 'const importSettled', '/*END*/');
+    const body = part.slice(0, part.indexOf('})();') + 5) + ';return importSettled;';
+    const p = new Function('restored', 'kvTry', 'store', 'engine', 'document', 'CustomEvent', 'setTimeout', body)(Promise.resolve(), async () => left-- > 0 ? pending : null, { locked }, { state: () => ({ days: after }) }, { dispatchEvent: e => got.push(e) }, CustomEvent, f => setTimeout(f, 0));
+    await p; await new Promise(ok => setTimeout(ok, 20)); return got;
+  };
+  assert.deepEqual(await run(null), []);
+  assert.deepEqual(await run('["2024-03-01"]', { locked: true }), []);
+  assert.deepEqual(await run('["2024-03-01"]', { after: { '2024-03-01': {} } }), [], '其實都存好了，沒收掉東西');
+  const e = await run('["2024-03-01","2024-03-02"]', { after: { '2024-03-02': {} } });
+  assert.equal(e.length, 1); assert.deepEqual(e[0].detail, { days: [], gone: ['2024-03-01'] });
+});

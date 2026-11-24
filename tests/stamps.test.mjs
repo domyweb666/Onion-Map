@@ -122,6 +122,26 @@ test('下一個只提示一個最接近的', () => {
   const all = Object.fromEntries(L.LIST.map(s => [s.id, 1])); assert.equal(L.next(state({}), 0, all), null);
   delete all.sea; assert.equal(L.next(state({}), 0, all).name, '第一次走到海邊');
 });
+test('分批看走法：切在斷開的地方，結果跟整段一起看一樣；跨半夜接得起來；拿齊就停', async () => {
+  const feed = list => { let i = 0; return async () => i < list.length ? list[i++] : null; };
+  const sc = 3000, round = path(at(9), [[0, 0], [600, 0], [600, 600], [0, 600], [0, 0]]), late = path(at(23, 56), [[sc, 0], [sc + 900, 0]]); // 夜路跨半夜
+  const mid = at(0, 0, 21), days = [round, late.filter(p => p[0] < mid), late.filter(p => p[0] >= mid)];
+  assert.ok(L.night(late) && !L.night(days[1]), '前一天那截不夠長，要接起來才算');
+  const have = {}, seen = [], was = L.C.chunk; let batches = 0; L.C.chunk = 50;
+  await L.inChunks(feed(days), async pts => { batches++; seen.push(...pts); for (const x of L.shapes(state({}), pts, have)) have[x.id] = x.t; });
+  assert.deepEqual(seen, days.flat(), '一點不漏、順序不變');
+  assert.ok(batches >= 2); assert.equal(have.night, L.night(late).t); assert.equal(have.loop, L.loop(days.flat()).t);
+  let n = 0; await L.inChunks(feed([round, late, path(at(9, 0, 25), [[0, 0], [900, 0]])]), async () => { n++; return false; });
+  assert.equal(n, 1, '回 false 就停');
+  await L.inChunks(feed([]), async () => assert.fail('沒有點不用叫'));
+  L.C.chunk = was;
+});
+test('分批看走法：幾年的量，每一批都很小', async () => {
+  let d = 0, worst = 0, total = 0;
+  const day = k => Array.from({ length: 1500 }, (_, i) => [1600000000 + k * 86400 + i * 30, LAT + dLat(i * 12), LNG + dLng(k * 5), 10, 'w']); // 一直往北走，什麼樣子都不會中
+  await L.inChunks(async () => d < 120 ? day(d++) : null, async pts => { const t = performance.now(); total += pts.length; L.shapes(state({}), pts, { night: 1, dawn: 1 }); worst = Math.max(worst, performance.now() - t); });
+  assert.equal(total, 180000); assert.ok(worst < 250, '最慢的一批 ' + worst.toFixed(0) + 'ms');
+});
 test('資料量大也不會卡', () => {
   const t = performance.now(), big = path(at(6), Array.from({ length: 200 }, (_, i) => [i * 400 % 9000, (i % 2) * 300 + i * 40]));
   L.loop(big); L.night(big); L.hsr(big); assert.ok(performance.now() - t < 1500);

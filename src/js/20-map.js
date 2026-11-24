@@ -225,7 +225,7 @@ function tileCanvas(id) { if (!TILES[id]) IMAGES[id](); return TILES[id]; }
 const EMPTY = { type: 'FeatureCollection', features: [] };
 map.on('load', () => {
   map.addImage('mist', mistImage());
-  ['freq', 'fog', 'explored', 'flights', 'gaps', 'track', 'fogq'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
+  ['freq', 'fog', 'flights', 'gaps', 'track', 'fogq'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
   // 走過越多次綠色越深（踏實的路）
   map.addLayer({ id: 'freq', type: 'fill', source: 'freq',
     paint: { 'fill-color': '#5E8C3F', 'fill-opacity': 0.12 } });
@@ -251,10 +251,9 @@ map.on('load', () => {
     layout: { visibility: 'none', 'text-field': '?', 'text-font': FONT, 'text-size': ['*', 38, ['get', 's']], 'text-rotate': ['get', 'r'],
       'text-allow-overlap': true, 'text-ignore-placement': true },
     paint: { 'text-color': '#B7BDC8', 'text-opacity': 0.5 } });
-  map.on('moveend', updateQ);
+  map.on('move', viewMoving);
+  map.on('moveend', () => { drawView(); updateQ(); });
   addSheets();
-  revealNow = revealTier();
-  map.on('zoomend', () => { const t = revealTier(); if (t !== revealNow) { revealNow = t; render(true); } }); // 粗細揭開範圍切換時重算霧
   if (labelsOn) showLabels(); // 字型比地圖先好的話，剛加的「?」圖層也要打開
   render(true);
 });
@@ -315,36 +314,124 @@ function updateQ() {
 const WORLD = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
 // 揭開範圍：紀錄還是 res 12 的細格子，但霧散開的範圍放大。
 // 拉近看：換算成 res 11 再往外擴兩圈（走過的路左右約 100 公尺）；縮小看：res 8 的格子（約 1 公里）走進去整格散開
-let revealSet = null, revealRes = CFG.res, revealNow = 'fine';
-function revealTier() { return map.getZoom() < 11 ? 'coarse' : 'fine'; }
-function revealCells(ids) {
-  const fine = revealTier() === 'fine', res = fine ? 11 : 8, set = new Set();
-  for (const c of ids) {
-    const p = h3.cellToParent(c, res);
-    if (fine) for (const d of h3.gridDisk(p, 2)) set.add(d); else set.add(p);
+// 只算視野附近的格子（往外多半個畫面），拖出去才補；格子有好幾萬個時整張一起算要好幾秒。
+/*VIEW_START*/
+const VIEW = { spare: 0.5, lead: 0.2, pad: { fine: 0.4, coarse: 2 } }; // spare：四邊多算幾個畫面；lead：離算好的邊界剩多少畫面就補；pad：格子往外揭開的距離（公里，寬鬆抓）
+const revealTierAt = z => z < 11 ? 'coarse' : 'fine';
+// 走過越多次越綠的那一層用多細的格子：縮小看時一格不到一個像素，合併了也看不出來
+const freqResAt = z => z >= 11 ? 12 : z >= 9 ? 11 : z >= 7 ? 10 : z >= 5.5 ? 9 : 8;
+// 跟 h3.cellToParent 同一個答案，只動字串：把解析度換掉、後面的位數全填 1
+function parentOf(c, r) {
+  const b = 45 - 3 * r, i = Math.floor((59 - b) / 4);
+  return c[0] + r.toString(16) + c.slice(2, i) + (parseInt(c[i], 16) | (1 << (b - 56 + 4 * i)) - 1).toString(16) + 'f'.repeat(14 - i);
+}
+function growBox(b, k) { const w = (b[2] - b[0]) * k, h = (b[3] - b[1]) * k; return [b[0] - w, b[1] - h, b[2] + w, b[3] + h]; } // b＝西南東北
+const boxInside = (a, b) => a[0] >= b[0] && a[1] >= b[1] && a[2] <= b[2] && a[3] <= b[3];
+const bucketBoxes = new Map(); // 第 7 層那一塊的外框；裡面的細格子會稍微超出上層的邊，所以放大四分之一
+function bucketBox(k) {
+  let b = bucketBoxes.get(k); if (b) return b;
+  const p = '87' + k.slice(2) + 'ffffff', [lat, lng] = h3.cellToLatLng(p);
+  let r = 0; for (const v of h3.cellToBoundary(p)) r = Math.max(r, h3.greatCircleDistance([lat, lng], v, 'km'));
+  const dy = r * 1.25 / 111, dx = dy / Math.max(0.01, Math.cos(lat * Math.PI / 180));
+  bucketBoxes.set(k, b = [lng - dx, lat - dy, lng + dx, lat + dy]); return b;
+}
+function cellsNear(buckets, box, padKm) { // 範圍附近的格子（整塊整塊拿，只會多不會少）
+  const dy = padKm / 111, dx = dy / Math.max(0.01, Math.cos(Math.min(89, Math.max(Math.abs(box[1]), Math.abs(box[3]))) * Math.PI / 180));
+  const w = box[0] - dx, s = box[1] - dy, e = box[2] + dx, n = box[3] + dy, out = [];
+  for (const [k, list] of buckets) {
+    const b = bucketBox(k); if (b[3] < s || b[1] > n) continue;
+    const turn = Math.ceil((w - b[2]) / 360) * 360; // 轉幾圈才第一次不在範圍的西邊（跨換日線、地圖捲了好幾圈都算）
+    if (b[0] + turn <= e) for (const c of list) out.push(c);
   }
-  revealSet = set; revealRes = res;
-  return [...set];
+  return out;
+}
+function revealOf(ids, tier) { // 這些格子揭開的範圍（粗或細的格子集合）
+  const set = new Set(), up = new Set();
+  if (tier === 'coarse') { for (const c of ids) up.add(parentOf(c, 8)); return up; }
+  for (const c of ids) up.add(c.slice(0, 12)); // 前 12 碼＝第 11 層，先去重再往外擴
+  for (const k of up) for (const d of h3.gridDisk(k[0] + 'b' + k.slice(2) + 'fff', 2)) set.add(d);
+  return set;
+}
+// 把格子合併成多邊形，每個門檻一組，結果跟 h3.cellsToMultiPolygon 一樣。它遇到一大堆破洞會慢到好幾秒（每個洞跟每個外框比），
+// 這裡改成：相鄰兩格共用的邊互相抵銷，剩下的邊接成圈；同一片相連的格子只有一個外圈，洞跟著自己那一片走，不必比
+function mergeTiers(ids, vals, ths) {
+  const V = new Map(), xy = [], S = 4e5, M = 73e6; // 頂點用座標對號（約 0.25 公尺一格）；落在兩格交界時兩邊都找
+  const vid = p => {
+    const x = p[0] * S, y = p[1] * S, i = Math.round(x), j = Math.round(y), k = i * M + j; let v = V.get(k); if (v !== undefined) return v;
+    const a = x - i, b = y - j, i2 = Math.abs(a) > 0.4999 ? i + Math.sign(a) : i, j2 = Math.abs(b) > 0.4999 ? j + Math.sign(b) : j;
+    if (i2 !== i || j2 !== j) for (const q of [i2 * M + j, i * M + j2, i2 * M + j2]) if ((v = V.get(q)) !== undefined) return v;
+    V.set(k, v = xy.length); xy.push(p); return v;
+  };
+  const rings = ids.map(c => { const r = h3.cellToBoundary(c, true); r.pop(); return r.map(vid); }), N = xy.length;
+  return ths.map(th => {
+    const open = new Map(), up = new Int32Array(ids.length).map((_, i) => i);
+    const root = i => { while (up[i] !== i) i = up[i] = up[up[i]]; return i; };
+    for (let i = 0; i < ids.length; i++) {
+      if (vals[i] < th) continue;
+      const r = rings[i];
+      for (let j = 0, a = r[r.length - 1]; j < r.length; a = r[j++]) {
+        const b = r[j], o = open.get(b * N + a);
+        if (o === undefined) open.set(a * N + b, i); else { open.delete(b * N + a); up[root(o)] = root(i); }
+      }
+    }
+    const next = new Map(); for (const [k, i] of open) { const a = Math.floor(k / N); if (next.has(a)) return null; next.set(a, [k - a * N, i]); }
+    const outer = new Map(), holes = [];
+    while (next.size) {
+      const a0 = next.keys().next().value, ring = [xy[a0]], y0 = 2 * xy[a0][1]; let a = a0, i = -1, area = 0;
+      do { const e = next.get(a); if (!e) return null; next.delete(a); i = e[1]; const p = xy[a], q = xy[e[0]]; area += (q[0] - p[0]) * (q[1] + p[1] - y0); ring.push(q); a = e[0]; } while (a !== a0);
+      const id = root(i); if (area < 0 && !outer.has(id)) outer.set(id, [ring]); else holes.push([id, ring]);
+    }
+    for (const [id, ring] of holes) { const p = outer.get(id); if (!p) return null; p.push(ring); }
+    return [...outer.values()];
+  });
+}
+const mergeCells = list => mergeTiers(list, new Uint8Array(list.length), [0])[0] || h3.cellsToMultiPolygon(list, true); // 接不起來就退回 h3 自己算
+const FREQ = [2, 5, 10]; // 去過幾次以上各疊一層綠
+function freqOf(ids, cells, res) { // 每個門檻一組多邊形；縮小看時上層格裡只要有一格夠就算
+  let list = [], vals = [];
+  if (res === CFG.res) { for (const c of ids) { const v = cells[c][0]; if (v >= FREQ[0]) { list.push(c); vals.push(v); } } }
+  else {
+    const m = new Map();
+    for (const c of ids) { const v = cells[c][0]; if (v < FREQ[0]) continue; const p = parentOf(c, res); if (!(m.get(p) >= v)) m.set(p, v); }
+    list = [...m.keys()]; vals = [...m.values()];
+  }
+  return mergeTiers(list, vals, FREQ).map((g, i) => g || h3.cellsToMultiPolygon(list.filter((c, j) => vals[j] >= FREQ[i]), true)).filter(g => g.length);
+}
+/*VIEW_END*/
+let revealSet = null, revealRes = CFG.res, drawnView = null; // drawnView：霧與綠色那層現在算到哪裡
+let viewTimer = null, viewCost = 0;
+function mapBox() { const b = map.getBounds(); return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]; }
+function viewStale() {
+  const d = drawnView, z = map.getZoom();
+  return !d || d.tier !== revealTierAt(z) || d.res !== freqResAt(z) || !boxInside(growBox(mapBox(), VIEW.lead), d.box);
+}
+function viewMoving() { // 還在拖、還在飛：快到邊邊了就先補，但不要每一格動畫都算
+  if (viewTimer || !viewStale()) return;
+  viewTimer = setTimeout(() => { viewTimer = null; drawView(); }, Math.max(60, viewCost * 2));
+}
+function drawView(force) { // 霧的洞與走過次數。資料沒變、還在算過的範圍裡就不重算
+  if (!map.getSource('fog') || (!force && !viewStale())) return;
+  const t0 = performance.now(), z = map.getZoom(), tier = revealTierAt(z), res = freqResAt(z), box = growBox(mapBox(), VIEW.spare);
+  const s = engine.state(), ids = cellsNear(engine.buckets(), box, VIEW.pad[tier]);
+  revealSet = revealOf(ids, tier); revealRes = tier === 'fine' ? 11 : 8; drawnView = { box, tier, res };
+  const polys = mergeCells([...revealSet]);
+  const fog = [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon',
+    coordinates: [orient(WORLD, true), ...polys.map(p => orient(p[0], false))] } }];
+  polys.forEach(p => { for (let i = 1; i < p.length; i++) fog.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [p[i]] } }); });
+  map.getSource('fog').setData({ type: 'FeatureCollection', features: fog });
+  map.getSource('freq').setData({ type: 'FeatureCollection', features: freqOf(ids, s.cells, res).map(g => ({ type: 'Feature', properties: {},
+    geometry: { type: 'MultiPolygon', coordinates: g } })) });
+  viewCost = performance.now() - t0;
 }
 let renderTimer = null;
 function renderSoon() { if (!renderTimer) renderTimer = setTimeout(() => { renderTimer = null; render(); }, 350); }
 function render(force) {
   updateStats();
   if (!map.getSource('fog')) return;
-  if (!engine.takeDirty() && !force) return;
-  const s = engine.state(), ids = Object.keys(s.cells);
-  const rid = revealCells(ids);
-  const polys = rid.length ? h3.cellsToMultiPolygon(rid, true) : [];
-  const fog = [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon',
-    coordinates: [orient(WORLD, true), ...polys.map(p => orient(p[0], false))] } }];
-  polys.forEach(p => { for (let i = 1; i < p.length; i++) fog.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [p[i]] } }); });
-  map.getSource('fog').setData({ type: 'FeatureCollection', features: fog });
+  const dirty = engine.takeDirty(); if (!dirty && !force) return;
+  drawView(dirty);
   updateQ();
-  map.getSource('explored').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: polys } });
-  // 去過越多次顏色越深
-  const tiers = [2, 5, 10].map(th => ids.filter(c => s.cells[c][0] >= th)).filter(a => a.length);
-  map.getSource('freq').setData({ type: 'FeatureCollection', features: tiers.map(a => ({ type: 'Feature', properties: {},
-    geometry: { type: 'MultiPolygon', coordinates: h3.cellsToMultiPolygon(a, true) } })) });
+  const s = engine.state();
   map.getSource('flights').setData({ type: 'FeatureCollection', features: s.flights.map(f => ({ type: 'Feature', properties: {},
     geometry: { type: 'LineString', coordinates: arc([f[0], f[1]], [f[2], f[3]]) } })) });
   map.getSource('track').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: trackLines(s.points) } });

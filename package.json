@@ -2,7 +2,10 @@
   "name": "onion-map",
   "private": true,
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "test": "npm run test:app && npm run test:painter",
+    "test:app": "node --test \"tests/**/*.test.*js\"",
+    "test:painter": "node -e \"const f=require('fs'),c=require('child_process');let bad=0;for(const [d,m] of [['tools/painter','qrcode-terminal'],['server/painter','vitest']]){if(f.existsSync(d+'/node_modules/'+m)){if(c.spawnSync('npm test',{cwd:d,shell:true,stdio:'inherit'}).status!==0)bad=1}else console.log('skip '+d+' (npm install there first)')}process.exit(bad)\""
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",

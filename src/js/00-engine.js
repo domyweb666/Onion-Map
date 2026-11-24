@@ -21,18 +21,23 @@ const dayKey = t => { const d = new Date(t < 1e12 ? t * 1000 : t), p = x => Stri
 
 function createEngine(h3) {
   const EDGE = h3.getHexagonEdgeLengthAvg(CFG.res, 'm');
-  let s, last, dirty, shards, dirtyShards, dirtyDays, dirtyMeta;
+  let s, last, dirty, shards, buckets, dirtyShards, dirtyDays, dirtyMeta;
   // points：最近 keepDays 天的軌跡點（照時間排）；days：每一天的摘要，全部都在；ext：其他模組自己的資料（地點、印章、配對…）
   function blank() {
     s = { cells: {}, flights: [], gaps: [], points: [], days: {}, area: 0, km: { walk: 0, vehicle: 0, flight: 0 }, ext: {} };
-    last = null; dirty = true; shards = new Map(); dirtyShards = new Set(); dirtyDays = new Set(); dirtyMeta = true;
+    last = null; dirty = true; shards = new Map(); buckets = new Map(); dirtyShards = new Set(); dirtyDays = new Set(); dirtyMeta = true;
   }
   blank();
+  // 索引字串就是它的階層：第 r 層的位數在第 47-3r～45-3r 個位元，前 7 碼蓋到第 32 個位元，所以同樣前 7 碼一定同一個第 4 層上層
+  const parents = new Map();
+  function shardOf(c) { const p = c.slice(0, 7); let k = parents.get(p); if (k === undefined) parents.set(p, k = h3.cellToParent(c, CFG.shardRes)); return k; }
   function addCell(c, v) {
-    if (!s.cells[c]) s.area += h3.cellArea(c, 'km2');
+    const fresh = !s.cells[c];
+    if (fresh) s.area += h3.cellArea(c, 'km2');
     s.cells[c] = v;
-    const k = h3.cellToParent(c, CFG.shardRes); let set = shards.get(k); if (!set) shards.set(k, set = new Set());
+    const k = shardOf(c); let set = shards.get(k); if (!set) shards.set(k, set = new Set());
     set.add(c); dirtyShards.add(k);
+    if (fresh) { const b = c.slice(0, 9), list = buckets.get(b); if (list) list.push(c); else buckets.set(b, [c]); } // 前 9 碼＝第 7 層（寬約 2.4 公里），畫地圖時只拿視野附近的
   }
   // 一天的摘要：里程規則跟補線一樣（間隔太久、跳太遠的兩點不連線）
   function newDay(t) { return { t0: t, t1: t, walk: 0, veh: 0, fl: 0, n: 0, box: [180, 90, -180, -90] }; } // t 是毫秒；box＝西南東北
@@ -58,7 +63,7 @@ function createEngine(h3) {
     if (!e) { addCell(c, [1, t]); dirty = true; }
     else {
       if (t - e[1] > CFG.revisitMin * 60000) { e[0]++; dirty = true; }
-      e[1] = t; dirtyShards.add(h3.cellToParent(c, CFG.shardRes));
+      e[1] = t; dirtyShards.add(shardOf(c));
     }
   }
   function reveal(lat, lng, r, t) {
@@ -120,6 +125,7 @@ function createEngine(h3) {
   return {
     process,
     state: () => s,
+    buckets: () => buckets, // Map：第 7 層的前 9 碼 → 那一塊裡的格子
     takeDirty() { const d = dirty; dirty = false; return d; },
     resetLast() { last = null; },
     clear: blank,

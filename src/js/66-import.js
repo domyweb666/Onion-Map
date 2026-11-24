@@ -334,7 +334,7 @@ const importer = (() => {
 
   function row() {
     const el = $('mountImport'); if (!el) return;
-    el.innerHTML = '<button class="row" id="impRow"><span class="lbl">匯入以前的足跡</span><span class="val" id="impVal"></span><svg class="chev"><use href="#i-chev"/></svg></button>';
+    el.innerHTML = '<button class="row" id="impRow"><span class="lbl">匯入足跡或備份</span><span class="val" id="impVal"></span><svg class="chev"><use href="#i-chev"/></svg></button>';
     $('impRow').onclick = open;
     paintRow();
   }
@@ -344,18 +344,19 @@ const importer = (() => {
 
   function open() {
     if (job) return busy();
-    const b = body('<div class="impText"><h2>匯入以前的足跡</h2><p>選一個檔案，走過的路就會加進來。已經有紀錄的日子不會動。</p></div>' +
+    const b = body('<div class="impText"><h2>匯入足跡或備份</h2><p>選一個檔案，走過的路就會加進來。已經有紀錄的日子不會動。</p></div>' +
       '<div class="section"><div class="group">' +
       '<div class="row"><span class="lines"><span class="ttl">Google 時間軸（iPhone）</span><span class="meta">Google 地圖 › 你的頭像 › 設定 › 個人內容 › 匯出時間軸資料</span></span></div>' +
       '<div class="row"><span class="lines"><span class="ttl">Google 時間軸（Android）</span><span class="meta">手機設定 › 位置 › 定位服務 › 時間軸 › 匯出時間軸資料</span></span></div>' +
       '<div class="row"><span class="lines"><span class="ttl">跑步、登山、單車 app</span><span class="meta">在那個 app 裡匯出成 GPX 檔</span></span></div>' +
+      '<div class="row"><span class="lines"><span class="ttl">洋蔥的備份</span><span class="meta">會換掉手機裡現在的紀錄，換之前會先問你</span></span></div>' +
       '</div></div>' +
       '<div class="actions"><label class="btn primary full press" role="button">選檔案<input id="impFile" type="file" multiple hidden></label>' +
       '<button class="btn plain full press" data-close>先不要</button></div>');
     b.querySelector('#impFile').onchange = e => { const f = [...e.target.files]; if (f.length) start(f); };
   }
   function busy() {
-    const b = body('<div class="impText"><h2>匯入以前的足跡</h2><p id="impStep"></p></div>' +
+    const b = body('<div class="impText"><h2>匯入足跡或備份</h2><p id="impStep"></p></div>' +
       '<div class="impBar" role="progressbar" aria-label="匯入進度" aria-valuemin="0" aria-valuemax="100"><i id="impFill"></i></div>' +
       '<p class="impNote" id="impNote"></p>' +
       '<div class="actions"><button class="btn secondary full press" id="impStop">取消</button></div>');
@@ -376,21 +377,20 @@ const importer = (() => {
         : '<button class="btn primary full press" data-close>好</button>') + '</div>');
     if (again) b.querySelector('#impAgain').onclick = open;
   }
-  function askBackup(data) { // 還原備份會整個換掉，先問一次
+  function askBackup(data, unread) { // 還原備份會整個換掉，先問一次。unread：手機裡的紀錄這次沒讀完整，天數不準就不講
     job = null; paintRow();
     const s = engine.state(), n = Object.keys(s.days).length;
-    const b = body('<div class="impText"><h2>這是洋蔥的備份</h2><p>' + (n ? '還原之後，手機裡現在的 ' + n + ' 天紀錄會整個換成備份裡的。' : '還原之後就接著備份裡的紀錄繼續。') + '</p></div>' +
+    const b = body('<div class="impText"><h2>這是洋蔥的備份</h2><p>' + (unread ? '還原之後，手機裡現在的紀錄會整個換成備份裡的。' : n ? '還原之後，手機裡現在的 ' + n + ' 天紀錄會整個換成備份裡的。' : '還原之後就接著備份裡的紀錄繼續。') + '</p></div>' +
       '<div class="actions"><button class="btn primary full press" id="impRestore">還原備份</button><button class="btn plain full press" data-close>先不要</button></div>');
     b.querySelector('#impRestore').onclick = async e => {
       e.target.disabled = true;
       try { await importAll(data); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); done('備份還原好了。'); }
-      catch (x) { done('這份備份讀不了。', true); }
+      catch (x) { done(x.save ? '存不進去。看看手機空間夠不夠，再還原一次。' : '這份備份讀不了。', true); }
     };
   }
 
   async function start(files) {
     if (job) return;
-    if (store.locked) { done('手機裡的紀錄這次沒讀完整，重開洋蔥再匯入，免得蓋到舊的。', true); return; }
     const me = job = { pct: 0, text: '讀檔案', cancelled: false }, size = files.reduce((a, f) => a + f.size, 0);
     if (size > IMP.bigBytes) me.note = '檔案有 ' + Math.round(size / 1048576) + ' MB，要算好幾分鐘。先不要關掉洋蔥。';
     busy();
@@ -399,15 +399,16 @@ const importer = (() => {
       tick: async () => { paint(); await tick(); if (me.cancelled) throw ImportCore.fail('cancel', ImportCore.MSG.cancel); }
     });
     try {
-      await restored;
+      let unread = false; await restored.catch(() => { unread = true; }); unread = unread || store.locked;
       const b = ImportCore.bag(); let at = 0;
       for (const f of files) {
         const r = await ImportCore.readFile(f, b, step('讀檔案', 0.4 * at / size, 0.4 * (at + f.size) / size)); at += f.size;
         if (r.kind === 'backup') {
           if (files.length > 1) throw ImportCore.fail('mix', '洋蔥的備份要單獨選，一次一個。');
-          askBackup(r.data); return;
+          askBackup(r.data, unread); return;
         }
       }
+      if (unread) throw ImportCore.fail('locked', '手機裡的紀錄這次沒讀完整，重開洋蔥再匯入，免得蓋到舊的。'); // 備份可以還原（整個換掉，等於救回來），足跡不行
       const days = engine.state().days, today = dayKey(Date.now()), tmp = createEngine(ImportCore.fastH3(h3));
       const r = await ImportCore.run(b, tmp, k => !!days[k] || (recording && k === today), step('整理走過的路', 0.4, 0.9));
       for (const k in r.days) if (days[k]) delete r.days[k]; // 算的時候剛好開始記錄今天

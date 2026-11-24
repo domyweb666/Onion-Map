@@ -15,13 +15,19 @@ try { card.frame = localStorage.getItem(FRAME_KEY); } catch (e) {}
 if (!FRAMES.some(f => f.id === card.frame)) card.frame = FRAMES[0].id;
 
 const frameCache = {};
-function loadFrame(id) { // 框縮到卡片大小、找出中間透明的窗、窗內緣的米色暈改成焦褐陰影（跟 tools/daycard/overlay_frame.py 同一套）
+function frameDye(r, g, b, a) { // 窗內半透明像素要染多少（0 到 1）。要蓋掉的是「花卉卷軸」那圈米白暈：又亮又淡、偏黃；葉子與描邊飽和度高，花瓣偏粉（紅綠差遠大於綠藍差，暈剛好相反），都不染。中間漸變，免得染色邊界起雜點
+  if (a < 20) return 1; // 幾乎透明的是去背殘留，顏色是亂的，照舊染掉
+  const mx = Math.max(r, g, b), sat = mx ? (mx - Math.min(r, g, b)) / mx : 0;
+  const u = x => Math.max(0, Math.min(1, x));
+  return u((mx - 150) / 30) * u((0.46 - sat) / 0.06) * u((20 + 510 / a - (r - g) + (g - b)) / 15); // 510 / a：越透明，去乘回來的顏色誤差越大，放寬一點
+}
+function loadFrame(id) { // 框縮到卡片大小、找出中間透明的窗、窗內緣的米色暈改成焦褐陰影（tools/daycard/overlay_frame.py 是全部染，這裡只染暈）
   if (frameCache[id]) return frameCache[id];
   return frameCache[id] = new Promise((ok, bad) => {
     const im = new Image();
     im.onload = () => {
       const c = document.createElement('canvas'); c.width = CARD_W; c.height = CARD_H;
-      const g = c.getContext('2d'); g.drawImage(im, 0, 0, CARD_W, CARD_H);
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, CARD_W, CARD_H);
       const img = g.getImageData(0, 0, CARD_W, CARD_H), d = img.data, n = CARD_W * CARD_H;
       const seen = new Uint8Array(n), q = new Int32Array(n), start = (CARD_H >> 1) * CARD_W + (CARD_W >> 1);
       let head = 0, tail = 0, l = CARD_W, t = CARD_H, r = 0, b = 0;
@@ -30,11 +36,21 @@ function loadFrame(id) { // 框縮到卡片大小、找出中間透明的窗、�
       while (head < tail) { // 從中心沿著 alpha 低的像素往外長，長到的範圍就是窗
         const p = q[head++], x = p % CARD_W, y = (p / CARD_W) | 0;
         if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > b) b = y;
-        const a = d[p * 4 + 3];
-        if (a > 0) { d[p * 4] = 58; d[p * 4 + 1] = 40; d[p * 4 + 2] = 24; d[p * 4 + 3] = a * 0.7; } // 黑霧貼著框，不留白邊
         if (x > 0) push(p - 1); if (x < CARD_W - 1) push(p + 1); if (y > 0) push(p - CARD_W); if (y < CARD_H - 1) push(p + CARD_W);
       }
-      if (!tail) { l = 60; t = 60; r = CARD_W - 61; b = CARD_H - 61; } // 中心不透明：這張不像框，就整張蓋上去
+      const dye = p => { // 黑霧貼著框，不留白邊。再從中心長一次，只走要染的：被描邊圍在裡面的亮點（花苞、葉面反光）走不到，就不會被挖洞
+        if (seen[p] !== 1) return;
+        const i = p * 4, a = d[i + 3], w = a ? frameDye(d[i], d[i + 1], d[i + 2], a) : 1;
+        if (!w) return;
+        seen[p] = 2; q[tail++] = p;
+        if (a) { d[i] += (58 - d[i]) * w; d[i + 1] += (40 - d[i + 1]) * w; d[i + 2] += (24 - d[i + 2]) * w; d[i + 3] = a * (1 - 0.3 * w); }
+      };
+      const got = tail; head = tail = 0; if (got) dye(start);
+      while (head < tail) {
+        const p = q[head++], x = p % CARD_W, y = (p / CARD_W) | 0;
+        if (x > 0) dye(p - 1); if (x < CARD_W - 1) dye(p + 1); if (y > 0) dye(p - CARD_W); if (y < CARD_H - 1) dye(p + CARD_W);
+      }
+      if (!got) { l = 60; t = 60; r = CARD_W - 61; b = CARD_H - 61; } // 中心不透明：這張不像框，就整張蓋上去
       g.putImageData(img, 0, 0);
       ok({ canvas: c, win: [l, t, r + 1, b + 1] });
     };

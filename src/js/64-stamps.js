@@ -11,7 +11,8 @@ const STAMPS_LOGIC = (() => {
     hsrKmh: 200, hsrKm: 5,            // 連續這麼快、這麼遠算搭高鐵
     nightM: 500, dawnM: 500,          // 夜裡、清晨要走這麼遠
     loopM: 1500, loopBack: 60, loopFar: 250, loopRound: 0.12, // 一圈：走這麼長、回到起點這麼近、最遠離開這麼遠、繞得夠圓（原路折返不算）
-    dayKm: 0.05                       // 一天走這麼遠才算走過
+    dayKm: 0.05,                      // 一天走這麼遠才算走過
+    gap: 1200, chunk: 800             // 整段軌跡分批看：至少這麼多點一批，只在斷開超過這麼多秒的地方切（上面幾種走法遇到都會重算，切了結果一樣）
   };
   // kind: geo＝走到某種地方；sum＝累積（val 拿目前的量）；shape＝走的樣子；big／small＝章面的字
   const LIST = [
@@ -176,6 +177,24 @@ const STAMPS_LOGIC = (() => {
     for (const id in run) if (!have[id]) { const r = run[id](pts); if (r) out.push(Object.assign({ id }, r)); }
     return out;
   }
+  const SHAPES = ['night', 'dawn', 'loop', 'hsr'];
+  function chunkEnd(pts, i) { // 從 i 開始的這一批到哪裡（不含）
+    let j = Math.min(pts.length, i + C.chunk); while (j < pts.length && pts[j][0] - pts[j - 1][0] <= C.gap) j++; return j;
+  }
+  // 把很多段軌跡照時間一批批交給 each（回 false 就停）。next() 給下一段點（Promise），沒了回 null；跨半夜的會接起來
+  async function inChunks(next, each) {
+    let buf = [];
+    for (;;) {
+      const more = await next(); if (more && more.length) buf = buf.concat(more);
+      for (let i = 0; ;) {
+        const j = chunkEnd(buf, i);
+        if (j >= buf.length && more && j - i < 20000) { buf = buf.slice(i); break; } // 這批可能還沒完，等下一段
+        if (j > i && await each(buf.slice(i, j)) === false) return;
+        i = j; if (i >= buf.length) { buf = []; break; }
+      }
+      if (!more) return;
+    }
+  }
   // 蓋章：已經有的不重複。list：[{id, t, lat?, lng?}]，回傳真的新蓋的
   function award(have, at, list, now) {
     const got = [];
@@ -187,7 +206,7 @@ const STAMPS_LOGIC = (() => {
     }
     return got;
   }
-  return { C, LIST, BY, dist, sortFeatures, hitsAt, heading, totals, sums, next, night, dawn, loop, hsr, plane, shapes, award, RULES };
+  return { C, LIST, BY, dist, sortFeatures, hitsAt, heading, totals, sums, next, night, dawn, loop, hsr, plane, shapes, SHAPES, inChunks, award, RULES };
 })();
 /*STAMPS_LOGIC_END*/
 
@@ -254,21 +273,24 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   const have = () => ext('stamps', {}), at = () => ext('stampsAt', {});
   const st = () => engine.state();
   let towns = null; // 走過幾個區，算過才有數字
+  let settled = false; // 上次匯入到一半的天還沒收完之前不蓋章（35-data.js）
+  let quiet = 0; // 匯入、還原之後在背景補章：先排著，補完一次講完
+  const rest = ms => new Promise(ok => setTimeout(ok, ms || 0));
 
   // --- 蓋章 ---
   const queue = []; // 畫面看不到時先排著
   function give(list) {
-    if (!list.length || store.locked) return;
+    if (!list.length || store.locked || !settled) return;
     const got = L.award(have(), at(), list, Date.now()); if (!got.length) return;
     extSave(); fill(); queue.push(...got); showQueue();
     document.dispatchEvent(new Event('onion:stamps'));
   }
   let showTimer = null;
-  function showQueue() { clearTimeout(showTimer); showTimer = setTimeout(() => { // 差不多同時拿到的併成一次
-    if (document.hidden || !queue.length) return;
+  function showQueue(plain) { clearTimeout(showTimer); showTimer = setTimeout(() => { // 差不多同時拿到的併成一次。plain：只講，不放蓋章的動畫
+    if (quiet || document.hidden || !queue.length) return;
     const ids = queue.splice(0);
     if (ids.length > 2) { toast('蓋了 ' + ids.length + ' 個印章，在足跡頁', 3200); return; }
-    toast('拿到印章：' + ids.map(i => L.BY[i].name).join('、'), 3200); stampFx(ids[ids.length - 1]);
+    toast('拿到印章：' + ids.map(i => L.BY[i].name).join('、'), 3200); if (!plain) stampFx(ids[ids.length - 1]);
   }, 700); }
   function stampFx(id) {
     const old = $('stFx'); if (old) old.remove();
@@ -285,12 +307,50 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   // --- 累積與樣子 ---
   function checkSums() { give(L.sums(st(), towns, have())); }
   function checkShapes(pts) { give(L.shapes(st(), pts, have())); }
-  async function checkTowns(force) { // 區數要掃全部格子，格子多的時候只在打開 app 與足跡頁時算
-    if (have().town10 && towns != null) return;
-    const n = Object.keys(st().cells).length; if (!n) { towns = 0; return; }
+  let townJob = null;
+  function checkTowns(force) { // 區數要掃全部格子，格子多的時候只在打開 app 與足跡頁時算
+    if (have().town10 && towns != null) return Promise.resolve();
+    return townJob || (townJob = countTowns(force).catch(() => {}).then(() => { townJob = null; }));
+  }
+  async function countTowns(force) {
+    const s = st(), n = Object.keys(s.cells).length; if (!n) { towns = 0; return; }
     if (!force && n > 20000) return;
-    try { const e = exploredByTown(await loadAdmin()); towns = [...e.town.values()].filter(a => a >= 0.01).length; } catch (x) { return; }
+    const e = await townAreas(await loadAdmin(), s); if (!e || st() !== s) return; // 算到一半清掉或還原了
+    towns = [...e.town.values()].filter(a => a >= 0.01).length;
     checkSums(); fill();
+  }
+  async function townAreas(adm, s) { // 跟 exploredByTown 算一樣的東西，但是分批，算好放進它的快取（製圖頁也用得到）
+    const ids = Object.keys(s.cells); if (exploredCache && exploredCache.n === ids.length) return exploredCache;
+    const town = new Map(), county = new Map(); let last = null, clock = performance.now();
+    for (let i = 0; i < ids.length; i++) {
+      if (i % 64 === 0 && performance.now() - clock > 12) { await rest(); if (st() !== s) return null; clock = performance.now(); }
+      const [lat, lng] = h3.cellToLatLng(ids[i]), t = last && townAtOne(last, lng, lat) ? last : townAt(adm, lng, lat);
+      if (!t) continue; last = t; const a = h3.cellArea(ids[i], 'km2');
+      town.set(t, (town.get(t) || 0) + a); county.set(t.c, (county.get(t.c) || 0) + a);
+    }
+    return exploredCache = { n: ids.length, town, county };
+  }
+  // 整段軌跡的走法一批批看，中間讓畫面喘口氣。next() 給下一段點
+  async function scanShapes(next) {
+    const s = st(); let clock = performance.now();
+    const done = () => st() !== s || store.locked || L.SHAPES.every(id => have()[id]);
+    checkShapes([]); if (done()) return; // 飛機不用看軌跡
+    await L.inChunks(async () => done() ? null : next(), async pts => {
+      if (performance.now() - clock > 12) { await rest(); clock = performance.now(); }
+      if (done()) return false;
+      checkShapes(pts);
+    });
+  }
+  // 匯入、還原之後補章：晚一點開始，全部補完、匯入的結果收掉了，最多講一句
+  async function catchUp(keys) {
+    const days = keys.slice().sort(); let i = 0; quiet++;
+    try {
+      await rest(1200); checkSums(); geoSoon(600);
+      if (townJob) await townJob; await checkTowns(true); // 在跑的那次可能是匯入前的格子
+      await scanShapes(async () => i < days.length ? (await kvJSON('days/' + days[i++] + '.json')) || [] : null); // 直接讀檔：一天天從記憶體挑，幾年的量會卡
+      while (!$('sheetHost').hidden || $('toast').classList.contains('show')) await rest(600);
+    } catch (e) { console.warn('[stamps]', e); }
+    quiet--; if (!quiet) showQueue(true);
   }
 
   // --- 走到的地方：看地圖上已經載好的圖磚。沒載到的點先放著，之後地圖移到那裡再補 ---
@@ -299,7 +359,7 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   const FILTER = { poi: ['match', ['get', 'class'], ['place_of_worship', 'railway', 'park'], true, false], transportation: ['==', ['get', 'brunnel'], 'bridge'],
     landcover: ['==', ['get', 'subclass'], 'park'], waterway: ['!=', ['get', 'brunnel'], 'tunnel'] };
   function checkGeo() {
-    const want = GEO.filter(id => !have()[id]); if (!want.length || document.hidden || !map.getSource('omt')) return;
+    const want = GEO.filter(id => !have()[id]); if (!want.length || !settled || document.hidden || !map.getSource('omt')) return;
     const z = map.getZoom(); if (z < 12) return;
     let ready = false; try { ready = map.isSourceLoaded('omt'); } catch (e) {} if (!ready) return;
     const b = map.getBounds(), poiOk = z >= 14, todo = [];
@@ -339,7 +399,9 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   });
   function checkAll(full) { // full：整段軌跡都看；回到前景只看最近兩天
     const pts = st().points, cut = Date.now() / 1000 - 2 * 86400; let i = 0; if (!full) { i = pts.length; while (i && pts[i - 1][0] > cut) i--; }
-    checkSums(); checkShapes(i ? pts.slice(i) : pts); checkTowns(true); geoSoon(600);
+    checkSums(); checkTowns(true); geoSoon(600);
+    if (!full) { checkShapes(i ? pts.slice(i) : pts); return; }
+    let once = pts.slice(); scanShapes(async () => { const p = once; once = null; return p; });
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => { checkAll(); showQueue(); }, 900); });
 
@@ -372,6 +434,12 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   }
   document.addEventListener('onion:steps', () => { fill(); checkSums(); checkTowns(true); });
   document.addEventListener('onion:wiped', () => { towns = null; queue.length = 0; seenGeo.clear(); seenPoi.clear(); fill(); });
-  document.addEventListener('onion:restored', () => { towns = null; seenGeo.clear(); seenPoi.clear(); fill(); checkAll(true); });
-  hook.ready.push(() => setTimeout(() => checkAll(true), 1200));
+  function dataChanged(keys) { // 匯入、還原之後：看得到的足跡頁重畫，章在背景補
+    towns = null; exploredCache = null; if (tab === 'steps') renderSteps(); else fill();
+    catchUp(keys);
+  }
+  document.addEventListener('onion:restored', () => { seenGeo.clear(); seenPoi.clear(); queue.length = 0; dataChanged(Object.keys(st().days)); });
+  document.addEventListener('onion:imported', e => dataChanged(e.detail.days));
+  hook.ready.push(() => importSettled.then(() => setTimeout(() => checkAll(true), 1200)));
+  importSettled.then(() => { settled = true; });
 })();

@@ -486,7 +486,6 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
         <div class="row"><span class="lbl">航線</span><span class="val" id="dFl">0 段</span></div>
         <div id="mountImport"></div>
         <button class="row" id="btnExport"><span class="lbl">下載備份</span><svg class="chev"><use href="#i-chev"/></svg></button>
-        <label class="row"><span class="lbl">匯入備份</span><svg class="chev"><use href="#i-chev"/></svg><input id="fileImport" type="file" accept=".json,application/json" hidden></label>
       </div>
       <p class="foot" id="dataInfo"></p>
     </div>
@@ -560,18 +559,23 @@ const dayKey = t => { const d = new Date(t < 1e12 ? t * 1000 : t), p = x => Stri
 
 function createEngine(h3) {
   const EDGE = h3.getHexagonEdgeLengthAvg(CFG.res, 'm');
-  let s, last, dirty, shards, dirtyShards, dirtyDays, dirtyMeta;
+  let s, last, dirty, shards, buckets, dirtyShards, dirtyDays, dirtyMeta;
   // points：最近 keepDays 天的軌跡點（照時間排）；days：每一天的摘要，全部都在；ext：其他模組自己的資料（地點、印章、配對…）
   function blank() {
     s = { cells: {}, flights: [], gaps: [], points: [], days: {}, area: 0, km: { walk: 0, vehicle: 0, flight: 0 }, ext: {} };
-    last = null; dirty = true; shards = new Map(); dirtyShards = new Set(); dirtyDays = new Set(); dirtyMeta = true;
+    last = null; dirty = true; shards = new Map(); buckets = new Map(); dirtyShards = new Set(); dirtyDays = new Set(); dirtyMeta = true;
   }
   blank();
+  // 索引字串就是它的階層：第 r 層的位數在第 47-3r～45-3r 個位元，前 7 碼蓋到第 32 個位元，所以同樣前 7 碼一定同一個第 4 層上層
+  const parents = new Map();
+  function shardOf(c) { const p = c.slice(0, 7); let k = parents.get(p); if (k === undefined) parents.set(p, k = h3.cellToParent(c, CFG.shardRes)); return k; }
   function addCell(c, v) {
-    if (!s.cells[c]) s.area += h3.cellArea(c, 'km2');
+    const fresh = !s.cells[c];
+    if (fresh) s.area += h3.cellArea(c, 'km2');
     s.cells[c] = v;
-    const k = h3.cellToParent(c, CFG.shardRes); let set = shards.get(k); if (!set) shards.set(k, set = new Set());
+    const k = shardOf(c); let set = shards.get(k); if (!set) shards.set(k, set = new Set());
     set.add(c); dirtyShards.add(k);
+    if (fresh) { const b = c.slice(0, 9), list = buckets.get(b); if (list) list.push(c); else buckets.set(b, [c]); } // 前 9 碼＝第 7 層（寬約 2.4 公里），畫地圖時只拿視野附近的
   }
   // 一天的摘要：里程規則跟補線一樣（間隔太久、跳太遠的兩點不連線）
   function newDay(t) { return { t0: t, t1: t, walk: 0, veh: 0, fl: 0, n: 0, box: [180, 90, -180, -90] }; } // t 是毫秒；box＝西南東北
@@ -597,7 +601,7 @@ function createEngine(h3) {
     if (!e) { addCell(c, [1, t]); dirty = true; }
     else {
       if (t - e[1] > CFG.revisitMin * 60000) { e[0]++; dirty = true; }
-      e[1] = t; dirtyShards.add(h3.cellToParent(c, CFG.shardRes));
+      e[1] = t; dirtyShards.add(shardOf(c));
     }
   }
   function reveal(lat, lng, r, t) {
@@ -659,6 +663,7 @@ function createEngine(h3) {
   return {
     process,
     state: () => s,
+    buckets: () => buckets, // Map：第 7 層的前 9 碼 → 那一塊裡的格子
     takeDirty() { const d = dirty; dirty = false; return d; },
     resetLast() { last = null; },
     clear: blank,
@@ -852,11 +857,26 @@ async function exportAll() { // 備份檔 v2：跟 v1 一樣是一個 JSON，多
   const ext = Object.assign({}, s.ext); delete ext.painter; // 配對密碼不進備份
   return { v: 2, cells: s.cells, flights: s.flights, gaps: s.gaps, points, km: s.km, ext };
 }
-async function importAll(d) { // 還原備份（v1、v2 都吃）：整個換掉
-  if (!d || typeof d !== 'object' || !d.cells) throw new Error('不是洋蔥的備份檔');
+function checkBackup(d) { // 動手換掉之前先看格式，壞的備份不能碰到手機裡的紀錄
+  const obj = o => !!o && typeof o === 'object' && !Array.isArray(o), list = a => a == null || Array.isArray(a);
+  if (!obj(d) || !obj(d.cells) || !list(d.points) || !list(d.flights) || !list(d.gaps) || (d.ext != null && !obj(d.ext))) throw new Error('不是洋蔥的備份檔');
+  for (const p of d.points || []) if (!Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1]) || !Number.isFinite(p[2])) throw new Error('不是洋蔥的備份檔');
+}
+async function importAll(d) { // 還原備份（v1、v2 都吃）：整個換掉。先寫新的再刪舊的，中途被關掉也不會兩邊都沒有。畫好的圖不在備份裡，留著
+  checkBackup(d);
+  clearTimeout(saveTimer); saveTimer = null; if (saving) await saving;
   const painter = engine.state().ext.painter;
-  await wipeFiles(); engine.load(d); if (painter) engine.state().ext.painter = painter;
-  store.locked = false; await flushSave();
+  engine.load(d); if (painter) engine.state().ext.painter = painter; else delete engine.state().ext.painter;
+  const r = engine.takeSaves(); engine.putBackSaves(r);
+  store.locked = false;
+  if (!await flushSave()) throw Object.assign(new Error('存檔失敗'), { save: true });
+  const keep = new Set(['meta.json', ...r.shards.map(k => 'cells/' + k + '.json')]), days = engine.state().days;
+  for (const p of ['', 'days/', 'cells/', 'cards/']) for (const k of await kv.list(p)) {
+    const day = /^(?:days|cards)\/(.+?)\.json/.exec(k);
+    if (!keep.has(k) && !(day && days[day[1]])) await kv.del(k);
+  }
+  try { localStorage.removeItem(STORE); localStorage.removeItem('digua.v1'); } catch (e) {}
+  if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
 }
 async function wipeFiles() {
   clearTimeout(saveTimer); saveTimer = null; if (saving) await saving;
@@ -1445,7 +1465,7 @@ function tileCanvas(id) { if (!TILES[id]) IMAGES[id](); return TILES[id]; }
 const EMPTY = { type: 'FeatureCollection', features: [] };
 map.on('load', () => {
   map.addImage('mist', mistImage());
-  ['freq', 'fog', 'explored', 'flights', 'gaps', 'track', 'fogq'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
+  ['freq', 'fog', 'flights', 'gaps', 'track', 'fogq'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
   // 走過越多次綠色越深（踏實的路）
   map.addLayer({ id: 'freq', type: 'fill', source: 'freq',
     paint: { 'fill-color': '#5E8C3F', 'fill-opacity': 0.12 } });
@@ -1471,10 +1491,9 @@ map.on('load', () => {
     layout: { visibility: 'none', 'text-field': '?', 'text-font': FONT, 'text-size': ['*', 38, ['get', 's']], 'text-rotate': ['get', 'r'],
       'text-allow-overlap': true, 'text-ignore-placement': true },
     paint: { 'text-color': '#B7BDC8', 'text-opacity': 0.5 } });
-  map.on('moveend', updateQ);
+  map.on('move', viewMoving);
+  map.on('moveend', () => { drawView(); updateQ(); });
   addSheets();
-  revealNow = revealTier();
-  map.on('zoomend', () => { const t = revealTier(); if (t !== revealNow) { revealNow = t; render(true); } }); // 粗細揭開範圍切換時重算霧
   if (labelsOn) showLabels(); // 字型比地圖先好的話，剛加的「?」圖層也要打開
   render(true);
 });
@@ -1535,36 +1554,124 @@ function updateQ() {
 const WORLD = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
 // 揭開範圍：紀錄還是 res 12 的細格子，但霧散開的範圍放大。
 // 拉近看：換算成 res 11 再往外擴兩圈（走過的路左右約 100 公尺）；縮小看：res 8 的格子（約 1 公里）走進去整格散開
-let revealSet = null, revealRes = CFG.res, revealNow = 'fine';
-function revealTier() { return map.getZoom() < 11 ? 'coarse' : 'fine'; }
-function revealCells(ids) {
-  const fine = revealTier() === 'fine', res = fine ? 11 : 8, set = new Set();
-  for (const c of ids) {
-    const p = h3.cellToParent(c, res);
-    if (fine) for (const d of h3.gridDisk(p, 2)) set.add(d); else set.add(p);
+// 只算視野附近的格子（往外多半個畫面），拖出去才補；格子有好幾萬個時整張一起算要好幾秒。
+/*VIEW_START*/
+const VIEW = { spare: 0.5, lead: 0.2, pad: { fine: 0.4, coarse: 2 } }; // spare：四邊多算幾個畫面；lead：離算好的邊界剩多少畫面就補；pad：格子往外揭開的距離（公里，寬鬆抓）
+const revealTierAt = z => z < 11 ? 'coarse' : 'fine';
+// 走過越多次越綠的那一層用多細的格子：縮小看時一格不到一個像素，合併了也看不出來
+const freqResAt = z => z >= 11 ? 12 : z >= 9 ? 11 : z >= 7 ? 10 : z >= 5.5 ? 9 : 8;
+// 跟 h3.cellToParent 同一個答案，只動字串：把解析度換掉、後面的位數全填 1
+function parentOf(c, r) {
+  const b = 45 - 3 * r, i = Math.floor((59 - b) / 4);
+  return c[0] + r.toString(16) + c.slice(2, i) + (parseInt(c[i], 16) | (1 << (b - 56 + 4 * i)) - 1).toString(16) + 'f'.repeat(14 - i);
+}
+function growBox(b, k) { const w = (b[2] - b[0]) * k, h = (b[3] - b[1]) * k; return [b[0] - w, b[1] - h, b[2] + w, b[3] + h]; } // b＝西南東北
+const boxInside = (a, b) => a[0] >= b[0] && a[1] >= b[1] && a[2] <= b[2] && a[3] <= b[3];
+const bucketBoxes = new Map(); // 第 7 層那一塊的外框；裡面的細格子會稍微超出上層的邊，所以放大四分之一
+function bucketBox(k) {
+  let b = bucketBoxes.get(k); if (b) return b;
+  const p = '87' + k.slice(2) + 'ffffff', [lat, lng] = h3.cellToLatLng(p);
+  let r = 0; for (const v of h3.cellToBoundary(p)) r = Math.max(r, h3.greatCircleDistance([lat, lng], v, 'km'));
+  const dy = r * 1.25 / 111, dx = dy / Math.max(0.01, Math.cos(lat * Math.PI / 180));
+  bucketBoxes.set(k, b = [lng - dx, lat - dy, lng + dx, lat + dy]); return b;
+}
+function cellsNear(buckets, box, padKm) { // 範圍附近的格子（整塊整塊拿，只會多不會少）
+  const dy = padKm / 111, dx = dy / Math.max(0.01, Math.cos(Math.min(89, Math.max(Math.abs(box[1]), Math.abs(box[3]))) * Math.PI / 180));
+  const w = box[0] - dx, s = box[1] - dy, e = box[2] + dx, n = box[3] + dy, out = [];
+  for (const [k, list] of buckets) {
+    const b = bucketBox(k); if (b[3] < s || b[1] > n) continue;
+    const turn = Math.ceil((w - b[2]) / 360) * 360; // 轉幾圈才第一次不在範圍的西邊（跨換日線、地圖捲了好幾圈都算）
+    if (b[0] + turn <= e) for (const c of list) out.push(c);
   }
-  revealSet = set; revealRes = res;
-  return [...set];
+  return out;
+}
+function revealOf(ids, tier) { // 這些格子揭開的範圍（粗或細的格子集合）
+  const set = new Set(), up = new Set();
+  if (tier === 'coarse') { for (const c of ids) up.add(parentOf(c, 8)); return up; }
+  for (const c of ids) up.add(c.slice(0, 12)); // 前 12 碼＝第 11 層，先去重再往外擴
+  for (const k of up) for (const d of h3.gridDisk(k[0] + 'b' + k.slice(2) + 'fff', 2)) set.add(d);
+  return set;
+}
+// 把格子合併成多邊形，每個門檻一組，結果跟 h3.cellsToMultiPolygon 一樣。它遇到一大堆破洞會慢到好幾秒（每個洞跟每個外框比），
+// 這裡改成：相鄰兩格共用的邊互相抵銷，剩下的邊接成圈；同一片相連的格子只有一個外圈，洞跟著自己那一片走，不必比
+function mergeTiers(ids, vals, ths) {
+  const V = new Map(), xy = [], S = 4e5, M = 73e6; // 頂點用座標對號（約 0.25 公尺一格）；落在兩格交界時兩邊都找
+  const vid = p => {
+    const x = p[0] * S, y = p[1] * S, i = Math.round(x), j = Math.round(y), k = i * M + j; let v = V.get(k); if (v !== undefined) return v;
+    const a = x - i, b = y - j, i2 = Math.abs(a) > 0.4999 ? i + Math.sign(a) : i, j2 = Math.abs(b) > 0.4999 ? j + Math.sign(b) : j;
+    if (i2 !== i || j2 !== j) for (const q of [i2 * M + j, i * M + j2, i2 * M + j2]) if ((v = V.get(q)) !== undefined) return v;
+    V.set(k, v = xy.length); xy.push(p); return v;
+  };
+  const rings = ids.map(c => { const r = h3.cellToBoundary(c, true); r.pop(); return r.map(vid); }), N = xy.length;
+  return ths.map(th => {
+    const open = new Map(), up = new Int32Array(ids.length).map((_, i) => i);
+    const root = i => { while (up[i] !== i) i = up[i] = up[up[i]]; return i; };
+    for (let i = 0; i < ids.length; i++) {
+      if (vals[i] < th) continue;
+      const r = rings[i];
+      for (let j = 0, a = r[r.length - 1]; j < r.length; a = r[j++]) {
+        const b = r[j], o = open.get(b * N + a);
+        if (o === undefined) open.set(a * N + b, i); else { open.delete(b * N + a); up[root(o)] = root(i); }
+      }
+    }
+    const next = new Map(); for (const [k, i] of open) { const a = Math.floor(k / N); if (next.has(a)) return null; next.set(a, [k - a * N, i]); }
+    const outer = new Map(), holes = [];
+    while (next.size) {
+      const a0 = next.keys().next().value, ring = [xy[a0]], y0 = 2 * xy[a0][1]; let a = a0, i = -1, area = 0;
+      do { const e = next.get(a); if (!e) return null; next.delete(a); i = e[1]; const p = xy[a], q = xy[e[0]]; area += (q[0] - p[0]) * (q[1] + p[1] - y0); ring.push(q); a = e[0]; } while (a !== a0);
+      const id = root(i); if (area < 0 && !outer.has(id)) outer.set(id, [ring]); else holes.push([id, ring]);
+    }
+    for (const [id, ring] of holes) { const p = outer.get(id); if (!p) return null; p.push(ring); }
+    return [...outer.values()];
+  });
+}
+const mergeCells = list => mergeTiers(list, new Uint8Array(list.length), [0])[0] || h3.cellsToMultiPolygon(list, true); // 接不起來就退回 h3 自己算
+const FREQ = [2, 5, 10]; // 去過幾次以上各疊一層綠
+function freqOf(ids, cells, res) { // 每個門檻一組多邊形；縮小看時上層格裡只要有一格夠就算
+  let list = [], vals = [];
+  if (res === CFG.res) { for (const c of ids) { const v = cells[c][0]; if (v >= FREQ[0]) { list.push(c); vals.push(v); } } }
+  else {
+    const m = new Map();
+    for (const c of ids) { const v = cells[c][0]; if (v < FREQ[0]) continue; const p = parentOf(c, res); if (!(m.get(p) >= v)) m.set(p, v); }
+    list = [...m.keys()]; vals = [...m.values()];
+  }
+  return mergeTiers(list, vals, FREQ).map((g, i) => g || h3.cellsToMultiPolygon(list.filter((c, j) => vals[j] >= FREQ[i]), true)).filter(g => g.length);
+}
+/*VIEW_END*/
+let revealSet = null, revealRes = CFG.res, drawnView = null; // drawnView：霧與綠色那層現在算到哪裡
+let viewTimer = null, viewCost = 0;
+function mapBox() { const b = map.getBounds(); return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]; }
+function viewStale() {
+  const d = drawnView, z = map.getZoom();
+  return !d || d.tier !== revealTierAt(z) || d.res !== freqResAt(z) || !boxInside(growBox(mapBox(), VIEW.lead), d.box);
+}
+function viewMoving() { // 還在拖、還在飛：快到邊邊了就先補，但不要每一格動畫都算
+  if (viewTimer || !viewStale()) return;
+  viewTimer = setTimeout(() => { viewTimer = null; drawView(); }, Math.max(60, viewCost * 2));
+}
+function drawView(force) { // 霧的洞與走過次數。資料沒變、還在算過的範圍裡就不重算
+  if (!map.getSource('fog') || (!force && !viewStale())) return;
+  const t0 = performance.now(), z = map.getZoom(), tier = revealTierAt(z), res = freqResAt(z), box = growBox(mapBox(), VIEW.spare);
+  const s = engine.state(), ids = cellsNear(engine.buckets(), box, VIEW.pad[tier]);
+  revealSet = revealOf(ids, tier); revealRes = tier === 'fine' ? 11 : 8; drawnView = { box, tier, res };
+  const polys = mergeCells([...revealSet]);
+  const fog = [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon',
+    coordinates: [orient(WORLD, true), ...polys.map(p => orient(p[0], false))] } }];
+  polys.forEach(p => { for (let i = 1; i < p.length; i++) fog.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [p[i]] } }); });
+  map.getSource('fog').setData({ type: 'FeatureCollection', features: fog });
+  map.getSource('freq').setData({ type: 'FeatureCollection', features: freqOf(ids, s.cells, res).map(g => ({ type: 'Feature', properties: {},
+    geometry: { type: 'MultiPolygon', coordinates: g } })) });
+  viewCost = performance.now() - t0;
 }
 let renderTimer = null;
 function renderSoon() { if (!renderTimer) renderTimer = setTimeout(() => { renderTimer = null; render(); }, 350); }
 function render(force) {
   updateStats();
   if (!map.getSource('fog')) return;
-  if (!engine.takeDirty() && !force) return;
-  const s = engine.state(), ids = Object.keys(s.cells);
-  const rid = revealCells(ids);
-  const polys = rid.length ? h3.cellsToMultiPolygon(rid, true) : [];
-  const fog = [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon',
-    coordinates: [orient(WORLD, true), ...polys.map(p => orient(p[0], false))] } }];
-  polys.forEach(p => { for (let i = 1; i < p.length; i++) fog.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [p[i]] } }); });
-  map.getSource('fog').setData({ type: 'FeatureCollection', features: fog });
+  const dirty = engine.takeDirty(); if (!dirty && !force) return;
+  drawView(dirty);
   updateQ();
-  map.getSource('explored').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: polys } });
-  // 去過越多次顏色越深
-  const tiers = [2, 5, 10].map(th => ids.filter(c => s.cells[c][0] >= th)).filter(a => a.length);
-  map.getSource('freq').setData({ type: 'FeatureCollection', features: tiers.map(a => ({ type: 'Feature', properties: {},
-    geometry: { type: 'MultiPolygon', coordinates: h3.cellsToMultiPolygon(a, true) } })) });
+  const s = engine.state();
   map.getSource('flights').setData({ type: 'FeatureCollection', features: s.flights.map(f => ({ type: 'Feature', properties: {},
     geometry: { type: 'LineString', coordinates: arc([f[0], f[1]], [f[2], f[3]]) } })) });
   map.getSource('track').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: trackLines(s.points) } });
@@ -1732,7 +1839,7 @@ map.on('click', e => {
 });
 
 /* 35-data.js */
-// --- 資料：備份、匯入、清除 ---
+// --- 資料：備份、清除（匯入與還原備份在 66-import.js） ---
 function refreshData() {
   const s = engine.state();
   $('dCells').textContent = Object.keys(s.cells).length.toLocaleString() + ' 個';
@@ -1759,12 +1866,16 @@ $('btnExport').onclick = async () => {
   a.download = name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 };
-$('fileImport').onchange = async e => {
-  const file = e.target.files[0]; if (!file) return;
-  try { await importAll(JSON.parse(await file.text())); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); toast('已匯入備份'); }
-  catch (err) { toast('這個檔案讀不了'); }
-  e.target.value = '';
-};
+// 上次匯入存到一半被關掉：66-import.js 開 app 時會把半套的天收掉，但不發事件。這裡等它收完，補發一次 onion:imported（days 是空的、gone 是收掉的天）。
+// 印章等這個 promise，免得照半套的天蓋章
+const importSettled = (async () => {
+  await restored.catch(() => {});
+  const FLAG = 'import-pending.json', raw = await kvTry(FLAG); if (raw == null || store.locked) return;
+  for (let i = 0; i < 120 && await kvTry(FLAG) != null; i++) await new Promise(ok => setTimeout(ok, 250));
+  let gone = []; try { gone = JSON.parse(raw); } catch (e) {}
+  gone = gone.filter(k => !engine.state().days[k]);
+  if (gone.length) setTimeout(() => document.dispatchEvent(new CustomEvent('onion:imported', { detail: { days: [], gone } })));
+})();
 $('btnClear').onclick = () => {
   const b = $('btnClear');
   if (!b.dataset.arm) { b.dataset.arm = '1'; b.querySelector('.lbl').textContent = '再按一次，確定全部清掉'; return; }
@@ -2272,13 +2383,19 @@ try { card.frame = localStorage.getItem(FRAME_KEY); } catch (e) {}
 if (!FRAMES.some(f => f.id === card.frame)) card.frame = FRAMES[0].id;
 
 const frameCache = {};
-function loadFrame(id) { // 框縮到卡片大小、找出中間透明的窗、窗內緣的米色暈改成焦褐陰影（跟 tools/daycard/overlay_frame.py 同一套）
+function frameDye(r, g, b, a) { // 窗內半透明像素要染多少（0 到 1）。要蓋掉的是「花卉卷軸」那圈米白暈：又亮又淡、偏黃；葉子與描邊飽和度高，花瓣偏粉（紅綠差遠大於綠藍差，暈剛好相反），都不染。中間漸變，免得染色邊界起雜點
+  if (a < 20) return 1; // 幾乎透明的是去背殘留，顏色是亂的，照舊染掉
+  const mx = Math.max(r, g, b), sat = mx ? (mx - Math.min(r, g, b)) / mx : 0;
+  const u = x => Math.max(0, Math.min(1, x));
+  return u((mx - 150) / 30) * u((0.46 - sat) / 0.06) * u((20 + 510 / a - (r - g) + (g - b)) / 15); // 510 / a：越透明，去乘回來的顏色誤差越大，放寬一點
+}
+function loadFrame(id) { // 框縮到卡片大小、找出中間透明的窗、窗內緣的米色暈改成焦褐陰影（tools/daycard/overlay_frame.py 是全部染，這裡只染暈）
   if (frameCache[id]) return frameCache[id];
   return frameCache[id] = new Promise((ok, bad) => {
     const im = new Image();
     im.onload = () => {
       const c = document.createElement('canvas'); c.width = CARD_W; c.height = CARD_H;
-      const g = c.getContext('2d'); g.drawImage(im, 0, 0, CARD_W, CARD_H);
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, CARD_W, CARD_H);
       const img = g.getImageData(0, 0, CARD_W, CARD_H), d = img.data, n = CARD_W * CARD_H;
       const seen = new Uint8Array(n), q = new Int32Array(n), start = (CARD_H >> 1) * CARD_W + (CARD_W >> 1);
       let head = 0, tail = 0, l = CARD_W, t = CARD_H, r = 0, b = 0;
@@ -2287,11 +2404,21 @@ function loadFrame(id) { // 框縮到卡片大小、找出中間透明的窗、�
       while (head < tail) { // 從中心沿著 alpha 低的像素往外長，長到的範圍就是窗
         const p = q[head++], x = p % CARD_W, y = (p / CARD_W) | 0;
         if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > b) b = y;
-        const a = d[p * 4 + 3];
-        if (a > 0) { d[p * 4] = 58; d[p * 4 + 1] = 40; d[p * 4 + 2] = 24; d[p * 4 + 3] = a * 0.7; } // 黑霧貼著框，不留白邊
         if (x > 0) push(p - 1); if (x < CARD_W - 1) push(p + 1); if (y > 0) push(p - CARD_W); if (y < CARD_H - 1) push(p + CARD_W);
       }
-      if (!tail) { l = 60; t = 60; r = CARD_W - 61; b = CARD_H - 61; } // 中心不透明：這張不像框，就整張蓋上去
+      const dye = p => { // 黑霧貼著框，不留白邊。再從中心長一次，只走要染的：被描邊圍在裡面的亮點（花苞、葉面反光）走不到，就不會被挖洞
+        if (seen[p] !== 1) return;
+        const i = p * 4, a = d[i + 3], w = a ? frameDye(d[i], d[i + 1], d[i + 2], a) : 1;
+        if (!w) return;
+        seen[p] = 2; q[tail++] = p;
+        if (a) { d[i] += (58 - d[i]) * w; d[i + 1] += (40 - d[i + 1]) * w; d[i + 2] += (24 - d[i + 2]) * w; d[i + 3] = a * (1 - 0.3 * w); }
+      };
+      const got = tail; head = tail = 0; if (got) dye(start);
+      while (head < tail) {
+        const p = q[head++], x = p % CARD_W, y = (p / CARD_W) | 0;
+        if (x > 0) dye(p - 1); if (x < CARD_W - 1) dye(p + 1); if (y > 0) dye(p - CARD_W); if (y < CARD_H - 1) dye(p + CARD_W);
+      }
+      if (!got) { l = 60; t = 60; r = CARD_W - 61; b = CARD_H - 61; } // 中心不透明：這張不像框，就整張蓋上去
       g.putImageData(img, 0, 0);
       ok({ canvas: c, win: [l, t, r + 1, b + 1] });
     };
@@ -2591,7 +2718,8 @@ const DAYCORE = (() => {
     if (!best) return undefined;
     return best.icon === 'home' || best.icon === 'house' || /^(我|老|爸媽|外婆|奶奶|阿嬤)?(的)?(家|住處|住家|宿舍)$/.test(best.name) ? '' : best.name;
   }
-  return { C, SIZES, TITLE_H, STAT_H, rowsH, boards, bestView, dist, trim, stops, stats, day, extent, px, lines, nameStop, pickMarks, pickPlaces, center, ownName, inPoly };
+  function nth(days, key) { let n = 0; for (const k in days) if (k <= key) n++; return n; } // 第幾天出門。匯入更早的足跡之後會變，所以畫的時候才算
+  return { nth, C, SIZES, TITLE_H, STAT_H, rowsH, boards, bestView, dist, trim, stops, stats, day, extent, px, lines, nameStop, pickMarks, pickPlaces, center, ownName, inPoly };
 })();
 /*DAYCORE_END*/
 
@@ -2619,7 +2747,7 @@ async function dcPrepare(key, pts, D) {
     const near = cls => { let b = null, bd = Infinity; for (const p of R.feats.place) if (cls.includes(p.cls)) { const d = DAYCORE.dist(c.lat, c.lng, p.lat, p.lng); if (d < bd) { bd = d; b = p.name; } } return b || ''; };
     city = near(['city', 'town']); town = near(['suburb', 'quarter']);
   }
-  const facts = { city, town, layer: Object.keys(engine.state().days).sort().indexOf(key) + 1, stats: D.stats, stops, marks: DAYCORE.pickMarks(R.feats, D.segs, frame, used), places: DAYCORE.pickPlaces(R.feats, frame), lines: DAYCORE.lines(D.segs, frame) };
+  const facts = { city, town, layer: DAYCORE.nth(engine.state().days, key), stats: D.stats, stops, marks: DAYCORE.pickMarks(R.feats, D.segs, frame, used), places: DAYCORE.pickPlaces(R.feats, frame), lines: DAYCORE.lines(D.segs, frame) };
   return { n: engine.state().days[key].n, frame, facts, draft: R.draft.toDataURL('image/jpeg', 0.92), ref: R.ref.toDataURL('image/png') };
 }
 
@@ -2711,7 +2839,7 @@ const dcHm = t => { const d = new Date(t * 1000); return String(d.getHours()).pa
 
 function dcMeasure(g, rec, size) { // 三塊板子的字與寬
   const F = rec.facts, pad = 32, fT = '900 48px ' + CARD_SERIF, fS = '400 22px ' + CARD_KAI, fR = '700 22px ' + CARD_KAI, U = DC_SIZES[size].ui, st = F.stats, hh = Math.floor(st.moving_min / 60), W = (f, x) => { g.font = f; return g.measureText(x).width; };
-  const title = [F.city, F.town].filter(Boolean).join('・') || '洋蔥地圖', sub = rec.key.replace(/-/g, '.') + '　第 ' + F.layer + ' 天出門';
+  const title = [F.city, F.town].filter(Boolean).join('・') || '洋蔥地圖', sub = rec.key.replace(/-/g, '.') + '　第 ' + (DAYCORE.nth(engine.state().days, rec.key) || F.layer) + ' 天出門';
   const l1 = st.km + ' km　' + (st.car >= 0.5 ? '在路上 ' : '走了 ') + (hh ? hh + ' 小時 ' : '') + st.moving_min % 60 + ' 分', l2 = st.start + ' 到 ' + st.end + (st.stops ? '　停留 ' + st.stops + ' 處' : '');
   const tw = Math.ceil(Math.max(W(fT, title), W(fS, sub)) + pad * 2), sw = Math.ceil(Math.max(W(fR, l1), W(fS, l2)) + 56), stops = dcStops(F); let rows = [], lw = 0;
   if (stops.length) {
@@ -2917,7 +3045,12 @@ document.addEventListener('onion:painted', async e => {
 });
 document.addEventListener('onion:painter', () => { if (tab === 'card' && dc.pick === 'day' && dc.state === 'ready' && !dc.sending) dcRender(); });
 document.addEventListener('onion:places', () => { if (tab === 'card' && dc.pick === 'day' && dc.state === 'ready') dcPaintCanvas(); });
-for (const ev of ['onion:wiped', 'onion:restored']) document.addEventListener(ev, () => { dc.tok++; dc.key = null; dc.rec = null; dc.base = null; dc.out = null; dc.state = ''; if (tab === 'card') dcApply(); });
+function dcReset() { dc.tok++; dc.key = null; dc.rec = null; dc.base = null; dc.out = null; dc.state = ''; }
+for (const ev of ['onion:wiped', 'onion:restored']) document.addEventListener(ev, () => { dcReset(); if (tab === 'card') dcApply(); });
+document.addEventListener('onion:imported', () => { // 匯入只會多出新的天，正在看的那天還在就留著，重畫一次（第幾天出門會變）
+  if (dc.key && !engine.state().days[dc.key]) dcReset();
+  setTimeout(() => { if (tab === 'card') { enterCard(); dcApply(); } }, 200); // 等匯入把霧重畫好再截圖；跟切到製圖頁做的事一樣
+});
 
 async function dcShare() { // 跟「分享這張」同一招：iOS 先寫進暫存再開分享面板
   const out = document.createElement('canvas'), name = 'onion-' + dc.key + (dc.size === 'ig' ? '-4x5' : '') + '.png', title = '我的一日洋蔥地圖';
@@ -3376,12 +3509,14 @@ const PLACES_LOGIC = (() => {
   }
   // 現在該問哪一個（沒有就 null）。asked：{skip, day, seen}；today 是 'YYYY-MM-DD'
   function nextAsk({ pts, places, asked, nowSec, today, recording }) {
+    const old = (asked && asked.old) || [];
     const cut = nowSec - C.askDays * 86400, recent = pts.filter(p => p[0] >= cut); if (!recent.length) return null;
     const skip = (asked && asked.skip) || [], seen = asked && asked.day === today ? asked.seen || [] : [];
     const stops = findStops(recent), home = homes(pts, nowSec), last = recent[recent.length - 1];
     for (const s of stops.reverse()) { // 新的先問
       if (recording && s.i1 === recent.length - 1) continue; // 還在那裡
       if (recording && dist(last[1], last[2], s.lat, s.lng) <= C.radius) continue;
+      if (old.some(r => s.t0 >= r[0] && s.t0 <= r[1])) continue; // 匯入的足跡不問
       if (isNear(places, s.lat, s.lng, C.near) || isNear(skip, s.lat, s.lng, C.near) || isNear(home, s.lat, s.lng, C.homeNear)) continue;
       if (seen.length >= C.perDay && !isNear(seen, s.lat, s.lng, C.near)) continue;
       return s;
@@ -3395,6 +3530,12 @@ const PLACES_LOGIC = (() => {
     return asked;
   }
   function markSkip(asked, s) { asked.skip = asked.skip || []; if (!isNear(asked.skip, s.lat, s.lng, C.near)) asked.skip.push([+s.lat.toFixed(5), +s.lng.toFixed(5)]); return asked; }
+  // 匯入的那幾天記下來，待過的地方不問。只要記最近幾天的，更早的本來就不問。list：[[開始秒, 結束秒]…]，回傳有沒有變
+  function markOld(asked, list, nowSec) {
+    const cut = nowSec - C.askDays * 86400, was = asked.old || [], now = [...was, ...list].filter(r => r[1] >= cut);
+    if (!now.length && !was.length) return false;
+    asked.old = now; return true;
+  }
   function stayText(min) {
     if (min < 60) return min + ' 分鐘';
     const h = Math.floor(min / 60), m = min % 60;
@@ -3423,7 +3564,7 @@ const PLACES_LOGIC = (() => {
     shop: 'shop', grocery: 'shop', clothing_store: 'shop', mall: 'shop', park: 'tree', garden: 'tree', playground: 'tree', place_of_worship: 'temple',
     railway: 'station', bus: 'station', airport: 'station', harbor: 'water', swimming: 'water', school: 'book', college: 'book', library: 'book', museum: 'book', art_gallery: 'book' };
   function guessIcon(name, cls) { for (const [id, re] of BY_NAME) if (re.test(name || '')) return id; return BY_CLS[cls] || 'flag'; }
-  return { C, dist, findStops, homes, nextAsk, markSeen, markSkip, stayText, suggest, guessIcon, isNear };
+  return { C, dist, findStops, homes, nextAsk, markSeen, markSkip, markOld, stayText, suggest, guessIcon, isNear };
 })();
 /*PLACES_LOGIC_END*/
 
@@ -3627,6 +3768,11 @@ function placeFly(lat, lng, zoom) { follow = false; closeSheet(); go('map'); map
   const reset = () => { hideAsk(); offered = false; draw(); fill(); };
   document.addEventListener('onion:wiped', reset);
   document.addEventListener('onion:restored', reset);
+  document.addEventListener('onion:imported', e => {
+    const days = engine.state().days, gone = e.detail.gone || [];
+    if (L.markOld(asked(), e.detail.days.filter(k => days[k]).map(k => [days[k].t0 / 1000, days[k].t1 / 1000]), nowSec())) extSave();
+    if (ask && gone.includes(dayKey(ask.t0))) { offered = false; hideAsk(); } // 問的那天被收掉了
+  });
   hook.ready.push(() => { draw(); setTimeout(maybeAsk, 1500); });
 })();
 
@@ -3644,7 +3790,8 @@ const STAMPS_LOGIC = (() => {
     hsrKmh: 200, hsrKm: 5,            // 連續這麼快、這麼遠算搭高鐵
     nightM: 500, dawnM: 500,          // 夜裡、清晨要走這麼遠
     loopM: 1500, loopBack: 60, loopFar: 250, loopRound: 0.12, // 一圈：走這麼長、回到起點這麼近、最遠離開這麼遠、繞得夠圓（原路折返不算）
-    dayKm: 0.05                       // 一天走這麼遠才算走過
+    dayKm: 0.05,                      // 一天走這麼遠才算走過
+    gap: 1200, chunk: 800             // 整段軌跡分批看：至少這麼多點一批，只在斷開超過這麼多秒的地方切（上面幾種走法遇到都會重算，切了結果一樣）
   };
   // kind: geo＝走到某種地方；sum＝累積（val 拿目前的量）；shape＝走的樣子；big／small＝章面的字
   const LIST = [
@@ -3809,6 +3956,24 @@ const STAMPS_LOGIC = (() => {
     for (const id in run) if (!have[id]) { const r = run[id](pts); if (r) out.push(Object.assign({ id }, r)); }
     return out;
   }
+  const SHAPES = ['night', 'dawn', 'loop', 'hsr'];
+  function chunkEnd(pts, i) { // 從 i 開始的這一批到哪裡（不含）
+    let j = Math.min(pts.length, i + C.chunk); while (j < pts.length && pts[j][0] - pts[j - 1][0] <= C.gap) j++; return j;
+  }
+  // 把很多段軌跡照時間一批批交給 each（回 false 就停）。next() 給下一段點（Promise），沒了回 null；跨半夜的會接起來
+  async function inChunks(next, each) {
+    let buf = [];
+    for (;;) {
+      const more = await next(); if (more && more.length) buf = buf.concat(more);
+      for (let i = 0; ;) {
+        const j = chunkEnd(buf, i);
+        if (j >= buf.length && more && j - i < 20000) { buf = buf.slice(i); break; } // 這批可能還沒完，等下一段
+        if (j > i && await each(buf.slice(i, j)) === false) return;
+        i = j; if (i >= buf.length) { buf = []; break; }
+      }
+      if (!more) return;
+    }
+  }
   // 蓋章：已經有的不重複。list：[{id, t, lat?, lng?}]，回傳真的新蓋的
   function award(have, at, list, now) {
     const got = [];
@@ -3820,7 +3985,7 @@ const STAMPS_LOGIC = (() => {
     }
     return got;
   }
-  return { C, LIST, BY, dist, sortFeatures, hitsAt, heading, totals, sums, next, night, dawn, loop, hsr, plane, shapes, award, RULES };
+  return { C, LIST, BY, dist, sortFeatures, hitsAt, heading, totals, sums, next, night, dawn, loop, hsr, plane, shapes, SHAPES, inChunks, award, RULES };
 })();
 /*STAMPS_LOGIC_END*/
 
@@ -3887,21 +4052,24 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   const have = () => ext('stamps', {}), at = () => ext('stampsAt', {});
   const st = () => engine.state();
   let towns = null; // 走過幾個區，算過才有數字
+  let settled = false; // 上次匯入到一半的天還沒收完之前不蓋章（35-data.js）
+  let quiet = 0; // 匯入、還原之後在背景補章：先排著，補完一次講完
+  const rest = ms => new Promise(ok => setTimeout(ok, ms || 0));
 
   // --- 蓋章 ---
   const queue = []; // 畫面看不到時先排著
   function give(list) {
-    if (!list.length || store.locked) return;
+    if (!list.length || store.locked || !settled) return;
     const got = L.award(have(), at(), list, Date.now()); if (!got.length) return;
     extSave(); fill(); queue.push(...got); showQueue();
     document.dispatchEvent(new Event('onion:stamps'));
   }
   let showTimer = null;
-  function showQueue() { clearTimeout(showTimer); showTimer = setTimeout(() => { // 差不多同時拿到的併成一次
-    if (document.hidden || !queue.length) return;
+  function showQueue(plain) { clearTimeout(showTimer); showTimer = setTimeout(() => { // 差不多同時拿到的併成一次。plain：只講，不放蓋章的動畫
+    if (quiet || document.hidden || !queue.length) return;
     const ids = queue.splice(0);
     if (ids.length > 2) { toast('蓋了 ' + ids.length + ' 個印章，在足跡頁', 3200); return; }
-    toast('拿到印章：' + ids.map(i => L.BY[i].name).join('、'), 3200); stampFx(ids[ids.length - 1]);
+    toast('拿到印章：' + ids.map(i => L.BY[i].name).join('、'), 3200); if (!plain) stampFx(ids[ids.length - 1]);
   }, 700); }
   function stampFx(id) {
     const old = $('stFx'); if (old) old.remove();
@@ -3918,12 +4086,50 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   // --- 累積與樣子 ---
   function checkSums() { give(L.sums(st(), towns, have())); }
   function checkShapes(pts) { give(L.shapes(st(), pts, have())); }
-  async function checkTowns(force) { // 區數要掃全部格子，格子多的時候只在打開 app 與足跡頁時算
-    if (have().town10 && towns != null) return;
-    const n = Object.keys(st().cells).length; if (!n) { towns = 0; return; }
+  let townJob = null;
+  function checkTowns(force) { // 區數要掃全部格子，格子多的時候只在打開 app 與足跡頁時算
+    if (have().town10 && towns != null) return Promise.resolve();
+    return townJob || (townJob = countTowns(force).catch(() => {}).then(() => { townJob = null; }));
+  }
+  async function countTowns(force) {
+    const s = st(), n = Object.keys(s.cells).length; if (!n) { towns = 0; return; }
     if (!force && n > 20000) return;
-    try { const e = exploredByTown(await loadAdmin()); towns = [...e.town.values()].filter(a => a >= 0.01).length; } catch (x) { return; }
+    const e = await townAreas(await loadAdmin(), s); if (!e || st() !== s) return; // 算到一半清掉或還原了
+    towns = [...e.town.values()].filter(a => a >= 0.01).length;
     checkSums(); fill();
+  }
+  async function townAreas(adm, s) { // 跟 exploredByTown 算一樣的東西，但是分批，算好放進它的快取（製圖頁也用得到）
+    const ids = Object.keys(s.cells); if (exploredCache && exploredCache.n === ids.length) return exploredCache;
+    const town = new Map(), county = new Map(); let last = null, clock = performance.now();
+    for (let i = 0; i < ids.length; i++) {
+      if (i % 64 === 0 && performance.now() - clock > 12) { await rest(); if (st() !== s) return null; clock = performance.now(); }
+      const [lat, lng] = h3.cellToLatLng(ids[i]), t = last && townAtOne(last, lng, lat) ? last : townAt(adm, lng, lat);
+      if (!t) continue; last = t; const a = h3.cellArea(ids[i], 'km2');
+      town.set(t, (town.get(t) || 0) + a); county.set(t.c, (county.get(t.c) || 0) + a);
+    }
+    return exploredCache = { n: ids.length, town, county };
+  }
+  // 整段軌跡的走法一批批看，中間讓畫面喘口氣。next() 給下一段點
+  async function scanShapes(next) {
+    const s = st(); let clock = performance.now();
+    const done = () => st() !== s || store.locked || L.SHAPES.every(id => have()[id]);
+    checkShapes([]); if (done()) return; // 飛機不用看軌跡
+    await L.inChunks(async () => done() ? null : next(), async pts => {
+      if (performance.now() - clock > 12) { await rest(); clock = performance.now(); }
+      if (done()) return false;
+      checkShapes(pts);
+    });
+  }
+  // 匯入、還原之後補章：晚一點開始，全部補完、匯入的結果收掉了，最多講一句
+  async function catchUp(keys) {
+    const days = keys.slice().sort(); let i = 0; quiet++;
+    try {
+      await rest(1200); checkSums(); geoSoon(600);
+      if (townJob) await townJob; await checkTowns(true); // 在跑的那次可能是匯入前的格子
+      await scanShapes(async () => i < days.length ? (await kvJSON('days/' + days[i++] + '.json')) || [] : null); // 直接讀檔：一天天從記憶體挑，幾年的量會卡
+      while (!$('sheetHost').hidden || $('toast').classList.contains('show')) await rest(600);
+    } catch (e) { console.warn('[stamps]', e); }
+    quiet--; if (!quiet) showQueue(true);
   }
 
   // --- 走到的地方：看地圖上已經載好的圖磚。沒載到的點先放著，之後地圖移到那裡再補 ---
@@ -3932,7 +4138,7 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   const FILTER = { poi: ['match', ['get', 'class'], ['place_of_worship', 'railway', 'park'], true, false], transportation: ['==', ['get', 'brunnel'], 'bridge'],
     landcover: ['==', ['get', 'subclass'], 'park'], waterway: ['!=', ['get', 'brunnel'], 'tunnel'] };
   function checkGeo() {
-    const want = GEO.filter(id => !have()[id]); if (!want.length || document.hidden || !map.getSource('omt')) return;
+    const want = GEO.filter(id => !have()[id]); if (!want.length || !settled || document.hidden || !map.getSource('omt')) return;
     const z = map.getZoom(); if (z < 12) return;
     let ready = false; try { ready = map.isSourceLoaded('omt'); } catch (e) {} if (!ready) return;
     const b = map.getBounds(), poiOk = z >= 14, todo = [];
@@ -3972,7 +4178,9 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   });
   function checkAll(full) { // full：整段軌跡都看；回到前景只看最近兩天
     const pts = st().points, cut = Date.now() / 1000 - 2 * 86400; let i = 0; if (!full) { i = pts.length; while (i && pts[i - 1][0] > cut) i--; }
-    checkSums(); checkShapes(i ? pts.slice(i) : pts); checkTowns(true); geoSoon(600);
+    checkSums(); checkTowns(true); geoSoon(600);
+    if (!full) { checkShapes(i ? pts.slice(i) : pts); return; }
+    let once = pts.slice(); scanShapes(async () => { const p = once; once = null; return p; });
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => { checkAll(); showQueue(); }, 900); });
 
@@ -4005,8 +4213,14 @@ function stampsOfDay(key) { // 那天拿到的，早的在前
   }
   document.addEventListener('onion:steps', () => { fill(); checkSums(); checkTowns(true); });
   document.addEventListener('onion:wiped', () => { towns = null; queue.length = 0; seenGeo.clear(); seenPoi.clear(); fill(); });
-  document.addEventListener('onion:restored', () => { towns = null; seenGeo.clear(); seenPoi.clear(); fill(); checkAll(true); });
-  hook.ready.push(() => setTimeout(() => checkAll(true), 1200));
+  function dataChanged(keys) { // 匯入、還原之後：看得到的足跡頁重畫，章在背景補
+    towns = null; exploredCache = null; if (tab === 'steps') renderSteps(); else fill();
+    catchUp(keys);
+  }
+  document.addEventListener('onion:restored', () => { seenGeo.clear(); seenPoi.clear(); queue.length = 0; dataChanged(Object.keys(st().days)); });
+  document.addEventListener('onion:imported', e => dataChanged(e.detail.days));
+  hook.ready.push(() => importSettled.then(() => setTimeout(() => checkAll(true), 1200)));
+  importSettled.then(() => { settled = true; });
 })();
 
 /* 66-import.js */
@@ -4346,7 +4560,7 @@ const importer = (() => {
 
   function row() {
     const el = $('mountImport'); if (!el) return;
-    el.innerHTML = '<button class="row" id="impRow"><span class="lbl">匯入以前的足跡</span><span class="val" id="impVal"></span><svg class="chev"><use href="#i-chev"/></svg></button>';
+    el.innerHTML = '<button class="row" id="impRow"><span class="lbl">匯入足跡或備份</span><span class="val" id="impVal"></span><svg class="chev"><use href="#i-chev"/></svg></button>';
     $('impRow').onclick = open;
     paintRow();
   }
@@ -4356,18 +4570,19 @@ const importer = (() => {
 
   function open() {
     if (job) return busy();
-    const b = body('<div class="impText"><h2>匯入以前的足跡</h2><p>選一個檔案，走過的路就會加進來。已經有紀錄的日子不會動。</p></div>' +
+    const b = body('<div class="impText"><h2>匯入足跡或備份</h2><p>選一個檔案，走過的路就會加進來。已經有紀錄的日子不會動。</p></div>' +
       '<div class="section"><div class="group">' +
       '<div class="row"><span class="lines"><span class="ttl">Google 時間軸（iPhone）</span><span class="meta">Google 地圖 › 你的頭像 › 設定 › 個人內容 › 匯出時間軸資料</span></span></div>' +
       '<div class="row"><span class="lines"><span class="ttl">Google 時間軸（Android）</span><span class="meta">手機設定 › 位置 › 定位服務 › 時間軸 › 匯出時間軸資料</span></span></div>' +
       '<div class="row"><span class="lines"><span class="ttl">跑步、登山、單車 app</span><span class="meta">在那個 app 裡匯出成 GPX 檔</span></span></div>' +
+      '<div class="row"><span class="lines"><span class="ttl">洋蔥的備份</span><span class="meta">會換掉手機裡現在的紀錄，換之前會先問你</span></span></div>' +
       '</div></div>' +
       '<div class="actions"><label class="btn primary full press" role="button">選檔案<input id="impFile" type="file" multiple hidden></label>' +
       '<button class="btn plain full press" data-close>先不要</button></div>');
     b.querySelector('#impFile').onchange = e => { const f = [...e.target.files]; if (f.length) start(f); };
   }
   function busy() {
-    const b = body('<div class="impText"><h2>匯入以前的足跡</h2><p id="impStep"></p></div>' +
+    const b = body('<div class="impText"><h2>匯入足跡或備份</h2><p id="impStep"></p></div>' +
       '<div class="impBar" role="progressbar" aria-label="匯入進度" aria-valuemin="0" aria-valuemax="100"><i id="impFill"></i></div>' +
       '<p class="impNote" id="impNote"></p>' +
       '<div class="actions"><button class="btn secondary full press" id="impStop">取消</button></div>');
@@ -4388,21 +4603,20 @@ const importer = (() => {
         : '<button class="btn primary full press" data-close>好</button>') + '</div>');
     if (again) b.querySelector('#impAgain').onclick = open;
   }
-  function askBackup(data) { // 還原備份會整個換掉，先問一次
+  function askBackup(data, unread) { // 還原備份會整個換掉，先問一次。unread：手機裡的紀錄這次沒讀完整，天數不準就不講
     job = null; paintRow();
     const s = engine.state(), n = Object.keys(s.days).length;
-    const b = body('<div class="impText"><h2>這是洋蔥的備份</h2><p>' + (n ? '還原之後，手機裡現在的 ' + n + ' 天紀錄會整個換成備份裡的。' : '還原之後就接著備份裡的紀錄繼續。') + '</p></div>' +
+    const b = body('<div class="impText"><h2>這是洋蔥的備份</h2><p>' + (unread ? '還原之後，手機裡現在的紀錄會整個換成備份裡的。' : n ? '還原之後，手機裡現在的 ' + n + ' 天紀錄會整個換成備份裡的。' : '還原之後就接著備份裡的紀錄繼續。') + '</p></div>' +
       '<div class="actions"><button class="btn primary full press" id="impRestore">還原備份</button><button class="btn plain full press" data-close>先不要</button></div>');
     b.querySelector('#impRestore').onclick = async e => {
       e.target.disabled = true;
       try { await importAll(data); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); done('備份還原好了。'); }
-      catch (x) { done('這份備份讀不了。', true); }
+      catch (x) { done(x.save ? '存不進去。看看手機空間夠不夠，再還原一次。' : '這份備份讀不了。', true); }
     };
   }
 
   async function start(files) {
     if (job) return;
-    if (store.locked) { done('手機裡的紀錄這次沒讀完整，重開洋蔥再匯入，免得蓋到舊的。', true); return; }
     const me = job = { pct: 0, text: '讀檔案', cancelled: false }, size = files.reduce((a, f) => a + f.size, 0);
     if (size > IMP.bigBytes) me.note = '檔案有 ' + Math.round(size / 1048576) + ' MB，要算好幾分鐘。先不要關掉洋蔥。';
     busy();
@@ -4411,15 +4625,16 @@ const importer = (() => {
       tick: async () => { paint(); await tick(); if (me.cancelled) throw ImportCore.fail('cancel', ImportCore.MSG.cancel); }
     });
     try {
-      await restored;
+      let unread = false; await restored.catch(() => { unread = true; }); unread = unread || store.locked;
       const b = ImportCore.bag(); let at = 0;
       for (const f of files) {
         const r = await ImportCore.readFile(f, b, step('讀檔案', 0.4 * at / size, 0.4 * (at + f.size) / size)); at += f.size;
         if (r.kind === 'backup') {
           if (files.length > 1) throw ImportCore.fail('mix', '洋蔥的備份要單獨選，一次一個。');
-          askBackup(r.data); return;
+          askBackup(r.data, unread); return;
         }
       }
+      if (unread) throw ImportCore.fail('locked', '手機裡的紀錄這次沒讀完整，重開洋蔥再匯入，免得蓋到舊的。'); // 備份可以還原（整個換掉，等於救回來），足跡不行
       const days = engine.state().days, today = dayKey(Date.now()), tmp = createEngine(ImportCore.fastH3(h3));
       const r = await ImportCore.run(b, tmp, k => !!days[k] || (recording && k === today), step('整理走過的路', 0.4, 0.9));
       for (const k in r.days) if (days[k]) delete r.days[k]; // 算的時候剛好開始記錄今天
