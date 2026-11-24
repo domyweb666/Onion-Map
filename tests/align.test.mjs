@@ -1,5 +1,5 @@
 // 對位的測試：node --test tests/align.test.mjs
-// 合成的一定跑；跟 Python 版對照的那題要本機有 daycard/2026-11-07（不進 repo）和裝好 Pillow 的 python，沒有就跳過
+// 合成的一定跑；跟 Python 版對照的那題要有 daycard/2026-11-07 和裝好 Pillow 的 python，沒有就跳過
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -40,7 +40,8 @@ test('抹紅線：紅的不見、旁邊的顏色補上，其他不動', () => {
   for (let i = 0; i < w * h; i++) assert.ok(d[i * 4 + 1] > 190, '還有紅的');
 });
 const dir = path.join(ROOT, 'daycard/2026-11-07');
-test('真的圖：跟 Python 的結果一樣（縮放約 1.92、位移 82,8、貼合度 0.70）', { skip: !fs.existsSync(dir + '/painted_pencil_v2.png') }, t => {
+const pillow = (() => { try { execFileSync('python', ['-c', 'import PIL'], { stdio: 'ignore' }); return true; } catch (e) { return false; } })();
+test('真的圖：跟 Python 的結果一樣（縮放約 1.92、位移 82,8、貼合度 0.70）', { skip: !fs.existsSync(dir + '/painted_pencil_v2.png') || !pillow }, t => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'align-'));
   execFileSync('python', ['-c', `
 import sys

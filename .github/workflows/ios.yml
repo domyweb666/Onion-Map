@@ -43,11 +43,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: 跑 tests 裡用 node:test 寫的
-        run: |
-          FILES=$(grep -rlE "node:test" tests --include=*.js --include=*.mjs --include=*.cjs 2>/dev/null || true)
-          if [ -z "$FILES" ]; then echo "沒有測試"; exit 0; fi
-          node --test $FILES
+      - name: 跑 tests
+        run: npm run test:app
 
   build-check:
     name: 編譯檢查（不簽署）
