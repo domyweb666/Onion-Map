@@ -1,0 +1,39 @@
+  /* ----- 製圖頁：一天 ----- */
+  .dcSeg{background:var(--d-surface);border-radius:var(--d-radius-pill);padding:var(--d-space-1)}
+  .dcSeg button{height:var(--d-size-touch)}
+  .dcNav{display:flex;align-items:center;gap:var(--d-space-2);margin-bottom:var(--d-space-1)}
+  .dcNav .ibtn:disabled{opacity:.35} /* domy-ignore: 到底了，淡掉 */
+  .dcNav .ibtn .chev{stroke:var(--d-accent)}
+  .dcNav .flip{transform:scaleX(-1)}
+  .dcDay{flex:1;min-width:0;min-height:var(--d-size-touch);font:var(--d-headline);color:var(--d-text-primary);border-radius:var(--d-radius-pill);text-align:center}
+  #dcPrevBox{position:relative;min-height:38vh;display:flex;align-items:center;justify-content:center} /* domy-ignore: 還沒有圖的時候先佔住高度 */
+  #dcCanvas{display:block;width:auto;max-width:100%;max-height:41vh;border-radius:var(--d-radius-sm);opacity:0} /* domy-ignore: 預覽高度留空間給按鈕 */
+  #dcPrevBox.has #dcCanvas{opacity:1}
+  #dcPrevBox.has .dcWait{display:none}
+  .dcWait{position:absolute;inset:0;display:grid;place-items:center;padding:var(--d-space-6);text-align:center;font:var(--d-subheadline);color:var(--d-text-secondary)}
+  .dcState{margin:0;min-height:var(--d-size-button);display:flex;align-items:center;justify-content:center;gap:var(--d-space-3);padding:var(--d-space-2) var(--d-space-4);font:var(--d-subheadline);color:var(--d-text-secondary)}
+  .dcSpin{flex:none;width:var(--d-space-4);height:var(--d-space-4);border-radius:var(--d-radius-pill);border:2px solid var(--d-soft);border-top-color:var(--d-accent);animation:dcspin 1.1s linear infinite} /* domy-ignore: 轉圈線寬 */
+  @keyframes dcspin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.dcSpin{animation:none}}
+  .dcShare{display:flex;align-items:center;gap:var(--d-space-3)}
+  .dcShare .dcSeg{flex:1.3;min-width:0}
+  .dcShare .dcSeg button{padding:0 var(--d-space-1);white-space:nowrap}
+  .dcShare .btn{flex:1}
+  .dcStrip{display:flex;gap:var(--d-space-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 calc(var(--d-size-screen-margin) * -1);padding:var(--d-space-1) var(--d-size-screen-margin)}
+  .dcStrip .fr{flex:none;display:flex;flex-direction:column;align-items:center;gap:var(--d-space-1);padding:var(--d-space-2) var(--d-space-3);border-radius:var(--d-radius-lg);background:var(--d-surface);font:var(--d-caption);color:var(--d-text-primary)}
+  .dcStrip .fr img{width:52px;height:78px;object-fit:contain;pointer-events:none} /* domy-ignore: 框的縮圖照 2:3 */
+  .dcStrip .fr.on{background:var(--d-soft);color:var(--d-strong);font-weight:600;box-shadow:inset 0 0 0 2px var(--d-accent)} /* domy-ignore: 選取框線 */
+  .draftBox{position:fixed;left:-4000px;top:0;width:1024px;height:1536px;pointer-events:none} /* domy-ignore: 離屏底稿，照 AI 的直式尺寸 */
+
+  /* ----- 畫圖：配對抽屜、設定列 ----- */
+  .pt-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--d-space-5)}
+  .pt-steps li{display:flex;align-items:flex-start;gap:var(--d-space-4)}
+  .pt-steps .no{flex:none;width:var(--d-space-8);height:var(--d-space-8);border-radius:var(--d-radius-pill);background:var(--d-soft);color:var(--d-strong);font:var(--d-headline);display:grid;place-items:center}
+  .pt-steps .lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--d-space-1);padding-top:var(--d-space-1)}
+  .pt-steps .ttl{font:var(--d-headline);color:var(--d-text-primary)}
+  .pt-steps .meta{font:var(--d-footnote);color:var(--d-text-secondary)}
+  .pt-in{width:100%;min-height:var(--d-size-button);border:var(--d-size-hairline) solid var(--d-separator);border-radius:var(--d-radius-lg);background:var(--d-surface);color:var(--d-text-primary);padding:0 var(--d-space-4);font:var(--d-body)}
+  .pt-err{color:var(--d-destructive)}
+  .pt-val{max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #sheetBody .pt-h3{font:var(--d-title3);padding:0 var(--d-space-1)}
+  #rowBase .val:empty{display:none}
