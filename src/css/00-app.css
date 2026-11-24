@@ -160,7 +160,7 @@
   #legendRows i.track{background:repeating-linear-gradient(90deg,#A33B2E 0 8px,transparent 8px 13px) center/100% 4px no-repeat #F3ECDB} /* domy-ignore: 地圖畫風 */
   #legendRows i.mist{background:#232833} /* domy-ignore: 地圖畫風 */
 
-  #toast{position:fixed;z-index:30;left:50%;bottom:calc(var(--tab-clear) + var(--d-space-2));transform:translateX(-50%);
+  #toast{position:fixed;z-index:30;left:50%;width:max-content;bottom:calc(var(--tab-clear) + var(--d-space-2));transform:translateX(-50%);
     background:var(--d-text-primary);color:var(--d-surface);padding:var(--d-space-2) var(--d-space-4);border-radius:var(--d-radius-pill);
     font:var(--d-subheadline);box-shadow:var(--d-elev-2);opacity:0;transition:opacity var(--d-transition-ms);pointer-events:none;
     max-width:calc(100% - var(--d-size-screen-margin) * 2);text-align:center}

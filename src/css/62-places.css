@@ -1,0 +1,70 @@
+  /* ----- 地點：地圖上的標記（地圖畫風，照紙色與墨色畫） ----- */
+  .plMk{width:var(--d-size-touch);height:var(--d-size-touch);display:grid;place-items:center;z-index:2}
+  .plMk i{width:32px;height:32px;border-radius:50% 46% 52% 48%;background:#F3ECDB;border:2px solid #2E2820;color:#2E2820;display:grid;place-items:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.35)} /* domy-ignore: 地圖畫風 */
+  .plMk i .ic{width:18px;height:18px} /* domy-ignore: 地圖畫風 */
+  .plMk span{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:-5px;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font:17px/22px 'Luoyan',var(--d-font);color:#2E2820;background:rgba(243,236,219,.92);padding:0 7px;border-radius:9px;pointer-events:none} /* domy-ignore: 地圖畫風 */
+  .plMid .plMk span,.plFar .plMk span{display:none}
+  .plMid .plMk i{width:26px;height:26px} /* domy-ignore: 地圖畫風 */
+  .plMid .plMk i .ic{width:15px;height:15px} /* domy-ignore: 地圖畫風 */
+  .plFar .plMk{pointer-events:none}
+  .plFar .plMk i{width:8px;height:8px;border-width:1.5px;box-shadow:none} /* domy-ignore: 地圖畫風 */
+  .plFar .plMk i .ic{display:none}
+  .plAskPin{width:34px;height:34px;border-radius:50% 46% 52% 48%;border:2px solid #2E2820;background:#F3ECDB;color:#2E2820;display:grid;place-items:center;
+    font:24px/1 'Luoyan',var(--d-font);pointer-events:none;z-index:3;animation:plPin 1.6s infinite} /* domy-ignore: 地圖畫風 */
+  @keyframes plPin{0%{box-shadow:0 0 0 0 rgba(243,236,219,.8)}100%{box-shadow:0 0 0 16px rgba(243,236,219,0)}} /* domy-ignore: 地圖畫風 */
+  @media (prefers-reduced-motion:reduce){.plAskPin{animation:none}}
+
+  /* ----- 建議名字的小按鈕 ----- */
+  .plChips{display:flex;flex-wrap:wrap;gap:var(--d-space-2)}
+  .plChip{min-height:var(--d-size-touch);max-width:100%;padding:0 var(--d-space-4);border-radius:var(--d-radius-pill);background:var(--d-soft);color:var(--d-strong);
+    font:var(--d-callout);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .plChip.on{background:var(--d-accent);color:var(--d-on-accent)}
+
+  /* ----- 抽屜：取名 ----- */
+  .plFields{display:flex;flex-direction:column;gap:var(--d-space-3)}
+  .plField{width:100%;height:var(--d-size-field);padding:0 var(--d-space-4);border:var(--d-size-hairline) solid var(--d-field-border);border-radius:var(--d-radius-lg);
+    background:var(--d-surface);color:var(--d-text-primary);font:var(--d-body);outline:none;-webkit-appearance:none;appearance:none}
+  .plField:focus{border-color:var(--d-accent)}
+  .plField::placeholder{color:var(--d-text-tertiary)}
+  .plIcons{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--d-space-1)}
+  .plIcons button{min-height:var(--d-size-touch);border-radius:var(--d-radius-lg);display:grid;place-items:center;color:var(--d-text-secondary)}
+  .plIcons button[aria-checked=true]{background:var(--d-soft);color:var(--d-strong)}
+  .btn.plDel{color:var(--d-destructive)}
+
+  /* ----- 地圖頁的提問卡 ----- */
+  #mapAsk{display:flex;flex-direction:column;gap:var(--d-space-4)}
+  .plAskText{display:flex;flex-direction:column;gap:var(--d-space-1)}
+  .plAskText .meta{font:var(--d-footnote);color:var(--d-text-secondary)}
+  .plAskText b{font:var(--d-headline);color:var(--d-text-primary)}
+  .plAskBtns{display:flex;gap:var(--d-space-2)}
+  .plAskBtns .btn{flex:1;height:var(--d-size-touch);font:var(--d-callout)}
+
+  /* 提問卡開著時，提示改到上面，不然會蓋在卡片的按鈕上 */
+  body[data-tab=map]:has(#mapAsk:not([hidden])) #toast{bottom:auto;top:calc(var(--safe-t) + var(--d-space-2) + var(--d-size-icon-button) + var(--d-space-3))}
+
+  /* ----- 足跡頁 ----- */
+  .plIc{flex:none;color:var(--d-accent);display:grid;place-items:center}
+  .stStrip{display:flex;align-items:stretch;gap:var(--d-space-3);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 calc(var(--d-size-screen-margin) * -1);
+    padding:var(--d-space-1) var(--d-size-screen-margin);scrollbar-width:none}
+  .stStrip::-webkit-scrollbar{display:none}
+  .stCell{flex:none;display:flex;flex-direction:column;align-items:center;gap:var(--d-space-2);font:var(--d-footnote);color:var(--d-text-primary);min-width:var(--d-size-touch)}
+  .stPaper{display:grid;place-items:center;border-radius:var(--d-radius-lg);background:#F3ECDB} /* domy-ignore: 印章蓋在紙上，紙色跟地圖同一個 */
+  .stCell .stPaper{width:88px;height:88px} /* domy-ignore: 印章大小 */
+  .stPaper canvas{display:block}
+  .stNext{flex:none;min-height:88px;max-width:170px;align-self:flex-start;display:flex;flex-direction:column;justify-content:center;gap:var(--d-space-1);padding:var(--d-space-3) var(--d-space-4);
+    border-radius:var(--d-radius-lg);background:var(--d-surface)} /* domy-ignore: 跟印章格一樣高 */
+  .stNext .meta{font:var(--d-footnote);color:var(--d-text-secondary)}
+  .stNext b{font:var(--d-headline);color:var(--d-text-primary)}
+  .stBig{align-self:center;padding:var(--d-space-5)}
+  .stWhen{font:var(--d-subheadline);color:var(--d-text-secondary)}
+  .stHead{display:flex;flex-direction:column;gap:var(--d-space-1);text-align:center}
+
+  /* ----- 拿到印章：蓋一下就走 ----- */
+  #stFx{position:fixed;inset:0;z-index:28;display:grid;place-items:center;pointer-events:none}
+  #stFx .stPaper{padding:var(--d-space-5);border-radius:var(--d-radius-2xl);box-shadow:var(--d-elev-2);animation:stPaper 1.9s both}
+  #stFx canvas{animation:stStamp .34s .18s cubic-bezier(.3,0,.2,1) both}
+  @keyframes stPaper{0%{opacity:0}9%{opacity:1}84%{opacity:1}100%{opacity:0}}
+  @keyframes stStamp{0%{opacity:0;transform:scale(1.7) rotate(-9deg)}70%{opacity:1;transform:scale(.96)}100%{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){#stFx canvas{animation:none}}
