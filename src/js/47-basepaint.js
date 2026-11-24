@@ -210,7 +210,7 @@ function baseRowBind() { const b = $('rowBase'); if (b) b.onclick = baseSheet; }
 async function baseSheet() {
   const c = map.getCenter(), far = map.getZoom() < 8, name = far ? '' : await baseName(c.lng, c.lat);
   const rows = baseMem.list.slice().reverse().map(b => { const d = new Date(b.at); return '<div class="row"><div class="lines"><span class="ttl">' + esc(b.name) + '一帶</span><span class="meta">' + (b.img ? (d.getMonth() + 1) + '/' + d.getDate() + ' 畫的' : '正在畫，大概要幾分鐘') + '</span></div><button class="btn plain compact press" data-del="' + esc(b.id) + '">' + (b.img ? '刪掉' : '取消') + '</button></div>'; }).join('');
-  const el = openSheet('<h2>把這一帶畫成手繪地圖</h2><p>' + (far ? '先回地圖，拉近到想畫的地方，再來這裡。' : '現在地圖停在<b>' + esc(name) + '</b>。會把這附近約 12 公里寬、18 公里高，請 ChatGPT 畫成手繪地圖，畫好自動疊在你的地圖上。畫一張用掉一次 ChatGPT 的畫圖額度。') + '</p>' +
+  const el = openSheet('<h2>把這一帶畫成手繪地圖</h2><p>' + (far ? '先回地圖，拉近到想畫的地方，再來這裡。' : '現在地圖停在<b>' + esc(name) + '</b>。會把這附近約 12 公里寬、18 公里高，請 ChatGPT 畫成手繪地圖，畫好自動疊在你的地圖上。畫一張大概用掉 ChatGPT Go 每個月額度的 3%。') + '</p>' +
     (rows ? '<div class="section"><h2 class="pt-h3">畫過的</h2><div class="group">' + rows + '</div></div>' : '') +
     '<div class="actions">' + (far ? '<button class="btn primary full press" id="baseGo" data-far="1">回地圖</button>' : '<button class="btn primary full press" id="baseGo"' + (baseMem.busy ? ' disabled' : '') + '>畫這一帶</button>') + '<button class="btn plain full press" data-close>關閉</button></div>');
   el.querySelector('#baseGo').onclick = e => { if (e.currentTarget.dataset.far) { closeSheet(); go('map'); } else baseStart(); };

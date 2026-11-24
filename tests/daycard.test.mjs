@@ -48,6 +48,18 @@ test('範圍：2:3、最小 1.5 公里、軌跡都在卡片裡', () => {
     for (const p of segs[0]) { const [x, y] = D.px(f, p[2], p[1]); assert.ok(x >= 64 && x <= 960 && y >= 96 && y <= 1440, [x, y]); }
   }
 });
+test('路線避開板子：兩種比例四款框，起點終點都露得出來，放大不超過 1.3 倍（起終點露不出來才到 1.6）', t => {
+  const line = fx => [Array.from({ length: 300 }, (_, i) => [T0 + i * 10, 25 + fx(i / 300)[0], 121.5 + fx(i / 300)[1], 8, 'w'])];
+  const cases = { 直的: line(u => [-0.04 * u, 0.002 * Math.sin(u * 9)]), 橫的: line(u => [0.002 * Math.sin(u * 9), 0.05 * u]), 斜的: line(u => [0.04 * u, 0.026 * u]), 繞圈: line(u => [0.015 * Math.cos(u * 6.2), 0.01 * Math.sin(u * 6.2)]), 左上出發: line(u => [-0.03 * u, u < 0.5 ? 0 : 0.03 * (u - 0.5)]) };
+  if (fs.existsSync(demo)) cases.示範 = D.day(JSON.parse(fs.readFileSync(demo, 'utf8')).points).segs;
+  for (const [name, segs] of Object.entries(cases)) {
+    const t0 = performance.now(), st = [60, 150, 240].map(i => { const a = [].concat(...segs), p = a[Math.floor(i / 300 * a.length)]; return { lat: p[1], lng: p[2], minutes: 20 }; }), f = D.extent(segs, st), ms = performance.now() - t0, route = [].concat(...D.lines(segs, f)); let hard = 0, soft = 0;
+    const X = route.map(p => p[0]), Y = route.map(p => p[1]), base = Math.max((Math.max(...X) - Math.min(...X)) * 1.3, (Math.max(...Y) - Math.min(...Y)) * 1.3 / 1.5);
+    for (const size of ['tall', 'ig']) for (const q of [[92, 186, 984, 1505], [69, 104, 1008, 1521], [22, 39, 1047, 1588], [51, 70, 1013, 1510]]) { const v = D.bestView(route, [], size === 'ig' ? [q[0], q[1], q[2], q[3] - 270] : q, D.boards(size, 3), [24, 36, 1000, 1500], base); hard += v.hard; soft = Math.max(soft, v.soft); }
+    t.diagnostic(`${name}：放大 ${(896 / base).toFixed(2)} 倍，起終點被蓋 ${hard}，路線最多被蓋 ${(soft * 100).toFixed(1)}%，${Math.round(ms)} ms`);
+    assert.equal(hard, 0, name); assert.ok(896 / base < 1.62);
+  }
+});
 test('名字：住宅裡不寫、咖啡店很近才寫、捷運補站', () => {
   const poi = [{ cls: 'school', name: '某國小', lat: 25 + 60 * M, lng: 121.5 }, { cls: 'cafe', name: '咖啡', lat: 25 + 30 * M, lng: 121.6 }, { cls: 'railway', sub: 'subway', name: '公館', lat: 25.2, lng: 121.5 }, { cls: 'office', name: '某公司', lat: 25.3, lng: 121.5 }];
   const box = (la, ln) => ({ type: 'Polygon', coordinates: [[[ln - 0.01, la - 0.01], [ln + 0.01, la - 0.01], [ln + 0.01, la + 0.01], [ln - 0.01, la + 0.01], [ln - 0.01, la - 0.01]]] });

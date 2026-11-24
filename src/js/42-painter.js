@@ -205,8 +205,9 @@ function painterSettings() {
 }
 document.addEventListener('onion:painter', () => { if (tab === 'settings') painterSettings(); });
 hook.tab.push(t => { if (t === 'settings') { painterSettings(); painterPing(); } });
-hook.ready.push(() => {
-  painterSettings(); painterSoon(800);
+hook.ready.push(() => painterSettings());
+restored.then(() => { // 只等紀錄讀完，不等地圖：離線時地圖載不完，配對也要收得到
+  painterSoon(800);
   const nat = painterNative();
   if (nat && nat.addListener) nat.addListener('urlOpen', e => painterFromUrl(e && e.url));
 });
