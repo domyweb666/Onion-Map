@@ -1,0 +1,10 @@
+  /* ----- 匯入以前的足跡（抽屜）、離線地圖（設定頁） ----- */
+  #impSheet{display:flex;flex-direction:column;gap:var(--d-space-6)}
+  .impText{display:flex;flex-direction:column;gap:var(--d-space-2)}
+  .impText p{font:var(--d-body);color:var(--d-text-secondary)}
+  .impNote{font:var(--d-footnote);color:var(--d-text-secondary)}
+  .impBar{height:var(--d-space-2);border-radius:var(--d-radius-pill);background:var(--d-surface-muted);overflow:hidden}
+  .impBar i{display:block;width:0;height:100%;border-radius:var(--d-radius-pill);background:var(--d-accent);transition:width var(--d-transition-ms)}
+  label.btn{cursor:pointer}
+  .offBtn{flex:none;min-width:var(--d-size-touch);min-height:var(--d-size-touch);font:var(--d-callout);color:var(--d-strong);text-align:right}
+  .offBtn.bad{color:var(--d-destructive)}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1">
+  <!-- <trkpt lat="1" lon="1"><time>2024-03-01T00:00:00Z</time></trkpt> 註解裡的不算 -->
+  <wpt lat="23.9" lon="120.9"><time>2024-03-01T01:00:00Z</time><name>標記點不算</name></wpt>
+  <trk><name>虛構步道</name>
+    <trkseg>
+      <trkpt lat="23.50000" lon="120.50000"><ele>10</ele><time>2024-03-01T01:00:00Z</time></trkpt>
+      <trkpt lat="23.50050" lon="120.50000"><ele>11</ele><time>2024-03-01T01:01:00Z</time></trkpt>
+      <trkpt lat="23.50100" lon="120.50000"><time>2024-03-01T01:02:00.500Z</time></trkpt>
+      <trkpt lat="23.50150" lon="120.50000"></trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lon='120.60000' lat='23.60000'><time>2024-03-01T10:00:00+08:00</time></trkpt>
+      <trkpt lon='120.60050' lat='23.60000'><time>2024-03-01T10:01:00+08:00</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

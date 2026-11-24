@@ -25,10 +25,10 @@ const style = {
   version: 8,
   glyphs: 'fonts/glyphs/{fontstack}/{range}.pbf',
   sources: {
-    omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet',
+    omt: { type: 'vector', url: 'onion://planet',
       attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' },
-    dem: { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-      encoding: 'terrarium', tileSize: 256, maxzoom: 15,
+    dem: { type: 'raster-dem', tiles: ['onion://dem/{z}/{x}/{y}'],
+      encoding: 'terrarium', tileSize: 256, maxzoom: 12,
       attribution: '地形 <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Terrain Tiles</a>' }
   },
   layers: [

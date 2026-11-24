@@ -1,0 +1,12 @@
+{
+  "timelineObjects": [
+    { "placeVisit": { "location": { "latitudeE7": 235000000, "longitudeE7": 1205000000, "placeId": "x", "name": "虛構咖啡店" },
+      "duration": { "startTimestamp": "2021-03-01T01:00:00Z", "endTimestamp": "2021-03-01T02:00:00.500Z" }, "placeConfidence": "HIGH_CONFIDENCE" } },
+    { "activitySegment": { "startLocation": { "latitudeE7": 235000000, "longitudeE7": 1205000000 }, "endLocation": { "latitudeE7": 235300000, "longitudeE7": 1205000000 },
+      "duration": { "startTimestamp": "2021-03-01T02:00:00.500Z", "endTimestamp": "2021-03-01T02:10:00Z" }, "distance": 3300, "activityType": "IN_BUS",
+      "waypointPath": { "waypoints": [ { "latE7": 235000000, "lngE7": 1205000000 }, { "latE7": 235150000, "lngE7": 1205100000 }, { "latE7": 235300000, "lngE7": 1205000000 } ] } } },
+    { "activitySegment": { "startLocation": { "latitudeE7": 235300000, "longitudeE7": 1205000000 }, "endLocation": { "latitudeE7": 235400000, "longitudeE7": 1205000000 },
+      "duration": { "startTimestampMs": "1614564900000", "endTimestampMs": "1614565500000" },
+      "simplifiedRawPath": { "points": [ { "latE7": 235350000, "lngE7": 1205000000, "accuracyMeters": 10, "timestampMs": "1614565200000" } ] } } }
+  ]
+}

@@ -39,6 +39,7 @@ function persistNow() {
   if (store.locked) return Promise.resolve(false);
   if (saving) { saveAgain = true; return saving; }
   return saving = (async () => {
+    await null; // 沒東西可存時整段會同步跑完，saving 先變 null 又被設回來，之後就永遠不存了
     let ok = true; const r = engine.takeSaves();
     try {
       for (const k of r.days) { const pts = engine.dayPoints(k); if (pts.length) await kvSafeSet('days/' + k + '.json', JSON.stringify(pts)); }

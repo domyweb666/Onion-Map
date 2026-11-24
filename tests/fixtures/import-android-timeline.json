@@ -1,0 +1,21 @@
+{
+  "semanticSegments": [
+    { "startTime": "2024-06-01T08:00:00.000+08:00", "endTime": "2024-06-01T10:00:00.000+08:00",
+      "timelinePath": [
+        { "point": "23.5000000°, 120.5000000°", "time": "2024-06-01T09:05:00.000+08:00" },
+        { "point": "23.5100000°, 120.5000000°", "time": "2024-06-01T09:10:00.000+08:00" },
+        { "point": "23.5200000°, 120.5000000°", "time": "2024-06-01T09:15:00.000+08:00" } ] },
+    { "startTime": "2024-06-01T08:00:00.000+08:00", "endTime": "2024-06-01T09:04:00.000+08:00", "startTimeTimezoneUtcOffsetMinutes": 480,
+      "visit": { "hierarchyLevel": 0, "probability": 0.9, "topCandidate": { "placeId": "x", "semanticType": "HOME", "placeLocation": { "latLng": "23.5000000°, 120.5000000°" } } } },
+    { "startTime": "2024-06-01T09:04:00.000+08:00", "endTime": "2024-06-01T09:20:00.000+08:00",
+      "activity": { "start": { "latLng": "23.5000000°, 120.5000000°" }, "end": { "latLng": "23.5300000°, 120.5000000°" }, "distanceMeters": 3300, "topCandidate": { "type": "IN_PASSENGER_VEHICLE", "probability": 0.8 } } },
+    { "startTime": "2024-06-01T09:20:00.000+08:00", "endTime": "2024-06-01T12:00:00.000+08:00", "timelineMemory": { "trip": { "distanceFromOriginKms": 3 } } }
+  ],
+  "rawSignals": [
+    { "position": { "LatLng": "23.6000000°, 120.6000000°", "accuracyMeters": 12, "altitudeMeters": 3.0, "source": "WIFI", "timestamp": "2024-06-02T09:00:00.000+08:00", "speedMetersPerSecond": 0.0 } },
+    { "position": { "LatLng": "23.7000000°, 120.6000000°", "accuracyMeters": 900, "source": "CELL", "timestamp": "2024-06-02T09:30:00.000+08:00" } },
+    { "wifiScan": { "deliveryTime": "2024-06-02T09:00:00.000+08:00", "devicesRecords": [ { "mac": 1, "rawRssi": -60 } ] } },
+    { "activityRecord": { "probableActivities": [ { "type": "STILL", "confidence": 0.9 } ], "timestamp": "2024-06-02T09:00:00.000+08:00" } }
+  ],
+  "userLocationProfile": { "frequentPlaces": [ { "placeId": "x", "placeLocation": "23.5000000°, 120.5000000°", "label": "HOME" } ] }
+}
