@@ -178,7 +178,8 @@
   #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);box-shadow:0 0 0 var(--d-size-hairline) var(--d-separator);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
     padding:var(--d-space-6) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-6));display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
   #sheetBody>*{flex-shrink:0}
-  #sheetHost.kb{bottom:auto}
+  #sheetHost.kb{bottom:auto;height:100vh;padding-bottom:var(--kb)}
+  #sheetHost.kb::after{content:'';position:absolute;bottom:0;left:0;right:0;height:var(--kb);max-width:560px;margin:0 auto;background:var(--d-canvas)} /* domy-ignore: 寬螢幕上限；鍵盤是半透明的，底下墊抽屜的底色 */
   #sheetHost.kb #sheetBody{max-height:calc(100% - var(--safe-t) - var(--d-space-2));padding-bottom:var(--d-space-6)}
   #sheetBody h2{margin:0;font:var(--d-title2)}
   #sheetBody p{margin:0}

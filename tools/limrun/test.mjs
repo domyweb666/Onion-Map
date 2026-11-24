@@ -271,7 +271,7 @@ async function sWalkMeanwhile(full) { // 邊走邊看別的，走路的時間不
   await goTab('地圖'); await tapLabel('回到我的位置', { wait: 2500, fallback: [SCREEN.w - 42, SAFE.t + 86] });
   await press(SCREEN.w * 0.35, SCREEN.h * 0.42, 900); await sleep(900); await shot('20-place-sheet');
   if (await has('這裡叫什麼')) {
-    check('長按地圖跳出取名', true); check('長按放開沒有誤按到建議的名字', !(await texts()).some(x => /^名字 ./.test(x)), (await texts()).find(x => x.startsWith('名字')) ?? ''); await dump('place-sheet', 30);
+    check('長按地圖跳出取名', true); check('長按放開沒有誤按到建議的名字', !(await texts()).some(x => /^名字 (?!名字)/.test(x)), (await texts()).find(x => x.startsWith('名字')) ?? ''); await dump('place-sheet', 30);
     const nm = await find('名字', { contains: true });
     if (nm) { await tapXY(nm.frame.x + 60, nm.frame.y + nm.frame.height / 2, '名字欄'); await sleep(1500); await shot('21-place-keyboard'); await c.typeText('Park', true).catch(() => {}); await sleep(1200); await shot('22-place-typed'); }
     const chip = await find('存好'); if (chip) { await tapLabel('存好', { bottom: 20, wait: 1500 }); } else await tapLabel('先不要', { bottom: 20 });

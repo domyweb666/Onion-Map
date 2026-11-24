@@ -41,7 +41,7 @@ if (window.visualViewport) {
   const fit = () => {
     const host = $('sheetHost'), kb = !host.hidden && innerHeight - vv.height > 120;
     if (kb === host.classList.contains('kb') && !kb) return;
-    host.classList.toggle('kb', kb); host.style.top = kb ? vv.offsetTop + 'px' : ''; host.style.height = kb ? vv.height + 'px' : '';
+    host.classList.toggle('kb', kb); host.style.top = kb ? vv.offsetTop + 'px' : ''; host.style.setProperty('--kb', kb ? innerHeight - vv.height + 'px' : '0px');
     const a = document.activeElement;
     if (kb && a && $('sheetBody').contains(a)) a.scrollIntoView({ block: 'nearest' });
     if (!kb && window.scrollY) window.scrollTo(0, 0);
