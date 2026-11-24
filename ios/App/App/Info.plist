@@ -84,6 +84,8 @@
 	<string>掃電腦上的 QR，連到你自己的電腦畫地圖。</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>連到你自己的電腦，請它畫地圖。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>把你的地圖卡存到照片。只會加入照片，看不到你的其他照片。</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>

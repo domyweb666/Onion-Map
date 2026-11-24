@@ -179,8 +179,9 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   .foot{margin:0;padding:0 var(--d-space-4);font:var(--d-footnote);color:var(--d-text-secondary)}
   .row{min-height:var(--d-size-row);display:flex;align-items:center;gap:var(--d-space-3);padding:var(--d-space-2) var(--d-space-4);
     width:100%;text-align:left;font:var(--d-body);color:var(--d-text-primary)}
-  button.row,label.row{cursor:pointer}
-  button.row:active,label.row:active{background:var(--d-surface-muted)}
+  button.row,label.row,a.row{cursor:pointer}
+  a.row{text-decoration:none}
+  button.row:active,label.row:active,a.row:active{background:var(--d-surface-muted)}
   .row .lbl{flex:1;min-width:4.5em}
   .row .val{color:var(--d-text-secondary);text-align:right;overflow-wrap:anywhere}
   .row.destructive .lbl{color:var(--d-destructive)}
@@ -517,6 +518,8 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     <div class="section">
       <h2>關於</h2>
       <div class="group">
+        <a class="row" href="https://domyweb.org/tools/onion/support/" target="_blank" rel="noopener"><span class="lbl">支援</span><svg class="chev"><use href="#i-chev"/></svg></a>
+        <a class="row" href="https://domyweb.org/tools/onion/privacy/" target="_blank" rel="noopener"><span class="lbl">隱私權政策</span><svg class="chev"><use href="#i-chev"/></svg></a>
         <div class="row"><span class="lbl">地圖資料</span><span class="val">OpenFreeMap · OSM</span></div>
         <div class="row"><span class="lbl">介面</span><span class="val" id="uiVer">Domy Design v1.1.0</span></div>
       </div>

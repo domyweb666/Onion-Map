@@ -1,0 +1,176 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { COMPANY } from '../../../data/tool-privacy';
+import { breadcrumbSchema } from '../../../lib/schema';
+
+/**
+ * 洋蔥（iOS）隱私權政策：/tools/onion/privacy/
+ *
+ * 正本在 Onion-Map 的 docs/網站頁/privacy.astro，上線時複製到 domyweb 的 src/pages/tools/onion/。
+ * app 設定 › 關於 的「隱私權政策」和 App Store Connect 都連這頁，網址不要改。
+ * 政策要跟 app 的行為一致：加了連網、分析、帳號、雲端畫圖，先改這頁和 UPDATED 再出版。
+ * 版型照 tools/rencan/privacy.astro。
+ */
+const UPDATED = '2026 年 11 月 25 日';
+const DEV = '陳多米';
+const EMAIL = COMPANY.email;
+
+const crumbsLd = breadcrumbSchema([
+  { name: '首頁', url: 'https://domyweb.org/' },
+  { name: '免費工具', url: 'https://domyweb.org/tools/' },
+  { name: '洋蔥隱私權政策', url: 'https://domyweb.org/tools/onion/privacy/' },
+]);
+---
+<BaseLayout
+  title="洋蔥隱私權政策 — Domyweb 多米"
+  description="洋蔥 iPhone app 的隱私權政策：走過的紀錄存在你的 iPhone，沒有帳號、沒有廣告、沒有分析工具。看地圖時會跟 OpenFreeMap 和 AWS 下載圖磚。"
+  pageType="法律頁"
+  current="tools"
+>
+  <script is:inline slot="head" type="application/ld+json" set:html={JSON.stringify(crumbsLd)} />
+  <article class="legal wrap">
+    <p class="eyebrow">// 法律 · iPhone App</p>
+    <h1>洋蔥隱私權政策</h1>
+    <p class="updated">生效日期：{UPDATED} · 適用對象：洋蔥（iOS App 與其中的小工具、即時動態）</p>
+
+    <div class="verdict">
+      <p class="v-q">先講重點</p>
+      <p class="v-d">你走過的紀錄<strong>存在你這支 iPhone 上</strong>。洋蔥沒有自己的伺服器、沒有帳號、沒有廣告，也沒有裝分析工具，我看不到你去過哪裡。會連網的有兩種：看地圖時下載圖磚，還有你自己決定要用的電腦畫圖。</p>
+    </div>
+
+    <section class="block">
+      <h2>洋蔥會用到哪些資料</h2>
+      <ul>
+        <li>位置：你按了記錄之後，每走幾公尺記一個點，有時間、經緯度、誤差，還有當時像是走路、坐車還是搭飛機。</li>
+        <li>你自己打的：地點的名字和圖示。</li>
+        <li>洋蔥自己算的：走了多遠、探索了多大、在哪裡停留、拿到哪些印章、你常待的地方（用來避開，不拿去問你要不要取名）。</li>
+        <li>你選的檔案：匯入 Google 時間軸、GPX 或備份檔的時候，只讀你選的那一個。</li>
+      </ul>
+      <p>洋蔥不讀你的姓名、電子郵件、電話、通訊錄，也看不到你的照片。</p>
+    </section>
+
+    <section class="block">
+      <h2>定位怎麼用</h2>
+      <p>位置只用來把你走過的地方畫出來。按記錄才開始，再按一次就停。上次關掉 app 時還在記錄的話，下次打開會接著記。</p>
+      <p>你選「永遠允許」，手機收進口袋、螢幕關掉時也會記，記錄中 iPhone 會顯示定位的標示。選「使用 App 時允許」也能用，選「不允許」還是打得開，可以看地圖、匯入以前的紀錄。之後要改，到 iPhone 的設定裡找洋蔥。</p>
+    </section>
+
+    <section class="block">
+      <h2>資料存在哪</h2>
+      <p>存在這支 iPhone 裡，洋蔥自己的儲存空間。你有開 iPhone 備份（iCloud 或電腦）的話，會跟著整支手機進到那份備份。備份由你和 Apple 管，我碰不到。</p>
+    </section>
+
+    <section class="block">
+      <h2>看地圖時會連到誰</h2>
+      <p>地圖是一小塊一小塊的圖磚拼起來的，手機要跟別人下載：</p>
+      <ul>
+        <li>OpenFreeMap：道路、水、地名。</li>
+        <li>AWS 的公開資料（Terrain Tiles）：地形。</li>
+      </ul>
+      <p>下載的時候，對方會收到你的 IP 位址和要哪幾塊圖磚，所以大概知道有人在看哪一帶的地圖。洋蔥會自動留下你附近 10 公里的圖磚，沒網路時才看得到。你走過的路線、停留、地點名字都不會送出去。</p>
+      <p>OpenFreeMap 說它一般的紀錄不含 IP，出錯時的紀錄可能有 IP 和網址，7 天後刪掉，遇到濫用最多留 30 天，它用的 Cloudflare 有自己的政策。詳細看 <a href="https://openfreemap.org/privacy/" rel="noopener">OpenFreeMap 的隱私說明</a>。AWS 怎麼處理看 <a href="https://aws.amazon.com/privacy/" rel="noopener">AWS 的隱私聲明</a>。</p>
+    </section>
+
+    <section class="block">
+      <h2>用電腦的 ChatGPT 畫圖</h2>
+      <p>這個功能你不用，就什麼都不會送。要用的話，你得在自己的電腦開畫圖程式，掃 QR 配對，每次畫之前洋蔥都會先問你。</p>
+      <p>送出去的是一張地圖底稿，上面沒有路線、沒有字、沒有你的名字。底稿的範圍就是你要畫的那一帶，所以看得出大概是哪裡。它會走這條路：</p>
+      <ol>
+        <li>手機經過你的 Wi-Fi 送到你的電腦。這一段沒有加密，請在自己信得過的網路用。</li>
+        <li>你的電腦用你自己的 ChatGPT 帳號交給 OpenAI 畫。OpenAI 怎麼處理、留多久，照你跟 OpenAI 的約定和 <a href="https://openai.com/policies/privacy-policy/" rel="noopener">OpenAI 的隱私權政策</a>。</li>
+        <li>畫好的圖傳回手機，路線和字在手機上才加上去。</li>
+      </ol>
+      <p>電腦上的畫圖程式畫完就刪底稿，畫好的圖滿一天自己刪。Codex 可能另外在電腦留一份，要自己到電腦上刪。</p>
+    </section>
+
+    <section class="block">
+      <h2>相機、區域網路、照片</h2>
+      <ul>
+        <li>相機：只用來掃配對的 QR，不拍照、不錄影。</li>
+        <li>區域網路：只用來連你自己的電腦。</li>
+        <li>照片：你在分享選單按「儲存影像」時，把那張圖加進照片。看不到你的其他照片。</li>
+      </ul>
+      <p>三個都是用到才問，不允許也不影響記錄。</p>
+    </section>
+
+    <section class="block">
+      <h2>小工具與鎖定畫面</h2>
+      <p>小工具和鎖定畫面會顯示走了多遠，小工具可能有一小張地圖。看得到你手機螢幕的人就看得到，介意的話不要放，或到 iPhone 的設定關掉洋蔥的即時動態。</p>
+    </section>
+
+    <section class="block">
+      <h2>分享與匯出</h2>
+      <p>分享給誰是你決定的。一日地圖卡會把當天頭尾各 300 公尺剪掉，免得露出住家，但卡上的地名和停過的地方還在。「走過的地方」那張照你畫面上的範圍畫，家附近走過的也會在上面，分享之前看一下。</p>
+      <p><strong>匯出的備份沒有加密</strong>，裡面是你全部的路線和地點。檔案離開洋蔥之後由你保管。備份裡沒有跟電腦配對的密碼。</p>
+    </section>
+
+    <section class="block">
+      <h2>怎麼刪除資料</h2>
+      <ol>
+        <li>在 app 裡：設定 › 清除全部紀錄，按兩次。足跡、地點、印章、畫好的圖、配對都會刪掉，救不回來。你下載的離線縣市會留著。</li>
+        <li>刪掉 app：洋蔥存的全部一起消失，包含暫存的匯出檔，還有檔案讀不出來時另外留的那一份。以前的 iPhone 備份要到備份那邊處理。</li>
+        <li>收回權限：到 iPhone 的設定裡找洋蔥，關掉定位、相機、區域網路、照片。</li>
+      </ol>
+      <p>資料不在我手上，所以我沒辦法幫你刪，也沒辦法幫你找回來。換手機之前先匯出一份。</p>
+    </section>
+
+    <section class="block">
+      <h2>洋蔥沒有的東西</h2>
+      <ul>
+        <li>沒有帳號，不用登入。</li>
+        <li>沒有廣告，不追蹤你。</li>
+        <li>沒有分析工具。</li>
+        <li>不賣資料。</li>
+      </ul>
+      <p>設定裡的「支援」和「隱私權政策」會用瀏覽器打開網頁，網址不帶你的資料。</p>
+    </section>
+
+    <section class="block">
+      <h2>兒童</h2>
+      <p>洋蔥沒有針對兒童設計。</p>
+    </section>
+
+    <section class="block">
+      <h2>政策更新</h2>
+      <p>洋蔥處理資料的方式有變，這一頁會先改，最上面的生效日期跟著改。</p>
+    </section>
+
+    <section class="block">
+      <h2>聯絡</h2>
+      <p>對這份政策或你的資料有疑問，寫信到 <a href={`mailto:${EMAIL}`}>{EMAIL}</a>。</p>
+      <p>洋蔥由{DEV}製作。</p>
+    </section>
+
+    <p class="related">
+      另見：<a href="/tools/onion/support/">洋蔥支援</a> · <a href="/privacy/">本站隱私權政策</a>
+    </p>
+  </article>
+</BaseLayout>
+
+<style>
+  .legal { max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+  .eyebrow { font-family: 'Special Elite', monospace; font-size: var(--t-label); letter-spacing: 2px; color: var(--terra-deep); margin-bottom: 10px; }
+  h1 { font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: clamp(28px, 4vw, 38px); margin-bottom: 8px; }
+  .updated { font-family: 'Special Elite', monospace; font-size: var(--t-label); line-height: 1.9; color: var(--ink-soft); margin-bottom: 28px; }
+
+  .verdict { border: 2px solid var(--ink); border-radius: 12px; background: rgba(255,255,255,.55); padding: 22px 26px 20px; margin-bottom: 34px; }
+  .v-q { font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: var(--t-sub); margin-bottom: 10px; }
+  .v-d { font-size: var(--t-ui); color: var(--ink); line-height: 1.95; margin: 0; }
+
+  .block { margin-bottom: 28px; }
+  .block h2 { font-family: 'Noto Serif TC', serif; font-weight: 700; font-size: var(--t-sub); margin-bottom: 10px; }
+  .block p { font-size: var(--t-ui); color: var(--ink-soft); line-height: 1.95; margin-bottom: 10px; }
+  .block ol, .block ul { margin: 6px 0 10px; padding-left: 22px; }
+  .block ul { list-style: disc; }
+  .block ol { list-style: decimal; }
+  .block li { font-size: var(--t-ui); color: var(--ink-soft); line-height: 1.9; margin-bottom: 6px; }
+  .block strong, .v-d strong { color: var(--ink); }
+  .block a, .related a { color: var(--terra-deep); font-weight: 700; text-decoration: none; }
+  .block a:hover, .related a:hover { text-decoration: underline; }
+  .related { margin-top: 22px; font-size: var(--t-ui); color: var(--ink-soft); }
+
+  @media (max-width: 600px) {
+    .legal { padding: 40px 20px 72px; }
+    .verdict { padding: 20px 18px 16px; }
+  }
+</style>

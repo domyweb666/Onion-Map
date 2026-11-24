@@ -1,0 +1,132 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { COMPANY } from '../../../data/tool-privacy';
+import { breadcrumbSchema } from '../../../lib/schema';
+
+/**
+ * 洋蔥（iOS）支援頁：/tools/onion/support/
+ * 正本在 Onion-Map 的 docs/網站頁/support.astro，上線時複製到 domyweb 的 src/pages/tools/onion/。
+ * app 設定 › 關於 的「支援」和 App Store Connect「支援網址」都連這頁，網址不要改。
+ * 事實來源：Onion-Map 的 README.md 與 src/js。1.0 還沒上架，藏起 AI 畫圖的話，「用電腦畫圖」那組要一起拿掉。
+ * 版型照 tools/rencan/support.astro：GROUPS 每組一個 h2，組內每題一個 h3；a 是段落陣列。
+ */
+const EMAIL = COMPANY.email;
+
+const GROUPS = [
+  { title: '開始用', qa: [
+    { q: '怎麼開始？', a: ['在地圖頁按記錄鈕，iPhone 會問你要不要給定位，選「使用 App 時允許」就能開始。走過的地方會從黑霧裡露出來。'] },
+    { q: '為什麼又問我要不要「永遠允許」？', a: ['記錄一陣子之後 iPhone 會再問一次。選「永遠允許」，手機收進口袋、螢幕關掉時才會繼續記。'] },
+    { q: '狀態列怎麼有定位的標示？', a: ['背景記錄時 iPhone 一定會顯示，讓你知道有 app 在用定位，洋蔥關不掉。停止記錄就會消失。'] },
+    { q: '走了卻沒有露出來？', a: [
+      '先看有沒有在記錄，再到 iPhone 的設定找洋蔥，確認定位是允許的、「精確位置」有打開。',
+      '在室內、捷運裡或高樓之間訊號差，會等抓得到位置才畫。從多工切換器把洋蔥滑掉，記錄也會停，再打開才會接著記。',
+    ] },
+    { q: '會不會很耗電？', a: ['記錄中會一直用定位，比平常耗電。不用的時候按停止。'] },
+  ] },
+  { title: '足跡與地點', qa: [
+    { q: '以前去過的地方可以加進來嗎？', a: ['可以。設定 › 資料 › 匯入足跡或備份，選 Google 時間軸或 GPX 檔，壓縮檔要先解開。只會加進新的日子，已經有紀錄的日子不動。'] },
+    { q: '怎麼幫地方取名字？', a: ['長按地圖上的那個點。在一個地方待滿 12 分鐘，洋蔥也會問你要不要取，一天最多問三個。'] },
+    { q: '為什麼會問到我家？', a: ['剛開始用的頭幾個小時，它還不知道你常待在哪，過一陣子就不會問了。'] },
+  ] },
+  { title: '分享', qa: [
+    { q: '分享出去會不會露出我家？', a: [
+      '一日地圖卡會把當天頭尾各 300 公尺剪掉。走得太近、剪完沒剩的那天就不畫。',
+      '「走過的地方」那張照你畫面上的範圍畫，家附近走過的也會在上面，分享之前看一下。',
+    ] },
+    { q: '存不進照片？', a: ['到 iPhone 的設定找洋蔥，把照片改成允許加入。'] },
+  ] },
+  { title: '用電腦畫圖', qa: [
+    { q: '要準備什麼？', a: ['一台電腦、ChatGPT 帳號、Codex，手機跟電腦連同一個 Wi-Fi。在電腦打開畫圖程式，到設定 › 畫圖掃 QR，掃一次就好。'] },
+    { q: '連不到電腦？', a: ['看電腦上的畫圖程式有沒有開、電腦有沒有睡著、是不是同一個 Wi-Fi，再到 iPhone 的設定找洋蔥，確認「區域網路」有打開。'] },
+    { q: '會送出什麼？', a: ['一張沒有路線、沒有字的地圖底稿，送到你自己的電腦，再用你的 ChatGPT 帳號交給 OpenAI 畫。詳細在隱私權政策。'], privacyLink: true },
+  ] },
+  { title: '離線地圖', qa: [
+    { q: '沒網路看得到地圖嗎？', a: ['看過的地方和你附近 10 公里會自動留在手機裡。要去收訊不好的地方，先把地圖移過去，再到設定 › 離線地圖下載那個縣市，目前只有台灣。'] },
+    { q: '會佔多少空間？', a: ['最多 400 MB。'] },
+  ] },
+  { title: '資料與換手機', qa: [
+    { q: '我的紀錄存在哪？', a: ['存在你這支 iPhone。洋蔥沒有伺服器、沒有帳號，我看不到你去過哪裡。'] },
+    { q: '換手機怎麼辦？', a: [
+      '在舊手機的設定按「匯出備份」，存到「檔案」或 AirDrop 給新手機，再到新手機的設定 › 資料 › 匯入足跡或備份，選那個檔。新手機裡原本的紀錄會整個換掉，換之前會先問。',
+      '備份裡有足跡、地點、印章，沒有畫好的圖。備份沒有加密，自己保管。',
+    ] },
+    { q: '怎麼全部刪掉？', a: ['設定 › 清除全部紀錄，按兩次。刪了救不回來，先匯出一份。'] },
+  ] },
+  { title: '小工具與鎖定畫面', qa: [
+    { q: '需要哪一版 iOS？', a: ['小工具和即時動態要 iOS 16.2 以上。'] },
+    { q: '小工具沒有更新？', a: ['打開一次洋蔥就會更新。即時動態最多留八小時，過了要打開 app 才會補上。'] },
+  ] },
+];
+
+const crumbsLd = breadcrumbSchema([
+  { name: '首頁', url: 'https://domyweb.org/' },
+  { name: '免費工具', url: 'https://domyweb.org/tools/' },
+  { name: '洋蔥支援', url: 'https://domyweb.org/tools/onion/support/' },
+]);
+---
+<BaseLayout
+  title="洋蔥支援 — Domyweb 多米"
+  description="洋蔥 iPhone app 的常見問題：怎麼開始記錄、定位權限、匯入以前的足跡、分享、離線地圖、換手機怎麼帶走紀錄，以及聯絡方式。"
+  pageType="支援頁"
+  current="tools"
+>
+  <script is:inline slot="head" type="application/ld+json" set:html={JSON.stringify(crumbsLd)} />
+  <article class="legal wrap">
+    <p class="eyebrow">// 支援 · iPhone App</p>
+    <h1>洋蔥支援</h1>
+    <p class="updated">洋蔥 · 常見問題與聯絡方式</p>
+
+    <div class="verdict contact">
+      <p class="v-q">聯絡我</p>
+      <p class="v-d">有問題寫信給我：<a href={`mailto:${EMAIL}`}>{EMAIL}</a></p>
+      <p class="v-d">寫信時順便告訴我 iPhone 型號和 iOS 版本，我比較好查。</p>
+    </div>
+
+    {GROUPS.map((g) => (
+      <section class="group">
+        <h2>{g.title}</h2>
+        {g.qa.map((item) => (
+          <div class="block">
+            <h3>{item.q}</h3>
+            {item.a.map((p) => item.privacyLink && p.includes('隱私權政策')
+              ? <p set:html={p.replace('隱私權政策', '<a href="/tools/onion/privacy/">隱私權政策</a>')} />
+              : <p>{p}</p>)}
+          </div>
+        ))}
+      </section>
+    ))}
+
+    <p class="related">
+      另見：<a href="/tools/onion/privacy/">洋蔥隱私權政策</a>
+    </p>
+  </article>
+</BaseLayout>
+
+<style>
+  .legal { max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+  .eyebrow { font-family: 'Special Elite', monospace; font-size: var(--t-label); letter-spacing: 2px; color: var(--terra-deep); margin-bottom: 10px; }
+  h1 { font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: clamp(28px, 4vw, 38px); margin-bottom: 8px; }
+  .updated { font-family: 'Special Elite', monospace; font-size: var(--t-label); line-height: 1.9; color: var(--ink-soft); margin-bottom: 32px; }
+
+  .group { margin-bottom: 44px; }
+  .group > h2 { font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: var(--t-h3); padding-bottom: 8px; border-bottom: 2px solid var(--ink); margin-bottom: 22px; }
+  .block { margin-bottom: 26px; }
+  .block h3 { font-family: 'Noto Serif TC', serif; font-weight: 700; font-size: var(--t-body); margin-bottom: 8px; }
+  .block a { color: var(--terra-deep); font-weight: 700; text-decoration: none; }
+  .block a:hover { text-decoration: underline; }
+  .block p { font-size: var(--t-ui); color: var(--ink-soft); line-height: 1.95; margin-bottom: 10px; }
+
+  .verdict { border: 2px solid var(--ink); border-radius: 12px; background: rgba(255,255,255,.55); padding: 22px 26px 20px; }
+  .verdict.contact { margin: 0 0 36px; }
+  .v-q { font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: var(--t-sub); margin-bottom: 8px; }
+  .v-d { font-size: var(--t-ui); color: var(--ink); line-height: 1.95; margin: 0 0 6px; }
+  .v-d:last-child { margin-bottom: 0; }
+  .verdict a, .related a { color: var(--terra-deep); font-weight: 700; text-decoration: none; }
+  .verdict a:hover, .related a:hover { text-decoration: underline; }
+  .related { margin-top: 22px; font-size: var(--t-ui); color: var(--ink-soft); }
+
+  @media (max-width: 600px) {
+    .legal { padding: 40px 20px 72px; }
+    .verdict { padding: 20px 18px 16px; }
+  }
+</style>

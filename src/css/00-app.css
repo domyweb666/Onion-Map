@@ -100,8 +100,9 @@
   .foot{margin:0;padding:0 var(--d-space-4);font:var(--d-footnote);color:var(--d-text-secondary)}
   .row{min-height:var(--d-size-row);display:flex;align-items:center;gap:var(--d-space-3);padding:var(--d-space-2) var(--d-space-4);
     width:100%;text-align:left;font:var(--d-body);color:var(--d-text-primary)}
-  button.row,label.row{cursor:pointer}
-  button.row:active,label.row:active{background:var(--d-surface-muted)}
+  button.row,label.row,a.row{cursor:pointer}
+  a.row{text-decoration:none}
+  button.row:active,label.row:active,a.row:active{background:var(--d-surface-muted)}
   .row .lbl{flex:1;min-width:4.5em}
   .row .val{color:var(--d-text-secondary);text-align:right;overflow-wrap:anywhere}
   .row.destructive .lbl{color:var(--d-destructive)}

@@ -1,3 +1,13 @@
+# 憑證與金鑰，repo 是公開的，一個都不准進來
+*.p8
+*.p12
+*.cer
+*.csr
+*.key
+*.pem
+*.mobileprovision
+*.keychain
+*.keychain-db
 node_modules/
 # npm run build 的產物之一，給 Capacitor 用；CI 會重新產生
 www/
