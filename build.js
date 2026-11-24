@@ -4,6 +4,10 @@
 // 用法：npm install && npm run build
 const fs = require('fs');
 let h = fs.readFileSync('src/index.src.html', 'utf8');
+// src/css、src/js 照檔名順序接成一份（全部在同一個全域範圍，不是 ES module；檔名前的數字就是先後）
+const join = dir => fs.readdirSync(dir).filter(n => /\.(js|css)$/.test(n)).sort().map(n => '/* ' + n + ' */\n' + fs.readFileSync(dir + '/' + n, 'utf8')).join('\n');
+h = h.split('/*@@APP_CSS@@*/').join(join('src/css'));
+h = h.split('/*@@APP_JS@@*/').join(join('src/js'));
 const put = (key, file) => {
   if (!h.includes(key)) throw new Error('src/index.src.html 裡找不到佔位符 ' + key);
   h = h.split(key).join(fs.readFileSync(file, 'utf8'));
@@ -13,8 +17,6 @@ put('/*@@H3_JS@@*/', 'node_modules/h3-js/dist/h3-js.umd.js');
 put('/*@@MAPLIBRE_JS@@*/', 'node_modules/maplibre-gl/dist/maplibre-gl.js');
 // Capacitor 的瀏覽器版橋接（約 9KB）。在網頁上只是個空殼；在 iOS app 裡接到原生 plugin。
 put('/*@@CAPACITOR_JS@@*/', 'node_modules/@capacitor/core/dist/capacitor.js');
-// Rough.js：手繪抖線與排線填色（草稿模式用，約 40KB）
-put('/*@@ROUGH_JS@@*/', 'node_modules/roughjs/bundled/rough.js');
 // Domy Design 的代號 → CSS 變數。介面只准用 var(--d-*)，數值的唯一來源是 vendor/domy-design/tokens.json
 // （改代號先跑 node tools/sync-domy-tokens.js，不要手改 CSS）
 const DOMY_THEME = 'gold';
@@ -55,11 +57,11 @@ const copyDir = (from, to) => {
   }
 };
 copyDir('fonts', 'www/fonts');
-if (fs.existsSync('assets/sprites')) copyDir('assets/sprites', 'www/assets/sprites'); // 貼紙（材質只有離線拼圖幅用，不進 app）
+copyDir('assets/app', 'www/assets/app'); // app 裡用的小圖（日卡的旗子、印章…）
 if (fs.existsSync('assets/admin')) copyDir('assets/admin', 'www/assets/admin'); // 行政區界線（製圖的探索度用）
 if (fs.existsSync('assets/frames')) { // 製圖用的邊框（只要 PNG；同名 json 是離線預覽用的）
   fs.mkdirSync('www/assets/frames', { recursive: true });
   for (const n of fs.readdirSync('assets/frames')) if (n.endsWith('.png')) fs.copyFileSync('assets/frames/' + n, 'www/assets/frames/' + n);
 }
-if (fs.existsSync('tiles')) copyDir('tiles', 'www/tiles'); // 畫好的圖幅切成的圖磚
+copyDir('tiles/taipei', 'www/tiles/taipei'); // 畫好的圖幅切成的圖磚（taipei-b 是程式拼貼的比較版，不進 app）
 console.log('index.html + www/index.html built,', h.length, 'bytes');

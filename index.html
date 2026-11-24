@@ -74,10 +74,9 @@ return maplibregl$1;
 var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.ExceptionCode||(e.ExceptionCode={})).Unimplemented="UNIMPLEMENTED",t.Unavailable="UNAVAILABLE";class n extends Error{constructor(e,t,n){super(e),this.message=e,this.code=t,this.data=n}}const s=t=>{const s=t.CapacitorCustomPlatform||null,r=t.Capacitor||{},i=r.Plugins=r.Plugins||{},a=()=>null!==s?s.name:(e=>{var t,n;return(null==e?void 0:e.androidBridge)?"android":(null===(n=null===(t=null==e?void 0:e.webkit)||void 0===t?void 0:t.messageHandlers)||void 0===n?void 0:n.bridge)?"ios":"web"})(t),o=e=>{var t;return null===(t=r.PluginHeaders)||void 0===t?void 0:t.find(t=>t.name===e)},c=new Map;return r.convertFileSrc||(r.convertFileSrc=e=>e),r.getPlatform=a,r.handleError=e=>t.console.error(e),r.isNativePlatform=()=>"web"!==a(),r.isPluginAvailable=e=>{const t=c.get(e);return!!(null==t?void 0:t.platforms.has(a()))||!!o(e)},r.registerPlugin=(t,l={})=>{const d=c.get(t);if(d)return console.warn(`Capacitor plugin "${t}" already registered. Cannot register plugins twice.`),d.proxy;const u=a(),p=o(t);let m;const h=i=>{let a;const o=(...o)=>{const c=(async()=>(!m&&u in l?m=m="function"==typeof l[u]?await l[u]():l[u]:null!==s&&!m&&"web"in l&&(m=m="function"==typeof l.web?await l.web():l.web),m))().then(s=>{const c=((s,i)=>{var a,o;if(!p){if(s)return null===(o=s[i])||void 0===o?void 0:o.bind(s);throw new n(`"${t}" plugin is not implemented on ${u}`,e.ExceptionCode.Unimplemented)}{const e=null==p?void 0:p.methods.find(e=>i===e.name);if(e)return"promise"===e.rtype?e=>r.nativePromise(t,i.toString(),e):(e,n)=>r.nativeCallback(t,i.toString(),e,n);if(s)return null===(a=s[i])||void 0===a?void 0:a.bind(s)}})(s,i);if(c){const e=c(...o);return a=null==e?void 0:e.remove,e}throw new n(`"${t}.${i}()" is not implemented on ${u}`,e.ExceptionCode.Unimplemented)});return"addListener"===i&&(c.remove=async()=>a()),c};return o.toString=()=>`${i.toString()}() { [capacitor code] }`,Object.defineProperty(o,"name",{value:i,writable:!1,configurable:!1}),o},w=h("addListener"),g=h("removeListener"),v=(e,t)=>{const n=w({eventName:e},t),s=async()=>{const s=await n;g({eventName:e,callbackId:s},t)},r=new Promise(e=>n.then(()=>e({remove:s})));return r.remove=async()=>{console.warn("Using addListener() without 'await' is deprecated."),await s()},r},y=new Proxy({},{get(e,t){switch(t){case"$$typeof":return;case"toJSON":return()=>({});case"addListener":return p?v:w;case"removeListener":return g;default:return h(t)}}});return i[t]=y,c.set(t,{name:t,proxy:y,platforms:new Set([...Object.keys(l),...p?[u]:[]])}),y},r.Exception=n,r.DEBUG=!!r.DEBUG,r.isLoggingEnabled=!!r.isLoggingEnabled,r},r=(e=>e.Capacitor=s(e))("undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:"undefined"!=typeof window?window:"undefined"!=typeof global?global:{}),i=r.registerPlugin;class a{constructor(){this.listeners={},this.retainedEventArguments={},this.windowListeners={}}addListener(e,t){let n=!1;this.listeners[e]||(this.listeners[e]=[],n=!0),this.listeners[e].push(t);const s=this.windowListeners[e];s&&!s.registered&&this.addWindowListener(s),n&&this.sendRetainedArgumentsForEvent(e);return Promise.resolve({remove:async()=>this.removeListener(e,t)})}async removeAllListeners(){this.listeners={};for(const e in this.windowListeners)this.removeWindowListener(this.windowListeners[e]);this.windowListeners={}}notifyListeners(e,t,n){const s=this.listeners[e];if(s)s.forEach(e=>e(t));else if(n){let n=this.retainedEventArguments[e];n||(n=[]),n.push(t),this.retainedEventArguments[e]=n}}hasListeners(e){var t;return!!(null===(t=this.listeners[e])||void 0===t?void 0:t.length)}registerWindowListener(e,t){this.windowListeners[t]={registered:!1,windowEventName:e,pluginEventName:t,handler:e=>{this.notifyListeners(t,e)}}}unimplemented(t="not implemented"){return new r.Exception(t,e.ExceptionCode.Unimplemented)}unavailable(t="not available"){return new r.Exception(t,e.ExceptionCode.Unavailable)}async removeListener(e,t){const n=this.listeners[e];if(!n)return;const s=n.indexOf(t);-1!==s&&this.listeners[e].splice(s,1),this.listeners[e].length||this.removeWindowListener(this.windowListeners[e])}addWindowListener(e){window.addEventListener(e.windowEventName,e.handler),e.registered=!0}removeWindowListener(e){e&&(window.removeEventListener(e.windowEventName,e.handler),e.registered=!1)}sendRetainedArgumentsForEvent(e){const t=this.retainedEventArguments[e];t&&(delete this.retainedEventArguments[e],t.forEach(t=>{this.notifyListeners(e,t)}))}}const o=i("WebView"),c=e=>encodeURIComponent(e).replace(/%(2[346B]|5E|60|7C)/g,decodeURIComponent).replace(/[()]/g,escape),l=e=>e.replace(/(%[\dA-F]{2})+/gi,decodeURIComponent);class d extends a{async getCookies(){const e=document.cookie,t={};return e.split(";").forEach(e=>{if(e.length<=0)return;let[n,s]=e.replace(/=/,"CAP_COOKIE").split("CAP_COOKIE");n=l(n).trim(),s=l(s).trim(),t[n]=s}),t}async setCookie(e){try{const t=c(e.key),n=c(e.value),s=e.expires?`; expires=${e.expires.replace("expires=","")}`:"",r=(e.path||"/").replace("path=",""),i=null!=e.url&&e.url.length>0?`domain=${e.url}`:"";document.cookie=`${t}=${n||""}${s}; path=${r}; ${i};`}catch(e){return Promise.reject(e)}}async deleteCookie(e){try{document.cookie=`${e.key}=; Max-Age=0`}catch(e){return Promise.reject(e)}}async clearCookies(){try{const e=document.cookie.split(";")||[];for(const t of e)document.cookie=t.replace(/^ +/,"").replace(/=.*/,`=;expires=${(new Date).toUTCString()};path=/`)}catch(e){return Promise.reject(e)}}async clearAllCookies(){try{await this.clearCookies()}catch(e){return Promise.reject(e)}}}const u=i("CapacitorCookies",{web:()=>new d}),p=(e,t={})=>{const n=Object.assign({method:e.method||"GET",headers:e.headers},t),s=((e={})=>{const t=Object.keys(e);return Object.keys(e).map(e=>e.toLocaleLowerCase()).reduce((n,s,r)=>(n[s]=e[t[r]],n),{})})(e.headers)["content-type"]||"";if("string"==typeof e.data)n.body=e.data;else if(s.includes("application/x-www-form-urlencoded")){const t=new URLSearchParams;for(const[n,s]of Object.entries(e.data||{}))t.set(n,s);n.body=t.toString()}else if(s.includes("multipart/form-data")||e.data instanceof FormData){const t=new FormData;if(e.data instanceof FormData)e.data.forEach((e,n)=>{t.append(n,e)});else for(const n of Object.keys(e.data))t.append(n,e.data[n]);n.body=t;const s=new Headers(n.headers);s.delete("content-type"),n.headers=s}else(s.includes("application/json")||"object"==typeof e.data)&&(n.body=JSON.stringify(e.data));return n};class m extends a{async request(e){const t=p(e,e.webFetchExtra),n=((e,t=!0)=>e?Object.entries(e).reduce((e,n)=>{const[s,r]=n;let i,a;return Array.isArray(r)?(a="",r.forEach(e=>{i=t?encodeURIComponent(e):e,a+=`${s}=${i}&`}),a.slice(0,-1)):(i=t?encodeURIComponent(r):r,a=`${s}=${i}`),`${e}&${a}`},"").substr(1):null)(e.params,e.shouldEncodeUrlParams),s=n?`${e.url}?${n}`:e.url,r=await fetch(s,t),i=r.headers.get("content-type")||"";let a,o,{responseType:c="text"}=r.ok?e:{};switch(i.includes("application/json")&&(c="json"),c){case"arraybuffer":case"blob":o=await r.blob(),a=await(async e=>new Promise((t,n)=>{const s=new FileReader;s.onload=()=>{const e=s.result;t(e.indexOf(",")>=0?e.split(",")[1]:e)},s.onerror=e=>n(e),s.readAsDataURL(e)}))(o);break;case"json":a=await r.json();break;default:a=await r.text()}const l={};return r.headers.forEach((e,t)=>{l[t]=e}),{data:a,headers:l,status:r.status,url:r.url}}async get(e){return this.request(Object.assign(Object.assign({},e),{method:"GET"}))}async post(e){return this.request(Object.assign(Object.assign({},e),{method:"POST"}))}async put(e){return this.request(Object.assign(Object.assign({},e),{method:"PUT"}))}async patch(e){return this.request(Object.assign(Object.assign({},e),{method:"PATCH"}))}async delete(e){return this.request(Object.assign(Object.assign({},e),{method:"DELETE"}))}}const h=i("CapacitorHttp",{web:()=>new m});var w,g;e.SystemBarsStyle=void 0,(w=e.SystemBarsStyle||(e.SystemBarsStyle={})).Dark="DARK",w.Light="LIGHT",w.Default="DEFAULT",e.SystemBarType=void 0,(g=e.SystemBarType||(e.SystemBarType={})).StatusBar="StatusBar",g.NavigationBar="NavigationBar";class v extends a{async setStyle(){this.unavailable("not available for web")}async setAnimation(){this.unavailable("not available for web")}async show(){this.unavailable("not available for web")}async hide(){this.unavailable("not available for web")}}const y=i("SystemBars",{web:()=>new v});return e.Capacitor=r,e.CapacitorCookies=u,e.CapacitorException=n,e.CapacitorHttp=h,e.SystemBars=y,e.WebPlugin=a,e.WebView=o,e.buildRequestInit=p,e.registerPlugin=i,Object.defineProperty(e,"__esModule",{value:!0}),e}({});
 //# sourceMappingURL=capacitor.js.map
 </script>
-<script>var rough=function(){"use strict";function t(t,e,s){if(t&&t.length){const[n,o]=e,a=Math.PI/180*s,h=Math.cos(a),r=Math.sin(a);for(const e of t){const[t,s]=e;e[0]=(t-n)*h-(s-o)*r+n,e[1]=(t-n)*r+(s-o)*h+o}}}function e(t,e){return t[0]===e[0]&&t[1]===e[1]}function s(s,n,o,a=1){const h=o,r=Math.max(n,.1),i=s[0]&&s[0][0]&&"number"==typeof s[0][0]?[s]:s,c=[0,0];if(h)for(const e of i)t(e,c,h);const l=function(t,s,n){const o=[];for(const s of t){const t=[...s];e(t[0],t[t.length-1])||t.push([t[0][0],t[0][1]]),t.length>2&&o.push(t)}const a=[];s=Math.max(s,.1);const h=[];for(const t of o)for(let e=0;e<t.length-1;e++){const s=t[e],n=t[e+1];if(s[1]!==n[1]){const t=Math.min(s[1],n[1]);h.push({ymin:t,ymax:Math.max(s[1],n[1]),x:t===s[1]?s[0]:n[0],islope:(n[0]-s[0])/(n[1]-s[1])})}}if(h.sort(((t,e)=>t.ymin<e.ymin?-1:t.ymin>e.ymin?1:t.x<e.x?-1:t.x>e.x?1:t.ymax===e.ymax?0:(t.ymax-e.ymax)/Math.abs(t.ymax-e.ymax))),!h.length)return a;let r=[],i=h[0].ymin,c=0;for(;r.length||h.length;){if(h.length){let t=-1;for(let e=0;e<h.length&&!(h[e].ymin>i);e++)t=e;h.splice(0,t+1).forEach((t=>{r.push({s:i,edge:t})}))}if(r=r.filter((t=>!(t.edge.ymax<=i))),r.sort(((t,e)=>t.edge.x===e.edge.x?0:(t.edge.x-e.edge.x)/Math.abs(t.edge.x-e.edge.x))),(1!==n||c%s==0)&&r.length>1)for(let t=0;t<r.length;t+=2){const e=t+1;if(e>=r.length)break;const s=r[t].edge,n=r[e].edge;a.push([[Math.round(s.x),i],[Math.round(n.x),i]])}i+=n,r.forEach((t=>{t.edge.x=t.edge.x+n*t.edge.islope})),c++}return a}(i,r,a);if(h){for(const e of i)t(e,c,-h);!function(e,s,n){const o=[];e.forEach((t=>o.push(...t))),t(o,s,n)}(l,c,-h)}return l}function n(t,e){var n;const o=e.hachureAngle+90;let a=e.hachureGap;a<0&&(a=4*e.strokeWidth),a=Math.round(Math.max(a,.1));let h=1;return e.roughness>=1&&((null===(n=e.randomizer)||void 0===n?void 0:n.next())||Math.random())>.7&&(h=a),s(t,a,o,h||1)}class o{constructor(t){this.helper=t}fillPolygons(t,e){return this._fillPolygons(t,e)}_fillPolygons(t,e){const s=n(t,e);return{type:"fillSketch",ops:this.renderLines(s,e)}}renderLines(t,e){const s=[];for(const n of t)s.push(...this.helper.doubleLineOps(n[0][0],n[0][1],n[1][0],n[1][1],e));return s}}function a(t){const e=t[0],s=t[1];return Math.sqrt(Math.pow(e[0]-s[0],2)+Math.pow(e[1]-s[1],2))}class h extends o{fillPolygons(t,e){let s=e.hachureGap;s<0&&(s=4*e.strokeWidth),s=Math.max(s,.1);const o=n(t,Object.assign({},e,{hachureGap:s})),h=Math.PI/180*e.hachureAngle,r=[],i=.5*s*Math.cos(h),c=.5*s*Math.sin(h);for(const[t,e]of o)a([t,e])&&r.push([[t[0]-i,t[1]+c],[...e]],[[t[0]+i,t[1]-c],[...e]]);return{type:"fillSketch",ops:this.renderLines(r,e)}}}class r extends o{fillPolygons(t,e){const s=this._fillPolygons(t,e),n=Object.assign({},e,{hachureAngle:e.hachureAngle+90}),o=this._fillPolygons(t,n);return s.ops=s.ops.concat(o.ops),s}}class i{constructor(t){this.helper=t}fillPolygons(t,e){const s=n(t,e=Object.assign({},e,{hachureAngle:0}));return this.dotsOnLines(s,e)}dotsOnLines(t,e){const s=[];let n=e.hachureGap;n<0&&(n=4*e.strokeWidth),n=Math.max(n,.1);let o=e.fillWeight;o<0&&(o=e.strokeWidth/2);const h=n/4;for(const r of t){const t=a(r),i=t/n,c=Math.ceil(i)-1,l=t-c*n,u=(r[0][0]+r[1][0])/2-n/4,p=Math.min(r[0][1],r[1][1]);for(let t=0;t<c;t++){const a=p+l+t*n,r=u-h+2*Math.random()*h,i=a-h+2*Math.random()*h,c=this.helper.ellipse(r,i,o,o,e);s.push(...c.ops)}}return{type:"fillSketch",ops:s}}}class c{constructor(t){this.helper=t}fillPolygons(t,e){const s=n(t,e);return{type:"fillSketch",ops:this.dashedLine(s,e)}}dashedLine(t,e){const s=e.dashOffset<0?e.hachureGap<0?4*e.strokeWidth:e.hachureGap:e.dashOffset,n=e.dashGap<0?e.hachureGap<0?4*e.strokeWidth:e.hachureGap:e.dashGap,o=[];return t.forEach((t=>{const h=a(t),r=Math.floor(h/(s+n)),i=(h+n-r*(s+n))/2;let c=t[0],l=t[1];c[0]>l[0]&&(c=t[1],l=t[0]);const u=Math.atan((l[1]-c[1])/(l[0]-c[0]));for(let t=0;t<r;t++){const a=t*(s+n),h=a+s,r=[c[0]+a*Math.cos(u)+i*Math.cos(u),c[1]+a*Math.sin(u)+i*Math.sin(u)],l=[c[0]+h*Math.cos(u)+i*Math.cos(u),c[1]+h*Math.sin(u)+i*Math.sin(u)];o.push(...this.helper.doubleLineOps(r[0],r[1],l[0],l[1],e))}})),o}}class l{constructor(t){this.helper=t}fillPolygons(t,e){const s=e.hachureGap<0?4*e.strokeWidth:e.hachureGap,o=e.zigzagOffset<0?s:e.zigzagOffset,a=n(t,e=Object.assign({},e,{hachureGap:s+o}));return{type:"fillSketch",ops:this.zigzagLines(a,o,e)}}zigzagLines(t,e,s){const n=[];return t.forEach((t=>{const o=a(t),h=Math.round(o/(2*e));let r=t[0],i=t[1];r[0]>i[0]&&(r=t[1],i=t[0]);const c=Math.atan((i[1]-r[1])/(i[0]-r[0]));for(let t=0;t<h;t++){const o=2*t*e,a=2*(t+1)*e,h=Math.sqrt(2*Math.pow(e,2)),i=[r[0]+o*Math.cos(c),r[1]+o*Math.sin(c)],l=[r[0]+a*Math.cos(c),r[1]+a*Math.sin(c)],u=[i[0]+h*Math.cos(c+Math.PI/4),i[1]+h*Math.sin(c+Math.PI/4)];n.push(...this.helper.doubleLineOps(i[0],i[1],u[0],u[1],s),...this.helper.doubleLineOps(u[0],u[1],l[0],l[1],s))}})),n}}const u={};class p{constructor(t){this.seed=t}next(){return this.seed?(2**31-1&(this.seed=Math.imul(48271,this.seed)))/2**31:Math.random()}}const f=0,d=1,g=2,M={A:7,a:7,C:6,c:6,H:1,h:1,L:2,l:2,M:2,m:2,Q:4,q:4,S:4,s:4,T:2,t:2,V:1,v:1,Z:0,z:0};function k(t,e){return t.type===e}function b(t){const e=[],s=function(t){const e=new Array;for(;""!==t;)if(t.match(/^([ \t\r\n,]+)/))t=t.substr(RegExp.$1.length);else if(t.match(/^([aAcChHlLmMqQsStTvVzZ])/))e[e.length]={type:f,text:RegExp.$1},t=t.substr(RegExp.$1.length);else{if(!t.match(/^(([-+]?[0-9]+(\.[0-9]*)?|[-+]?\.[0-9]+)([eE][-+]?[0-9]+)?)/))return[];e[e.length]={type:d,text:`${parseFloat(RegExp.$1)}`},t=t.substr(RegExp.$1.length)}return e[e.length]={type:g,text:""},e}(t);let n="BOD",o=0,a=s[o];for(;!k(a,g);){let h=0;const r=[];if("BOD"===n){if("M"!==a.text&&"m"!==a.text)return b("M0,0"+t);o++,h=M[a.text],n=a.text}else k(a,d)?h=M[n]:(o++,h=M[a.text],n=a.text);if(!(o+h<s.length))throw new Error("Path data ended short");for(let t=o;t<o+h;t++){const e=s[t];if(!k(e,d))throw new Error("Param not a number: "+n+","+e.text);r[r.length]=+e.text}if("number"!=typeof M[n])throw new Error("Bad segment: "+n);{const t={key:n,data:r};e.push(t),o+=h,a=s[o],"M"===n&&(n="L"),"m"===n&&(n="l")}}return e}function y(t){let e=0,s=0,n=0,o=0;const a=[];for(const{key:h,data:r}of t)switch(h){case"M":a.push({key:"M",data:[...r]}),[e,s]=r,[n,o]=r;break;case"m":e+=r[0],s+=r[1],a.push({key:"M",data:[e,s]}),n=e,o=s;break;case"L":a.push({key:"L",data:[...r]}),[e,s]=r;break;case"l":e+=r[0],s+=r[1],a.push({key:"L",data:[e,s]});break;case"C":a.push({key:"C",data:[...r]}),e=r[4],s=r[5];break;case"c":{const t=r.map(((t,n)=>n%2?t+s:t+e));a.push({key:"C",data:t}),e=t[4],s=t[5];break}case"Q":a.push({key:"Q",data:[...r]}),e=r[2],s=r[3];break;case"q":{const t=r.map(((t,n)=>n%2?t+s:t+e));a.push({key:"Q",data:t}),e=t[2],s=t[3];break}case"A":a.push({key:"A",data:[...r]}),e=r[5],s=r[6];break;case"a":e+=r[5],s+=r[6],a.push({key:"A",data:[r[0],r[1],r[2],r[3],r[4],e,s]});break;case"H":a.push({key:"H",data:[...r]}),e=r[0];break;case"h":e+=r[0],a.push({key:"H",data:[e]});break;case"V":a.push({key:"V",data:[...r]}),s=r[0];break;case"v":s+=r[0],a.push({key:"V",data:[s]});break;case"S":a.push({key:"S",data:[...r]}),e=r[2],s=r[3];break;case"s":{const t=r.map(((t,n)=>n%2?t+s:t+e));a.push({key:"S",data:t}),e=t[2],s=t[3];break}case"T":a.push({key:"T",data:[...r]}),e=r[0],s=r[1];break;case"t":e+=r[0],s+=r[1],a.push({key:"T",data:[e,s]});break;case"Z":case"z":a.push({key:"Z",data:[]}),e=n,s=o}return a}function m(t){const e=[];let s="",n=0,o=0,a=0,h=0,r=0,i=0;for(const{key:c,data:l}of t){switch(c){case"M":e.push({key:"M",data:[...l]}),[n,o]=l,[a,h]=l;break;case"C":e.push({key:"C",data:[...l]}),n=l[4],o=l[5],r=l[2],i=l[3];break;case"L":e.push({key:"L",data:[...l]}),[n,o]=l;break;case"H":n=l[0],e.push({key:"L",data:[n,o]});break;case"V":o=l[0],e.push({key:"L",data:[n,o]});break;case"S":{let t=0,a=0;"C"===s||"S"===s?(t=n+(n-r),a=o+(o-i)):(t=n,a=o),e.push({key:"C",data:[t,a,...l]}),r=l[0],i=l[1],n=l[2],o=l[3];break}case"T":{const[t,a]=l;let h=0,c=0;"Q"===s||"T"===s?(h=n+(n-r),c=o+(o-i)):(h=n,c=o);const u=n+2*(h-n)/3,p=o+2*(c-o)/3,f=t+2*(h-t)/3,d=a+2*(c-a)/3;e.push({key:"C",data:[u,p,f,d,t,a]}),r=h,i=c,n=t,o=a;break}case"Q":{const[t,s,a,h]=l,c=n+2*(t-n)/3,u=o+2*(s-o)/3,p=a+2*(t-a)/3,f=h+2*(s-h)/3;e.push({key:"C",data:[c,u,p,f,a,h]}),r=t,i=s,n=a,o=h;break}case"A":{const t=Math.abs(l[0]),s=Math.abs(l[1]),a=l[2],h=l[3],r=l[4],i=l[5],c=l[6];if(0===t||0===s)e.push({key:"C",data:[n,o,i,c,i,c]}),n=i,o=c;else if(n!==i||o!==c){x(n,o,i,c,t,s,a,h,r).forEach((function(t){e.push({key:"C",data:t})})),n=i,o=c}break}case"Z":e.push({key:"Z",data:[]}),n=a,o=h}s=c}return e}function w(t,e,s){return[t*Math.cos(s)-e*Math.sin(s),t*Math.sin(s)+e*Math.cos(s)]}function x(t,e,s,n,o,a,h,r,i,c){const l=(u=h,Math.PI*u/180);var u;let p=[],f=0,d=0,g=0,M=0;if(c)[f,d,g,M]=c;else{[t,e]=w(t,e,-l),[s,n]=w(s,n,-l);const h=(t-s)/2,c=(e-n)/2;let u=h*h/(o*o)+c*c/(a*a);u>1&&(u=Math.sqrt(u),o*=u,a*=u);const p=o*o,k=a*a,b=p*k-p*c*c-k*h*h,y=p*c*c+k*h*h,m=(r===i?-1:1)*Math.sqrt(Math.abs(b/y));g=m*o*c/a+(t+s)/2,M=m*-a*h/o+(e+n)/2,f=Math.asin(parseFloat(((e-M)/a).toFixed(9))),d=Math.asin(parseFloat(((n-M)/a).toFixed(9))),t<g&&(f=Math.PI-f),s<g&&(d=Math.PI-d),f<0&&(f=2*Math.PI+f),d<0&&(d=2*Math.PI+d),i&&f>d&&(f-=2*Math.PI),!i&&d>f&&(d-=2*Math.PI)}let k=d-f;if(Math.abs(k)>120*Math.PI/180){const t=d,e=s,r=n;d=i&&d>f?f+120*Math.PI/180*1:f+120*Math.PI/180*-1,p=x(s=g+o*Math.cos(d),n=M+a*Math.sin(d),e,r,o,a,h,0,i,[d,t,g,M])}k=d-f;const b=Math.cos(f),y=Math.sin(f),m=Math.cos(d),P=Math.sin(d),v=Math.tan(k/4),S=4/3*o*v,O=4/3*a*v,L=[t,e],T=[t+S*y,e-O*b],D=[s+S*P,n-O*m],A=[s,n];if(T[0]=2*L[0]-T[0],T[1]=2*L[1]-T[1],c)return[T,D,A].concat(p);{p=[T,D,A].concat(p);const t=[];for(let e=0;e<p.length;e+=3){const s=w(p[e][0],p[e][1],l),n=w(p[e+1][0],p[e+1][1],l),o=w(p[e+2][0],p[e+2][1],l);t.push([s[0],s[1],n[0],n[1],o[0],o[1]])}return t}}const P={randOffset:function(t,e){return G(t,e)},randOffsetWithRange:function(t,e,s){return E(t,e,s)},ellipse:function(t,e,s,n,o){const a=T(s,n,o);return D(t,e,o,a).opset},doubleLineOps:function(t,e,s,n,o){return $(t,e,s,n,o,!0)}};function v(t,e,s,n,o){return{type:"path",ops:$(t,e,s,n,o)}}function S(t,e,s){const n=(t||[]).length;if(n>2){const o=[];for(let e=0;e<n-1;e++)o.push(...$(t[e][0],t[e][1],t[e+1][0],t[e+1][1],s));return e&&o.push(...$(t[n-1][0],t[n-1][1],t[0][0],t[0][1],s)),{type:"path",ops:o}}return 2===n?v(t[0][0],t[0][1],t[1][0],t[1][1],s):{type:"path",ops:[]}}function O(t,e,s,n,o){return function(t,e){return S(t,!0,e)}([[t,e],[t+s,e],[t+s,e+n],[t,e+n]],o)}function L(t,e){if(t.length){const s="number"==typeof t[0][0]?[t]:t,n=j(s[0],1*(1+.2*e.roughness),e),o=e.disableMultiStroke?[]:j(s[0],1.5*(1+.22*e.roughness),z(e));for(let t=1;t<s.length;t++){const a=s[t];if(a.length){const t=j(a,1*(1+.2*e.roughness),e),s=e.disableMultiStroke?[]:j(a,1.5*(1+.22*e.roughness),z(e));for(const e of t)"move"!==e.op&&n.push(e);for(const t of s)"move"!==t.op&&o.push(t)}}return{type:"path",ops:n.concat(o)}}return{type:"path",ops:[]}}function T(t,e,s){const n=Math.sqrt(2*Math.PI*Math.sqrt((Math.pow(t/2,2)+Math.pow(e/2,2))/2)),o=Math.ceil(Math.max(s.curveStepCount,s.curveStepCount/Math.sqrt(200)*n)),a=2*Math.PI/o;let h=Math.abs(t/2),r=Math.abs(e/2);const i=1-s.curveFitting;return h+=G(h*i,s),r+=G(r*i,s),{increment:a,rx:h,ry:r}}function D(t,e,s,n){const[o,a]=F(n.increment,t,e,n.rx,n.ry,1,n.increment*E(.1,E(.4,1,s),s),s);let h=q(o,null,s);if(!s.disableMultiStroke&&0!==s.roughness){const[o]=F(n.increment,t,e,n.rx,n.ry,1.5,0,s),a=q(o,null,s);h=h.concat(a)}return{estimatedPoints:a,opset:{type:"path",ops:h}}}function A(t,e,s,n,o,a,h,r,i){const c=t,l=e;let u=Math.abs(s/2),p=Math.abs(n/2);u+=G(.01*u,i),p+=G(.01*p,i);let f=o,d=a;for(;f<0;)f+=2*Math.PI,d+=2*Math.PI;d-f>2*Math.PI&&(f=0,d=2*Math.PI);const g=2*Math.PI/i.curveStepCount,M=Math.min(g/2,(d-f)/2),k=V(M,c,l,u,p,f,d,1,i);if(!i.disableMultiStroke){const t=V(M,c,l,u,p,f,d,1.5,i);k.push(...t)}return h&&(r?k.push(...$(c,l,c+u*Math.cos(f),l+p*Math.sin(f),i),...$(c,l,c+u*Math.cos(d),l+p*Math.sin(d),i)):k.push({op:"lineTo",data:[c,l]},{op:"lineTo",data:[c+u*Math.cos(f),l+p*Math.sin(f)]})),{type:"path",ops:k}}function _(t,e){const s=m(y(b(t))),n=[];let o=[0,0],a=[0,0];for(const{key:t,data:h}of s)switch(t){case"M":a=[h[0],h[1]],o=[h[0],h[1]];break;case"L":n.push(...$(a[0],a[1],h[0],h[1],e)),a=[h[0],h[1]];break;case"C":{const[t,s,o,r,i,c]=h;n.push(...Z(t,s,o,r,i,c,a,e)),a=[i,c];break}case"Z":n.push(...$(a[0],a[1],o[0],o[1],e)),a=[o[0],o[1]]}return{type:"path",ops:n}}function I(t,e){const s=[];for(const n of t)if(n.length){const t=e.maxRandomnessOffset||0,o=n.length;if(o>2){s.push({op:"move",data:[n[0][0]+G(t,e),n[0][1]+G(t,e)]});for(let a=1;a<o;a++)s.push({op:"lineTo",data:[n[a][0]+G(t,e),n[a][1]+G(t,e)]})}}return{type:"fillPath",ops:s}}function C(t,e){return function(t,e){let s=t.fillStyle||"hachure";if(!u[s])switch(s){case"zigzag":u[s]||(u[s]=new h(e));break;case"cross-hatch":u[s]||(u[s]=new r(e));break;case"dots":u[s]||(u[s]=new i(e));break;case"dashed":u[s]||(u[s]=new c(e));break;case"zigzag-line":u[s]||(u[s]=new l(e));break;default:s="hachure",u[s]||(u[s]=new o(e))}return u[s]}(e,P).fillPolygons(t,e)}function z(t){const e=Object.assign({},t);return e.randomizer=void 0,t.seed&&(e.seed=t.seed+1),e}function W(t){return t.randomizer||(t.randomizer=new p(t.seed||0)),t.randomizer.next()}function E(t,e,s,n=1){return s.roughness*n*(W(s)*(e-t)+t)}function G(t,e,s=1){return E(-t,t,e,s)}function $(t,e,s,n,o,a=!1){const h=a?o.disableMultiStrokeFill:o.disableMultiStroke,r=R(t,e,s,n,o,!0,!1);if(h)return r;const i=R(t,e,s,n,o,!0,!0);return r.concat(i)}function R(t,e,s,n,o,a,h){const r=Math.pow(t-s,2)+Math.pow(e-n,2),i=Math.sqrt(r);let c=1;c=i<200?1:i>500?.4:-.0016668*i+1.233334;let l=o.maxRandomnessOffset||0;l*l*100>r&&(l=i/10);const u=l/2,p=.2+.2*W(o);let f=o.bowing*o.maxRandomnessOffset*(n-e)/200,d=o.bowing*o.maxRandomnessOffset*(t-s)/200;f=G(f,o,c),d=G(d,o,c);const g=[],M=()=>G(u,o,c),k=()=>G(l,o,c),b=o.preserveVertices;return a&&(h?g.push({op:"move",data:[t+(b?0:M()),e+(b?0:M())]}):g.push({op:"move",data:[t+(b?0:G(l,o,c)),e+(b?0:G(l,o,c))]})),h?g.push({op:"bcurveTo",data:[f+t+(s-t)*p+M(),d+e+(n-e)*p+M(),f+t+2*(s-t)*p+M(),d+e+2*(n-e)*p+M(),s+(b?0:M()),n+(b?0:M())]}):g.push({op:"bcurveTo",data:[f+t+(s-t)*p+k(),d+e+(n-e)*p+k(),f+t+2*(s-t)*p+k(),d+e+2*(n-e)*p+k(),s+(b?0:k()),n+(b?0:k())]}),g}function j(t,e,s){if(!t.length)return[];const n=[];n.push([t[0][0]+G(e,s),t[0][1]+G(e,s)]),n.push([t[0][0]+G(e,s),t[0][1]+G(e,s)]);for(let o=1;o<t.length;o++)n.push([t[o][0]+G(e,s),t[o][1]+G(e,s)]),o===t.length-1&&n.push([t[o][0]+G(e,s),t[o][1]+G(e,s)]);return q(n,null,s)}function q(t,e,s){const n=t.length,o=[];if(n>3){const a=[],h=1-s.curveTightness;o.push({op:"move",data:[t[1][0],t[1][1]]});for(let e=1;e+2<n;e++){const s=t[e];a[0]=[s[0],s[1]],a[1]=[s[0]+(h*t[e+1][0]-h*t[e-1][0])/6,s[1]+(h*t[e+1][1]-h*t[e-1][1])/6],a[2]=[t[e+1][0]+(h*t[e][0]-h*t[e+2][0])/6,t[e+1][1]+(h*t[e][1]-h*t[e+2][1])/6],a[3]=[t[e+1][0],t[e+1][1]],o.push({op:"bcurveTo",data:[a[1][0],a[1][1],a[2][0],a[2][1],a[3][0],a[3][1]]})}if(e&&2===e.length){const t=s.maxRandomnessOffset;o.push({op:"lineTo",data:[e[0]+G(t,s),e[1]+G(t,s)]})}}else 3===n?(o.push({op:"move",data:[t[1][0],t[1][1]]}),o.push({op:"bcurveTo",data:[t[1][0],t[1][1],t[2][0],t[2][1],t[2][0],t[2][1]]})):2===n&&o.push(...R(t[0][0],t[0][1],t[1][0],t[1][1],s,!0,!0));return o}function F(t,e,s,n,o,a,h,r){const i=[],c=[];if(0===r.roughness){t/=4,c.push([e+n*Math.cos(-t),s+o*Math.sin(-t)]);for(let a=0;a<=2*Math.PI;a+=t){const t=[e+n*Math.cos(a),s+o*Math.sin(a)];i.push(t),c.push(t)}c.push([e+n*Math.cos(0),s+o*Math.sin(0)]),c.push([e+n*Math.cos(t),s+o*Math.sin(t)])}else{const l=G(.5,r)-Math.PI/2;c.push([G(a,r)+e+.9*n*Math.cos(l-t),G(a,r)+s+.9*o*Math.sin(l-t)]);const u=2*Math.PI+l-.01;for(let h=l;h<u;h+=t){const t=[G(a,r)+e+n*Math.cos(h),G(a,r)+s+o*Math.sin(h)];i.push(t),c.push(t)}c.push([G(a,r)+e+n*Math.cos(l+2*Math.PI+.5*h),G(a,r)+s+o*Math.sin(l+2*Math.PI+.5*h)]),c.push([G(a,r)+e+.98*n*Math.cos(l+h),G(a,r)+s+.98*o*Math.sin(l+h)]),c.push([G(a,r)+e+.9*n*Math.cos(l+.5*h),G(a,r)+s+.9*o*Math.sin(l+.5*h)])}return[c,i]}function V(t,e,s,n,o,a,h,r,i){const c=a+G(.1,i),l=[];l.push([G(r,i)+e+.9*n*Math.cos(c-t),G(r,i)+s+.9*o*Math.sin(c-t)]);for(let a=c;a<=h;a+=t)l.push([G(r,i)+e+n*Math.cos(a),G(r,i)+s+o*Math.sin(a)]);return l.push([e+n*Math.cos(h),s+o*Math.sin(h)]),l.push([e+n*Math.cos(h),s+o*Math.sin(h)]),q(l,null,i)}function Z(t,e,s,n,o,a,h,r){const i=[],c=[r.maxRandomnessOffset||1,(r.maxRandomnessOffset||1)+.3];let l=[0,0];const u=r.disableMultiStroke?1:2,p=r.preserveVertices;for(let f=0;f<u;f++)0===f?i.push({op:"move",data:[h[0],h[1]]}):i.push({op:"move",data:[h[0]+(p?0:G(c[0],r)),h[1]+(p?0:G(c[0],r))]}),l=p?[o,a]:[o+G(c[f],r),a+G(c[f],r)],i.push({op:"bcurveTo",data:[t+G(c[f],r),e+G(c[f],r),s+G(c[f],r),n+G(c[f],r),l[0],l[1]]});return i}function Q(t){return[...t]}function H(t,e=0){const s=t.length;if(s<3)throw new Error("A curve must have at least three points.");const n=[];if(3===s)n.push(Q(t[0]),Q(t[1]),Q(t[2]),Q(t[2]));else{const s=[];s.push(t[0],t[0]);for(let e=1;e<t.length;e++)s.push(t[e]),e===t.length-1&&s.push(t[e]);const o=[],a=1-e;n.push(Q(s[0]));for(let t=1;t+2<s.length;t++){const e=s[t];o[0]=[e[0],e[1]],o[1]=[e[0]+(a*s[t+1][0]-a*s[t-1][0])/6,e[1]+(a*s[t+1][1]-a*s[t-1][1])/6],o[2]=[s[t+1][0]+(a*s[t][0]-a*s[t+2][0])/6,s[t+1][1]+(a*s[t][1]-a*s[t+2][1])/6],o[3]=[s[t+1][0],s[t+1][1]],n.push(o[1],o[2],o[3])}}return n}function N(t,e){return Math.pow(t[0]-e[0],2)+Math.pow(t[1]-e[1],2)}function B(t,e,s){const n=N(e,s);if(0===n)return N(t,e);let o=((t[0]-e[0])*(s[0]-e[0])+(t[1]-e[1])*(s[1]-e[1]))/n;return o=Math.max(0,Math.min(1,o)),N(t,J(e,s,o))}function J(t,e,s){return[t[0]+(e[0]-t[0])*s,t[1]+(e[1]-t[1])*s]}function K(t,e,s,n){const o=n||[];if(function(t,e){const s=t[e+0],n=t[e+1],o=t[e+2],a=t[e+3];let h=3*n[0]-2*s[0]-a[0];h*=h;let r=3*n[1]-2*s[1]-a[1];r*=r;let i=3*o[0]-2*a[0]-s[0];i*=i;let c=3*o[1]-2*a[1]-s[1];return c*=c,h<i&&(h=i),r<c&&(r=c),h+r}(t,e)<s){const s=t[e+0];if(o.length){(a=o[o.length-1],h=s,Math.sqrt(N(a,h)))>1&&o.push(s)}else o.push(s);o.push(t[e+3])}else{const n=.5,a=t[e+0],h=t[e+1],r=t[e+2],i=t[e+3],c=J(a,h,n),l=J(h,r,n),u=J(r,i,n),p=J(c,l,n),f=J(l,u,n),d=J(p,f,n);K([a,c,p,d],0,s,o),K([d,f,u,i],0,s,o)}var a,h;return o}function U(t,e){return X(t,0,t.length,e)}function X(t,e,s,n,o){const a=o||[],h=t[e],r=t[s-1];let i=0,c=1;for(let n=e+1;n<s-1;++n){const e=B(t[n],h,r);e>i&&(i=e,c=n)}return Math.sqrt(i)>n?(X(t,e,c+1,n,a),X(t,c,s,n,a)):(a.length||a.push(h),a.push(r)),a}function Y(t,e=.15,s){const n=[],o=(t.length-1)/3;for(let s=0;s<o;s++){K(t,3*s,e,n)}return s&&s>0?X(n,0,n.length,s):n}const tt="none";class et{constructor(t){this.defaultOptions={maxRandomnessOffset:2,roughness:1,bowing:1,stroke:"#000",strokeWidth:1,curveTightness:0,curveFitting:.95,curveStepCount:9,fillStyle:"hachure",fillWeight:-1,hachureAngle:-41,hachureGap:-1,dashOffset:-1,dashGap:-1,zigzagOffset:-1,seed:0,disableMultiStroke:!1,disableMultiStrokeFill:!1,preserveVertices:!1,fillShapeRoughnessGain:.8},this.config=t||{},this.config.options&&(this.defaultOptions=this._o(this.config.options))}static newSeed(){return Math.floor(Math.random()*2**31)}_o(t){return t?Object.assign({},this.defaultOptions,t):this.defaultOptions}_d(t,e,s){return{shape:t,sets:e||[],options:s||this.defaultOptions}}line(t,e,s,n,o){const a=this._o(o);return this._d("line",[v(t,e,s,n,a)],a)}rectangle(t,e,s,n,o){const a=this._o(o),h=[],r=O(t,e,s,n,a);if(a.fill){const o=[[t,e],[t+s,e],[t+s,e+n],[t,e+n]];"solid"===a.fillStyle?h.push(I([o],a)):h.push(C([o],a))}return a.stroke!==tt&&h.push(r),this._d("rectangle",h,a)}ellipse(t,e,s,n,o){const a=this._o(o),h=[],r=T(s,n,a),i=D(t,e,a,r);if(a.fill)if("solid"===a.fillStyle){const s=D(t,e,a,r).opset;s.type="fillPath",h.push(s)}else h.push(C([i.estimatedPoints],a));return a.stroke!==tt&&h.push(i.opset),this._d("ellipse",h,a)}circle(t,e,s,n){const o=this.ellipse(t,e,s,s,n);return o.shape="circle",o}linearPath(t,e){const s=this._o(e);return this._d("linearPath",[S(t,!1,s)],s)}arc(t,e,s,n,o,a,h=!1,r){const i=this._o(r),c=[],l=A(t,e,s,n,o,a,h,!0,i);if(h&&i.fill)if("solid"===i.fillStyle){const h=Object.assign({},i);h.disableMultiStroke=!0;const r=A(t,e,s,n,o,a,!0,!1,h);r.type="fillPath",c.push(r)}else c.push(function(t,e,s,n,o,a,h){const r=t,i=e;let c=Math.abs(s/2),l=Math.abs(n/2);c+=G(.01*c,h),l+=G(.01*l,h);let u=o,p=a;for(;u<0;)u+=2*Math.PI,p+=2*Math.PI;p-u>2*Math.PI&&(u=0,p=2*Math.PI);const f=(p-u)/h.curveStepCount,d=[];for(let t=u;t<=p;t+=f)d.push([r+c*Math.cos(t),i+l*Math.sin(t)]);return d.push([r+c*Math.cos(p),i+l*Math.sin(p)]),d.push([r,i]),C([d],h)}(t,e,s,n,o,a,i));return i.stroke!==tt&&c.push(l),this._d("arc",c,i)}curve(t,e){const s=this._o(e),n=[],o=L(t,s);if(s.fill&&s.fill!==tt)if("solid"===s.fillStyle){const e=L(t,Object.assign(Object.assign({},s),{disableMultiStroke:!0,roughness:s.roughness?s.roughness+s.fillShapeRoughnessGain:0}));n.push({type:"fillPath",ops:this._mergedShape(e.ops)})}else{const e=[],o=t;if(o.length){const t="number"==typeof o[0][0]?[o]:o;for(const n of t)n.length<3?e.push(...n):3===n.length?e.push(...Y(H([n[0],n[0],n[1],n[2]]),10,(1+s.roughness)/2)):e.push(...Y(H(n),10,(1+s.roughness)/2))}e.length&&n.push(C([e],s))}return s.stroke!==tt&&n.push(o),this._d("curve",n,s)}polygon(t,e){const s=this._o(e),n=[],o=S(t,!0,s);return s.fill&&("solid"===s.fillStyle?n.push(I([t],s)):n.push(C([t],s))),s.stroke!==tt&&n.push(o),this._d("polygon",n,s)}path(t,e){const s=this._o(e),n=[];if(!t)return this._d("path",n,s);t=(t||"").replace(/\n/g," ").replace(/(-\s)/g,"-").replace("/(ss)/g"," ");const o=s.fill&&"transparent"!==s.fill&&s.fill!==tt,a=s.stroke!==tt,h=!!(s.simplification&&s.simplification<1),r=function(t,e,s){const n=m(y(b(t))),o=[];let a=[],h=[0,0],r=[];const i=()=>{r.length>=4&&a.push(...Y(r,e)),r=[]},c=()=>{i(),a.length&&(o.push(a),a=[])};for(const{key:t,data:e}of n)switch(t){case"M":c(),h=[e[0],e[1]],a.push(h);break;case"L":i(),a.push([e[0],e[1]]);break;case"C":if(!r.length){const t=a.length?a[a.length-1]:h;r.push([t[0],t[1]])}r.push([e[0],e[1]]),r.push([e[2],e[3]]),r.push([e[4],e[5]]);break;case"Z":i(),a.push([h[0],h[1]])}if(c(),!s)return o;const l=[];for(const t of o){const e=U(t,s);e.length&&l.push(e)}return l}(t,1,h?4-4*(s.simplification||1):(1+s.roughness)/2),i=_(t,s);if(o)if("solid"===s.fillStyle)if(1===r.length){const e=_(t,Object.assign(Object.assign({},s),{disableMultiStroke:!0,roughness:s.roughness?s.roughness+s.fillShapeRoughnessGain:0}));n.push({type:"fillPath",ops:this._mergedShape(e.ops)})}else n.push(I(r,s));else n.push(C(r,s));return a&&(h?r.forEach((t=>{n.push(S(t,!1,s))})):n.push(i)),this._d("path",n,s)}opsToPath(t,e){let s="";for(const n of t.ops){const t="number"==typeof e&&e>=0?n.data.map((t=>+t.toFixed(e))):n.data;switch(n.op){case"move":s+=`M${t[0]} ${t[1]} `;break;case"bcurveTo":s+=`C${t[0]} ${t[1]}, ${t[2]} ${t[3]}, ${t[4]} ${t[5]} `;break;case"lineTo":s+=`L${t[0]} ${t[1]} `}}return s.trim()}toPaths(t){const e=t.sets||[],s=t.options||this.defaultOptions,n=[];for(const t of e){let e=null;switch(t.type){case"path":e={d:this.opsToPath(t),stroke:s.stroke,strokeWidth:s.strokeWidth,fill:tt};break;case"fillPath":e={d:this.opsToPath(t),stroke:tt,strokeWidth:0,fill:s.fill||tt};break;case"fillSketch":e=this.fillSketch(t,s)}e&&n.push(e)}return n}fillSketch(t,e){let s=e.fillWeight;return s<0&&(s=e.strokeWidth/2),{d:this.opsToPath(t),stroke:e.fill||tt,strokeWidth:s,fill:tt}}_mergedShape(t){return t.filter(((t,e)=>0===e||"move"!==t.op))}}class st{constructor(t,e){this.canvas=t,this.ctx=this.canvas.getContext("2d"),this.gen=new et(e)}draw(t){const e=t.sets||[],s=t.options||this.getDefaultOptions(),n=this.ctx,o=t.options.fixedDecimalPlaceDigits;for(const a of e)switch(a.type){case"path":n.save(),n.strokeStyle="none"===s.stroke?"transparent":s.stroke,n.lineWidth=s.strokeWidth,s.strokeLineDash&&n.setLineDash(s.strokeLineDash),s.strokeLineDashOffset&&(n.lineDashOffset=s.strokeLineDashOffset),this._drawToContext(n,a,o),n.restore();break;case"fillPath":{n.save(),n.fillStyle=s.fill||"";const e="curve"===t.shape||"polygon"===t.shape||"path"===t.shape?"evenodd":"nonzero";this._drawToContext(n,a,o,e),n.restore();break}case"fillSketch":this.fillSketch(n,a,s)}}fillSketch(t,e,s){let n=s.fillWeight;n<0&&(n=s.strokeWidth/2),t.save(),s.fillLineDash&&t.setLineDash(s.fillLineDash),s.fillLineDashOffset&&(t.lineDashOffset=s.fillLineDashOffset),t.strokeStyle=s.fill||"",t.lineWidth=n,this._drawToContext(t,e,s.fixedDecimalPlaceDigits),t.restore()}_drawToContext(t,e,s,n="nonzero"){t.beginPath();for(const n of e.ops){const e="number"==typeof s&&s>=0?n.data.map((t=>+t.toFixed(s))):n.data;switch(n.op){case"move":t.moveTo(e[0],e[1]);break;case"bcurveTo":t.bezierCurveTo(e[0],e[1],e[2],e[3],e[4],e[5]);break;case"lineTo":t.lineTo(e[0],e[1])}}"fillPath"===e.type?t.fill(n):t.stroke()}get generator(){return this.gen}getDefaultOptions(){return this.gen.defaultOptions}line(t,e,s,n,o){const a=this.gen.line(t,e,s,n,o);return this.draw(a),a}rectangle(t,e,s,n,o){const a=this.gen.rectangle(t,e,s,n,o);return this.draw(a),a}ellipse(t,e,s,n,o){const a=this.gen.ellipse(t,e,s,n,o);return this.draw(a),a}circle(t,e,s,n){const o=this.gen.circle(t,e,s,n);return this.draw(o),o}linearPath(t,e){const s=this.gen.linearPath(t,e);return this.draw(s),s}polygon(t,e){const s=this.gen.polygon(t,e);return this.draw(s),s}arc(t,e,s,n,o,a,h=!1,r){const i=this.gen.arc(t,e,s,n,o,a,h,r);return this.draw(i),i}curve(t,e){const s=this.gen.curve(t,e);return this.draw(s),s}path(t,e){const s=this.gen.path(t,e);return this.draw(s),s}}const nt="http://www.w3.org/2000/svg";class ot{constructor(t,e){this.svg=t,this.gen=new et(e)}draw(t){const e=t.sets||[],s=t.options||this.getDefaultOptions(),n=this.svg.ownerDocument||window.document,o=n.createElementNS(nt,"g"),a=t.options.fixedDecimalPlaceDigits;for(const h of e){let e=null;switch(h.type){case"path":e=n.createElementNS(nt,"path"),e.setAttribute("d",this.opsToPath(h,a)),e.setAttribute("stroke",s.stroke),e.setAttribute("stroke-width",s.strokeWidth+""),e.setAttribute("fill","none"),s.strokeLineDash&&e.setAttribute("stroke-dasharray",s.strokeLineDash.join(" ").trim()),s.strokeLineDashOffset&&e.setAttribute("stroke-dashoffset",`${s.strokeLineDashOffset}`);break;case"fillPath":e=n.createElementNS(nt,"path"),e.setAttribute("d",this.opsToPath(h,a)),e.setAttribute("stroke","none"),e.setAttribute("stroke-width","0"),e.setAttribute("fill",s.fill||""),"curve"!==t.shape&&"polygon"!==t.shape||e.setAttribute("fill-rule","evenodd");break;case"fillSketch":e=this.fillSketch(n,h,s)}e&&o.appendChild(e)}return o}fillSketch(t,e,s){let n=s.fillWeight;n<0&&(n=s.strokeWidth/2);const o=t.createElementNS(nt,"path");return o.setAttribute("d",this.opsToPath(e,s.fixedDecimalPlaceDigits)),o.setAttribute("stroke",s.fill||""),o.setAttribute("stroke-width",n+""),o.setAttribute("fill","none"),s.fillLineDash&&o.setAttribute("stroke-dasharray",s.fillLineDash.join(" ").trim()),s.fillLineDashOffset&&o.setAttribute("stroke-dashoffset",`${s.fillLineDashOffset}`),o}get generator(){return this.gen}getDefaultOptions(){return this.gen.defaultOptions}opsToPath(t,e){return this.gen.opsToPath(t,e)}line(t,e,s,n,o){const a=this.gen.line(t,e,s,n,o);return this.draw(a)}rectangle(t,e,s,n,o){const a=this.gen.rectangle(t,e,s,n,o);return this.draw(a)}ellipse(t,e,s,n,o){const a=this.gen.ellipse(t,e,s,n,o);return this.draw(a)}circle(t,e,s,n){const o=this.gen.circle(t,e,s,n);return this.draw(o)}linearPath(t,e){const s=this.gen.linearPath(t,e);return this.draw(s)}polygon(t,e){const s=this.gen.polygon(t,e);return this.draw(s)}arc(t,e,s,n,o,a,h=!1,r){const i=this.gen.arc(t,e,s,n,o,a,h,r);return this.draw(i)}curve(t,e){const s=this.gen.curve(t,e);return this.draw(s)}path(t,e){const s=this.gen.path(t,e);return this.draw(s)}}return{canvas:(t,e)=>new st(t,e),svg:(t,e)=>new ot(t,e),generator:t=>new et(t),newSeed:()=>et.newSeed()}}();
-</script>
 <style>:root{--d-font:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif;--d-large-title:700 34px/41px var(--d-font);--d-title1:700 28px/34px var(--d-font);--d-title2:700 22px/28px var(--d-font);--d-title3:600 20px/25px var(--d-font);--d-headline:600 17px/22px var(--d-font);--d-body:400 17px/26px var(--d-font);--d-callout:600 16px/21px var(--d-font);--d-subheadline:400 15px/20px var(--d-font);--d-footnote:400 13px/18px var(--d-font);--d-caption:500 12px/16px var(--d-font);--d-space-1:4px;--d-space-2:8px;--d-space-3:12px;--d-space-4:16px;--d-space-5:20px;--d-space-6:24px;--d-space-8:32px;--d-space-12:48px;--d-radius-sm:8px;--d-radius-md:12px;--d-radius-lg:16px;--d-radius-xl:20px;--d-radius-2xl:24px;--d-radius-pill:999px;--d-size-touch:44px;--d-size-button:52px;--d-size-button-compact:36px;--d-size-icon-button:44px;--d-size-row:52px;--d-size-field:48px;--d-size-screen-margin:20px;--d-size-tab-bar:64px;--d-size-tab-bar-width:300px;--d-size-tab-bar-bottom:12px;--d-size-hero-button:180px;--d-size-hero-ring:216px;--d-size-hero-ring-width:3px;--d-size-switch-width:51px;--d-size-switch-height:31px;--d-size-picker-height:34px;--d-size-empty-icon:64px;--d-size-hairline:1px;--d-elev-1:0 4px 18px rgba(var(--d-shadow-rgb),0.06);--d-elev-2:0 8px 24px rgba(var(--d-shadow-rgb),0.1);--d-press-scale:0.97;--d-pressed-opacity:0.6;--d-press-ms:120ms;--d-transition-ms:250ms;--d-surface:#FFFFFF;--d-surface-muted:#EFEBE3;--d-separator:#E5E1D8;--d-field-border:#D8D3C8;--d-text-primary:#1D1D1F;--d-text-secondary:#66666D;--d-text-tertiary:#A1A1A6;--d-text-disabled:#8E8E93;--d-destructive:#C4372C;--d-destructive-soft:#FBEDEB;--d-shadow:#191614;--d-canvas:#F7F4EC;--d-accent:#916B1B;--d-on-accent:#FFFFFF;--d-strong:#7A5916;--d-soft:#F1E6CC;--d-tint:#FBF7ED;--d-bright:#E9C46A;--d-on-bright:#2B2006;--d-shadow-rgb:25,22,20;color-scheme:light}@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--d-surface:#1C1C1E;--d-surface-muted:#2C2C2E;--d-separator:#38383A;--d-field-border:#48484A;--d-text-primary:#F5F5F7;--d-text-secondary:#A1A1A8;--d-text-tertiary:#636366;--d-text-disabled:#7C7C80;--d-destructive:#FF6B5E;--d-destructive-soft:#3A1E1B;--d-shadow:#000000;--d-canvas:#14130F;--d-accent:#D9AE4E;--d-on-accent:#2B2006;--d-strong:#E6C277;--d-soft:#3A2F17;--d-tint:#211B10;--d-bright:#E9C46A;--d-on-bright:#2B2006;--d-shadow-rgb:0,0,0;color-scheme:dark}}:root[data-theme=dark]{--d-surface:#1C1C1E;--d-surface-muted:#2C2C2E;--d-separator:#38383A;--d-field-border:#48484A;--d-text-primary:#F5F5F7;--d-text-secondary:#A1A1A8;--d-text-tertiary:#636366;--d-text-disabled:#7C7C80;--d-destructive:#FF6B5E;--d-destructive-soft:#3A1E1B;--d-shadow:#000000;--d-canvas:#14130F;--d-accent:#D9AE4E;--d-on-accent:#2B2006;--d-strong:#E6C277;--d-soft:#3A2F17;--d-tint:#211B10;--d-bright:#E9C46A;--d-on-bright:#2B2006;--d-shadow-rgb:0,0,0;color-scheme:dark}/* domy-design v1.1.0 · theme gold */</style>
 <style>
+/* 00-app.css */
   /* ===== 介面：Domy Design（代號在 vendor/domy-design/tokens.json，build.js 轉成 var(--d-*)）=====
      規矩：介面只准用 var(--d-*)，不寫色碼、字級、間距、圓角。地圖本身的畫風、卡片畫布不受這條管。 */
   /* 手寫字型：辰宇落雁體（OFL），地圖上的地名用，介面不用 */
@@ -103,7 +102,6 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #map{position:fixed;inset:0;background:#F3ECDB} /* domy-ignore: 地圖紙色，跟樣式表的 PAPER 同一個 */
   #vignette{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 70px 20px rgba(120,95,60,.14)} /* domy-ignore: 地圖畫風 */
   #grain{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.45;background-repeat:repeat}
-  #sketch{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply}
   .me{width:18px;height:18px;border-radius:50%;background:var(--d-accent);border:3px solid var(--d-surface);
     animation:pulse 1.8s infinite} /* domy-ignore: 定位點大小 */
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(145,107,27,.55)}100%{box-shadow:0 0 0 18px rgba(145,107,27,0)}} /* domy-ignore: 脈衝用 accent 的透明版 */
@@ -238,7 +236,8 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   #legendRows i{display:block;flex:none;width:46px;height:26px;border-radius:var(--d-radius-sm);border:1px solid rgba(46,40,32,.3);background-color:#F3ECDB} /* domy-ignore: 地圖畫風 */
   #legendRows i.road{background:linear-gradient(#F3ECDB 0 30%,#2E2820 30% 37%,#F2CF5B 37% 63%,#2E2820 63% 70%,#F3ECDB 70%)} /* domy-ignore: 地圖畫風 */
   #legendRows i.hwy{background:linear-gradient(#F3ECDB 0 30%,#2E2820 30% 37%,#CFC9BC 37% 63%,#2E2820 63% 70%,#F3ECDB 70%)} /* domy-ignore: 地圖畫風 */
-  #legendRows i.track{background:linear-gradient(#F3ECDB 0 44%,#2E2820 44% 56%,#F3ECDB 56%)} /* domy-ignore: 地圖畫風 */
+  #legendRows i.track{background:repeating-linear-gradient(90deg,#A33B2E 0 8px,transparent 8px 13px) center/100% 4px no-repeat #F3ECDB} /* domy-ignore: 地圖畫風 */
+  #legendRows i.mist{background:#232833} /* domy-ignore: 地圖畫風 */
 
   #toast{position:fixed;z-index:30;left:50%;bottom:calc(var(--tab-clear) + var(--d-space-2));transform:translateX(-50%);
     background:var(--d-text-primary);color:var(--d-surface);padding:var(--d-space-2) var(--d-space-4);border-radius:var(--d-radius-pill);
@@ -246,6 +245,18 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
     max-width:calc(100% - var(--d-size-screen-margin) * 2);text-align:center}
   body[data-tab=map] #toast{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3))}
   #toast.show{opacity:1}
+
+  /* ----- 共用底部抽屜 ----- */
+  #sheetHost{position:fixed;inset:0;z-index:26;background:rgba(var(--d-shadow-rgb),.4);display:flex;align-items:flex-end;justify-content:center} /* domy-ignore: 遮罩透明度 */
+  #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
+    padding:var(--d-space-6) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-6));display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
+  #sheetBody h2{margin:0;font:var(--d-title2)}
+  #sheetBody p{margin:0}
+  /* ----- 地圖頁的提問卡（在記錄列上方） ----- */
+  #mapAsk{position:fixed;z-index:6;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));
+    max-width:520px;margin:0 auto;padding:var(--d-space-4) var(--d-space-5);border-radius:var(--d-radius-2xl);background:var(--d-surface);box-shadow:var(--d-elev-2)} /* domy-ignore: 寬螢幕上限 */
+  body:not([data-tab=map]) #mapAsk{display:none}
+
 </style>
 </head>
 <body data-tab="map">
@@ -280,6 +291,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   </div>
   <div id="simhint">第一下點地圖＝把你放在那裡；之後每點一下，就用選的交通方式移動過去。</div>
 </div>
+<div id="mapAsk" hidden></div>
 <div id="recBar">
   <div id="recText">
     <div id="recTitle">還沒開始記錄</div>
@@ -303,6 +315,8 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
 <section id="cardView" class="page" hidden aria-labelledby="hCard">
   <div class="inner">
     <h1 id="hCard">製圖</h1>
+    <div id="cardPick"></div>
+    <div id="mountDayCard" class="stack" hidden></div>
     <div id="cardEmpty" class="empty" hidden>
       <div class="badge"><svg class="ic"><use href="#i-frame"/></svg></div>
       <h3>還沒走過任何地方</h3>
@@ -338,17 +352,20 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
       </div>
       <p class="foot" id="note">網頁版限制：要保持螢幕開啟、Safari 在最前面才會記錄（正式版會改成背景記錄）。</p>
     </div>
+    <div id="mountPaint"></div>
     <div class="section">
       <h2>資料</h2>
       <div class="group">
         <div class="row"><span class="lbl">探索格子</span><span class="val" id="dCells">0</span></div>
         <div class="row"><span class="lbl">軌跡點</span><span class="val" id="dPts">0</span></div>
         <div class="row"><span class="lbl">航線</span><span class="val" id="dFl">0 段</span></div>
+        <div id="mountImport"></div>
         <button class="row" id="btnExport"><span class="lbl">下載備份</span><svg class="chev"><use href="#i-chev"/></svg></button>
         <label class="row"><span class="lbl">匯入備份</span><svg class="chev"><use href="#i-chev"/></svg><input id="fileImport" type="file" accept=".json,application/json" hidden></label>
       </div>
       <p class="foot" id="dataInfo"></p>
     </div>
+    <div id="mountOffline"></div>
     <div class="section" id="secSim">
       <h2>測試</h2>
       <div class="group">
@@ -381,6 +398,9 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
   </div>
 </div>
 
+<!-- ===== 共用底部抽屜：openSheet(html)／closeSheet() ===== -->
+<div id="sheetHost" hidden><div id="sheetBody" role="dialog" aria-modal="true"></div></div>
+
 <!-- ===== 分頁列 ===== -->
 <nav id="tabbar"><div class="bar" role="tablist" aria-label="分頁">
   <button class="tab" role="tab" data-tab="map" aria-selected="true"><svg class="ic"><use href="#i-map"/></svg><span>地圖</span></button>
@@ -391,6 +411,7 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
 
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
+/* 00-engine.js */
 /*ENGINE_START*/
 // ===== 探索引擎：純邏輯，不碰地圖與畫面，方便獨立測試 =====
 const CFG = {
@@ -407,24 +428,51 @@ const CFG = {
   interpVehSec: 600,  // 兩點間隔在此秒數內才補線（車）
   interpMaxKm: 40,    // 補線最長距離
   revisitMin: 30,     // 離開超過幾分鐘再回來，才算「又來一次」
-  maxPoints: 60000
+  shardRes: 4,        // 格子存檔的分片（一片約 1770 平方公里），只重寫有變的那片
+  keepDays: 60        // 記憶體裡留最近幾天的軌跡點；更早的在檔案裡，要用時 loadDay(key)
 };
+const dayKey = t => { const d = new Date(t < 1e12 ? t * 1000 : t), p = x => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
 
 function createEngine(h3) {
   const EDGE = h3.getHexagonEdgeLengthAvg(CFG.res, 'm');
-  let s, last, dirty;
+  let s, last, dirty, shards, dirtyShards, dirtyDays, dirtyMeta;
+  // points：最近 keepDays 天的軌跡點（照時間排）；days：每一天的摘要，全部都在；ext：其他模組自己的資料（地點、印章、配對…）
   function blank() {
-    s = { cells: {}, flights: [], gaps: [], points: [], area: 0, km: { walk: 0, vehicle: 0, flight: 0 } };
-    last = null; dirty = true;
+    s = { cells: {}, flights: [], gaps: [], points: [], days: {}, area: 0, km: { walk: 0, vehicle: 0, flight: 0 }, ext: {} };
+    last = null; dirty = true; shards = new Map(); dirtyShards = new Set(); dirtyDays = new Set(); dirtyMeta = true;
   }
   blank();
+  function addCell(c, v) {
+    if (!s.cells[c]) s.area += h3.cellArea(c, 'km2');
+    s.cells[c] = v;
+    const k = h3.cellToParent(c, CFG.shardRes); let set = shards.get(k); if (!set) shards.set(k, set = new Set());
+    set.add(c); dirtyShards.add(k);
+  }
+  // 一天的摘要：里程規則跟補線一樣（間隔太久、跳太遠的兩點不連線）
+  function newDay(t) { return { t0: t, t1: t, walk: 0, veh: 0, fl: 0, n: 0, box: [180, 90, -180, -90] }; } // t 是毫秒；box＝西南東北
+  function addToDay(e, p, prev) {
+    const t = p[0] * 1000;
+    if (p[4] === 'f') e.fl++;
+    else if (prev) {
+      const km = h3.greatCircleDistance([prev[1], prev[2]], [p[1], p[2]], 'km'), dt = p[0] - prev[0];
+      if (dt <= (p[4] === 'v' ? CFG.interpVehSec : CFG.interpWalkSec) && km <= CFG.interpMaxKm) e[p[4] === 'v' ? 'veh' : 'walk'] += km;
+    }
+    e.t0 = Math.min(e.t0, t); e.t1 = Math.max(e.t1, t); e.n++;
+    const b = e.box; b[0] = Math.min(b[0], p[2]); b[1] = Math.min(b[1], p[1]); b[2] = Math.max(b[2], p[2]); b[3] = Math.max(b[3], p[1]);
+  }
+  function summarize(pts) { let e = null, prev = null; for (const p of pts) { if (!e) e = newDay(p[0] * 1000); addToDay(e, p, prev); prev = p; } return e; }
+  function trimOld() { // 太舊的點移出記憶體（已經在檔案裡）。還沒存的那天不動
+    const cut = dayKey(Date.now() - CFG.keepDays * 864e5); let i = 0, k; // 整天整天移，不留半天
+    while (i < s.points.length && (k = dayKey(s.points[i][0])) < cut && !dirtyDays.has(k)) i++;
+    if (i > 500) s.points.splice(0, i);
+  }
 
   function touch(c, t) {
     const e = s.cells[c];
-    if (!e) { s.cells[c] = [1, t]; s.area += h3.cellArea(c, 'km2'); dirty = true; }
+    if (!e) { addCell(c, [1, t]); dirty = true; }
     else {
       if (t - e[1] > CFG.revisitMin * 60000) { e[0]++; dirty = true; }
-      e[1] = t;
+      e[1] = t; dirtyShards.add(h3.cellToParent(c, CFG.shardRes));
     }
   }
   function reveal(lat, lng, r, t) {
@@ -475,8 +523,11 @@ function createEngine(h3) {
       }
     }
     last = f;
-    s.points.push([Math.round(f.t / 1000), +f.lat.toFixed(6), +f.lng.toFixed(6), Math.round(f.acc), mode[0]]);
-    if (s.points.length > CFG.maxPoints) s.points.splice(0, s.points.length - CFG.maxPoints);
+    const p = [Math.round(f.t / 1000), +f.lat.toFixed(6), +f.lng.toFixed(6), Math.round(f.acc), mode[0]], k = dayKey(p[0]);
+    const prev = s.points[s.points.length - 1], same = prev && prev[0] <= p[0] && dayKey(prev[0]) === k;
+    addToDay(s.days[k] || (s.days[k] = newDay(p[0] * 1000)), p, same ? prev : null);
+    s.points.push(p); dirtyDays.add(k); dirtyMeta = true;
+    if (s.points.length % 2000 === 0) trimOld();
     return { ok: true, mode, kmh: gk, km };
   }
 
@@ -486,20 +537,53 @@ function createEngine(h3) {
     takeDirty() { const d = dirty; dirty = false; return d; },
     resetLast() { last = null; },
     clear: blank,
-    dump: () => ({ v: 1, cells: s.cells, flights: s.flights, gaps: s.gaps, points: s.points, km: s.km }),
+    summarize,
+    touchMeta() { dirtyMeta = true; },
+    // --- 存檔用：哪些片、哪些天、總表有變 ---
+    takeSaves() { const r = { shards: [...dirtyShards], days: [...dirtyDays], meta: dirtyMeta }; dirtyShards = new Set(); dirtyDays = new Set(); dirtyMeta = false; return r; },
+    putBackSaves(r) { r.shards.forEach(k => dirtyShards.add(k)); r.days.forEach(k => dirtyDays.add(k)); dirtyMeta = dirtyMeta || r.meta; },
+    shardData(k) { const o = {}; for (const c of shards.get(k) || []) o[c] = s.cells[c]; return o; },
+    dayPoints(k) { // 只認得記憶體裡的
+      const out = []; for (let i = s.points.length - 1; i >= 0; i--) { const d = dayKey(s.points[i][0]); if (d === k) out.push(s.points[i]); else if (d < k) break; }
+      return out.reverse();
+    },
+    meta: () => ({ v: 2, flights: s.flights, gaps: s.gaps, km: s.km, days: s.days, ext: s.ext }),
+    // --- 讀檔用 ---
+    loadMeta(m) {
+      s.flights = m.flights || []; s.gaps = m.gaps || []; s.days = m.days || {}; s.ext = m.ext || {};
+      s.km = Object.assign({ walk: 0, vehicle: 0, flight: 0 }, m.km || {}); dirty = true;
+    },
+    loadCells(o) { for (const c in o) { try { addCell(c, o[c]); } catch (e) {} } dirty = true; },
+    loadPoints(list) { s.points = list.slice().sort((a, b) => a[0] - b[0]); last = null; dirty = true; },
+    clean() { dirtyShards = new Set(); dirtyDays = new Set(); dirtyMeta = false; },
+    // 併入另一個引擎的紀錄（匯入 GPX、時間軸）。dayPts：{ 'YYYY-MM-DD': [點…] }。已經有紀錄的那天整天略過，回傳真的加進來的天
+    // 呼叫端要先用略過後的天去跑那個引擎，這裡不再檢查格子從哪天來
+    merge(o, dayPts) {
+      for (const c in o.cells) { const e = s.cells[c], v = o.cells[c]; addCell(c, e ? [e[0] + v[0], Math.max(e[1], v[1])] : v.slice()); }
+      s.flights.push(...o.flights); s.gaps.push(...o.gaps);
+      for (const k in o.km) s.km[k] = (s.km[k] || 0) + o.km[k];
+      const cut = dayKey(Date.now() - CFG.keepDays * 864e5), recent = [];
+      for (const k in dayPts) { s.days[k] = summarize(dayPts[k]); if (k >= cut) recent.push(...dayPts[k]); }
+      if (recent.length) s.points = s.points.concat(recent).sort((a, b) => a[0] - b[0]);
+      last = null; dirty = true; dirtyMeta = true;
+    },
+    // 舊格式（v1：整包一個檔）讀進來；點全留在記憶體，由存檔層拆成逐日檔
     load(d) {
       blank();
       if (!d || typeof d !== 'object') return;
-      s.cells = d.cells || {}; s.flights = d.flights || []; s.gaps = d.gaps || [];
-      s.points = d.points || []; s.km = Object.assign({ walk: 0, vehicle: 0, flight: 0 }, d.km || {});
-      s.area = 0;
-      for (const c in s.cells) { try { s.area += h3.cellArea(c, 'km2'); } catch (e) { delete s.cells[c]; } }
-      dirty = true;
+      s.flights = d.flights || []; s.gaps = d.gaps || []; s.ext = d.ext || {};
+      s.km = Object.assign({ walk: 0, vehicle: 0, flight: 0 }, d.km || {});
+      for (const c in d.cells || {}) { try { addCell(c, d.cells[c]); } catch (e) {} }
+      const all = (d.points || []).map(p => p[0] < 1e12 ? p : [Math.round(p[0] / 1000), ...p.slice(1)]).sort((a, b) => a[0] - b[0]), by = {};
+      for (const p of all) { const k = dayKey(p[0]); (by[k] || (by[k] = [])).push(p); }
+      for (const k in by) { s.days[k] = summarize(by[k]); dirtyDays.add(k); }
+      s.points = all; dirty = true; dirtyMeta = true;
     }
   };
 }
 /*ENGINE_END*/
 
+/* 10-core.js */
 // ===== 以下是畫面與地圖 =====
 if (typeof h3 === 'undefined' || typeof maplibregl === 'undefined') {
   document.getElementById('status').textContent = '程式庫載入失敗，請重新整理頁面';
@@ -529,36 +613,136 @@ function toast(msg, ms = 2400) {
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
 }
 
+// --- 給各模組掛的地方 ---
+// hook.fix：每收到一個有效定位點 (f, r, quiet)；hook.rec：開始／停止記錄 (on)；hook.tab：換分頁 (tab)；hook.ready：舊紀錄讀完、地圖載好
+const hook = { fix: [], rec: [], tab: [], ready: [] };
+const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+// --- 共用底部抽屜 ---
+function openSheet(html) { $('sheetBody').innerHTML = html; $('sheetHost').hidden = false; $('sheetBody').scrollTop = 0; return $('sheetBody'); }
+function closeSheet() { $('sheetHost').hidden = true; $('sheetBody').innerHTML = ''; document.dispatchEvent(new Event('onion:sheetclosed')); }
+$('sheetHost').onclick = e => { if (e.target === $('sheetHost') || e.target.closest('[data-close]')) closeSheet(); };
+
+/* 15-store.js */
 // --- 儲存 ---
-// 網頁版存 localStorage；iOS app 存到 app 的 Documents 資料夾（會跟著 iCloud 手機備份走）。
-// 背景記錄時每 10 秒最多寫一次，切到背景或停止記錄時立刻寫。
-let saveTimer = null, saving = false, saveAgain = false;
-async function persistNow() {
-  if (saving) { saveAgain = true; return; }
-  saving = true;
-  const json = JSON.stringify(engine.dump());
-  try {
-    if (NATIVE) await FS.writeFile({ path: DATA_FILE, data: json, directory: 'DOCUMENTS', encoding: 'utf8' });
-    else localStorage.setItem(STORE, json);
-  } catch (e) { toast(NATIVE ? '寫入檔案失敗：' + (e.message || e) : '手機上的儲存空間滿了，請到「資料」下載備份'); }
-  saving = false;
-  if (saveAgain) { saveAgain = false; saveSoon(); }
+// 一個小檔案櫃 kv：iOS 存成 Documents/onion/ 底下的檔案（跟著 iCloud 手機備份走），網頁存 IndexedDB。
+// 內容：meta.json（總表）、cells/<分片>.json（探索格子）、days/<日期>.json（那天的軌跡點），其他模組自己用別的前綴。
+// 只重寫有變的那幾個。寫的時候先寫 <檔名>.tmp 再寫正式檔，寫到一半斷電，下次讀 .tmp。
+const kv = (() => {
+  const ROOT = 'onion/', DIR = 'DOCUMENTS';
+  if (NATIVE) return {
+    async get(k) { return (await FS.readFile({ path: ROOT + k, directory: DIR, encoding: 'utf8' })).data; }, // 沒有這個檔會丟例外
+    async set(k, text) { await FS.writeFile({ path: ROOT + k, data: text, directory: DIR, encoding: 'utf8', recursive: true }); },
+    async del(k) { try { await FS.deleteFile({ path: ROOT + k, directory: DIR }); } catch (e) {} },
+    async list(prefix) { // prefix 是資料夾，例如 'days/'；根目錄給 ''
+      try { return (await FS.readdir({ path: ROOT + prefix, directory: DIR })).files.filter(f => f.type !== 'directory').map(f => prefix + f.name); } catch (e) { return []; }
+    }
+  };
+  let dbp = null;
+  const db = () => dbp || (dbp = new Promise((ok, bad) => {
+    const r = indexedDB.open('onion', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => ok(r.result); r.onerror = () => { dbp = null; bad(r.error); };
+  }));
+  const run = async (mode, fn) => { const d = await db(); return new Promise((ok, bad) => { const t = d.transaction('kv', mode), q = fn(t.objectStore('kv')); t.oncomplete = () => ok(q && q.result); t.onerror = t.onabort = () => bad(t.error); }); };
+  return {
+    async get(k) { const v = await run('readonly', s => s.get(k)); if (v === undefined) throw new Error('沒有 ' + k); return v; },
+    async set(k, text) { await run('readwrite', s => s.put(text, k)); },
+    async del(k) { await run('readwrite', s => s.delete(k)); },
+    async list(prefix) { const all = await run('readonly', s => s.getAllKeys()); return all.filter(k => k.startsWith(prefix) && !k.slice(prefix.length).includes('/')); }
+  };
+})();
+async function kvTry(k) { try { return await kv.get(k); } catch (e) { return null; } }
+async function kvSafeSet(k, text) { await kv.set(k + '.tmp', text); await kv.set(k, text); await kv.del(k + '.tmp'); }
+async function kvJSON(k) { // 正式檔壞了就讀 .tmp；兩個都不行回 undefined，並把壞掉的原文另存一份，不讓它被蓋掉
+  for (const name of [k, k + '.tmp']) { const raw = await kvTry(name); if (raw != null) { try { return JSON.parse(raw); } catch (e) { try { await kv.set('broken/' + name.replace(/\//g, '_') + '-' + Date.now(), raw); } catch (x) {} } } }
+  return undefined;
 }
+
+const store = { locked: false, why: '' }; // locked：檔案在、但這次讀不到。鎖住不存，免得用空白蓋掉舊紀錄
+let saveTimer = null, saving = null, saveAgain = false;
+function persistNow() {
+  if (store.locked) return Promise.resolve(false);
+  if (saving) { saveAgain = true; return saving; }
+  return saving = (async () => {
+    let ok = true; const r = engine.takeSaves();
+    try {
+      for (const k of r.days) { const pts = engine.dayPoints(k); if (pts.length) await kvSafeSet('days/' + k + '.json', JSON.stringify(pts)); }
+      for (const k of r.shards) await kvSafeSet('cells/' + k + '.json', JSON.stringify(engine.shardData(k)));
+      if (r.meta) await kvSafeSet('meta.json', JSON.stringify(engine.meta()));
+    } catch (e) { ok = false; engine.putBackSaves(r); toast('存檔失敗，等一下會再試：' + (e.message || e)); saveSoon(8000); }
+    saving = null;
+    if (saveAgain) { saveAgain = false; saveSoon(); }
+    return ok;
+  })();
+}
+// 背景記錄時每 10 秒最多寫一次，切到背景或停止記錄時立刻寫
 function saveSoon(ms) {
   if (saveTimer) return;
   saveTimer = setTimeout(() => { saveTimer = null; persistNow(); }, ms != null ? ms : (NATIVE && recording ? 10000 : 1500));
 }
-function flushSave() { clearTimeout(saveTimer); saveTimer = null; persistNow(); }
+function flushSave() { clearTimeout(saveTimer); saveTimer = null; return persistNow(); }
+function extSave() { engine.touchMeta(); saveSoon(); } // 模組改了 ext 裡的東西之後叫這個
+function ext(name, init) { const e = engine.state().ext; if (e[name] === undefined) e[name] = init; return e[name]; }
+
 async function loadSaved() {
+  const have = new Set(await kv.list('')), shardKeys = await kv.list('cells/'), dayKeys = (await kv.list('days/')).filter(k => k.endsWith('.json'));
+  if (!have.has('meta.json') && !have.has('meta.json.tmp') && !shardKeys.length && !dayKeys.length) return loadLegacy();
+  const m = await kvJSON('meta.json');
+  if (m === undefined && have.has('meta.json') && await kvTry('meta.json') == null) { store.locked = true; store.why = '紀錄暫時讀不到'; toast('紀錄暫時讀不到，這次先不存檔，重開洋蔥再試一次', 6000); return false; }
+  if (m) engine.loadMeta(m);
+  const lock = () => { store.locked = true; store.why = '有一部分紀錄暫時讀不到'; toast('有一部分紀錄暫時讀不到，這次先不存檔，重開洋蔥再試一次', 6000); };
+  for (const k of shardKeys) if (k.endsWith('.json')) { const o = await kvJSON(k); if (o) engine.loadCells(o); else if (await kvTry(k) == null) lock(); }
+  const days = engine.state().days;
+  const cut = dayKey(Date.now() - CFG.keepDays * 864e5), pts = [];
+  for (const k of dayKeys) {
+    const d = k.slice(5, -5);
+    if (d < cut && days[d]) continue;
+    const list = await kvJSON(k); if (!list) continue;
+    if (!days[d] || days[d].n !== list.length) days[d] = engine.summarize(list); // 總表沒跟上（例如寫到一半斷電）就用那天的檔重算
+    if (d >= cut) pts.push(...list);
+  }
+  engine.loadPoints(pts); engine.clean();
+  return true;
+}
+async function loadLegacy() { // 舊版：整包一個 JSON。讀進來拆成新格式，舊檔留著當備份
   let raw = null;
   if (NATIVE) { try { raw = (await FS.readFile({ path: DATA_FILE, directory: 'DOCUMENTS', encoding: 'utf8' })).data; } catch (e) {} }
   if (!raw) { try { raw = localStorage.getItem(STORE) || localStorage.getItem('digua.v1'); } catch (e) {} }
   if (!raw) return false;
   try { engine.load(JSON.parse(raw)); } catch (e) { return false; }
+  await persistNow();
   return true;
 }
+// 某一天的軌跡點：最近的在記憶體，更早的讀檔
+async function loadDay(key) {
+  const p = engine.dayPoints(key); if (p.length) return p;
+  return (await kvJSON('days/' + key + '.json')) || [];
+}
+async function exportAll() { // 備份檔 v2：跟 v1 一樣是一個 JSON，多了 ext（地點、印章…）；points 是全部的天
+  await flushSave();
+  const s = engine.state(), points = [];
+  for (const k of Object.keys(s.days).sort()) points.push(...await loadDay(k));
+  const ext = Object.assign({}, s.ext); delete ext.painter; // 配對密碼不進備份
+  return { v: 2, cells: s.cells, flights: s.flights, gaps: s.gaps, points, km: s.km, ext };
+}
+async function importAll(d) { // 還原備份（v1、v2 都吃）：整個換掉
+  if (!d || typeof d !== 'object' || !d.cells) throw new Error('不是洋蔥的備份檔');
+  const painter = engine.state().ext.painter;
+  await wipeFiles(); engine.load(d); if (painter) engine.state().ext.painter = painter;
+  store.locked = false; await flushSave();
+}
+async function wipeFiles() {
+  clearTimeout(saveTimer); saveTimer = null; if (saving) await saving;
+  for (const p of ['days/', 'cells/', 'cards/', 'base/']) for (const k of await kv.list(p)) await kv.del(k);
+  for (const k of await kv.list('')) await kv.del(k);
+  try { localStorage.removeItem(STORE); localStorage.removeItem('digua.v1'); } catch (e) {}
+  if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
+}
+async function wipeAll() { engine.clear(); engine.clean(); await wipeFiles(); store.locked = false; }
 
-// --- 地圖樣式：手札風（米白紙、鋼筆墨線、淡水彩；只有探索過的地方看得到） ---
+/* 20-map.js */
+// --- 地圖樣式：色鉛筆手札（只有探索過的地方看得到）。畫好的圖幅與 AI 畫的底圖疊在它上面，見 45-sheets.js ---
 const INK = '#2E2820', INK_SOFT = '#5C5244', PAPER = '#F3ECDB';
 const FONT = ['Luoyan']; // 英數與標點從 fonts/glyphs/ 取；中文字由 MapLibre 用本機手寫字型畫（localIdeographFontFamily）
 const NAME = ['coalesce', ['get', 'name:zh-Hant'], ['get', 'name:zh'], ['get', 'name']];
@@ -681,6 +865,7 @@ const map = new maplibregl.Map({
   localIdeographFontFamily: "'Luoyan', 'PingFang TC', 'Noto Sans TC', sans-serif" // 中文字在本機用手寫字型畫，不必下載整套中文 glyph
 });
 map.touchZoomRotate.disableRotation();
+const mapReady = new Promise(ok => map.once('load', ok));
 window.map = map; // 方便在瀏覽器主控台調樣式
 map.on('styleimagemissing', e => { const mk = IMAGES[e.id]; if (mk && !map.hasImage(e.id)) { const im = mk(); map.addImage(e.id, im.data, im.opts); } });
 // 手寫字型載好（最多等 4 秒）再顯示地名，不然 MapLibre 會先用系統字型把字畫進快取
@@ -703,21 +888,17 @@ const me = new maplibregl.Marker({ element: meEl });
 let meShown = false;
 function showMe(lng, lat) { me.setLngLat([lng, lat]); if (!meShown) { me.addTo(map); meShown = true; } }
 
-// 手札紙紋理（迷霧用）：米白底、細細的纖維斑點
-function paperImage() {
-  const n = 160, c = document.createElement('canvas'); c.width = c.height = n;
-  const g = c.getContext('2d'); g.fillStyle = PAPER; g.fillRect(0, 0, n, n);
-  for (let i = 0; i < 2200; i++) {
-    const v = Math.random();
-    g.fillStyle = v < 0.5 ? 'rgba(120,95,60,' + (Math.random() * 0.06) + ')' : 'rgba(255,252,242,' + (Math.random() * 0.14) + ')';
-    g.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 2.2, 1 + Math.random() * 2.2);
+function mistImage() { // 黑濛濛的霧：幾個整數頻率的波疊起來，四邊自然接得上，鋪成 pattern 不會有縫
+  const n = 256, c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'), id = g.createImageData(n, n), d = id.data, waves = [];
+  for (let k = 0; k < 9; k++) waves.push({ fx: 1 + (k * 7) % 5, fy: 1 + (k * 3) % 5, ph: k * 1.7, amp: 1 / (1 + k * 0.6) });
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    let v = 0;
+    for (const w of waves) v += w.amp * Math.sin(2 * Math.PI * (w.fx * x / n + w.fy * y / n) + w.ph + 1.6 * Math.sin(2 * Math.PI * (w.fy * x / n - w.fx * y / n)));
+    const t = 0.5 + 0.5 * Math.tanh(v * 0.5), r = (Math.random() - 0.5) * 9, i = (y * n + x) * 4;
+    d[i] = 26 + t * 34 + r; d[i + 1] = 30 + t * 36 + r; d[i + 2] = 40 + t * 44 + r; d[i + 3] = 255;
   }
-  for (let i = 0; i < 6; i++) {
-    g.strokeStyle = 'rgba(120,95,60,0.028)'; g.lineWidth = 1; g.beginPath();
-    const y = Math.random() * n; g.moveTo(0, y); g.bezierCurveTo(n / 3, y + 8 - Math.random() * 16, n * 2 / 3, y + 8 - Math.random() * 16, n, y); g.stroke();
-  }
-  const d = g.getImageData(0, 0, n, n);
-  return { width: n, height: n, data: new Uint8Array(d.data.buffer) };
+  return { width: n, height: n, data: new Uint8Array(d.buffer) };
 }
 // ===== 色鉛筆風的圖樣與圖示：全部用 canvas 畫，地圖的 pattern／icon 與圖例共用 =====
 const TILES = {}; // id -> canvas（圖例拿來當底圖）
@@ -760,8 +941,6 @@ function treeAt(g, x, y, r, kind) {
 }
 const IMAGES = {
   'hatch': () => hatchTile('hatch', 16, 8, '#2E2820', 0.8, 0.7),            // 建築
-  'fog-hatch': () => hatchTile('fog-hatch', 24, 6, '#8E887C', 1.1, 0.55),   // 未探索（迷霧）
-  'explored-hatch': () => hatchTile('explored-hatch', 24, 7, '#86B05C', 1.2, 0.5), // 已探索
   'water-hatch': () => hatchTile('water-hatch', 20, 6, '#5B93C4', 1.1, 0.45),
   'farm': () => hatchTile('farm', 28, 9, '#B9B868', 1, 0.35),
   'grass': () => tile('grass', 32, 32, g => { for (let i = 0; i < 14; i++) { const x = Math.random() * 32, y = Math.random() * 32; pencil(g, x, y, x + 3, y - 4, '#8FB862', 1, 0.6); } }),
@@ -789,32 +968,24 @@ function tileCanvas(id) { if (!TILES[id]) IMAGES[id](); return TILES[id]; }
 
 const EMPTY = { type: 'FeatureCollection', features: [] };
 map.on('load', () => {
-  map.addImage('paper', paperImage());
+  map.addImage('mist', mistImage());
   ['freq', 'fog', 'explored', 'flights', 'gaps', 'track', 'fogq'].forEach(id => map.addSource(id, { type: 'geojson', data: EMPTY }));
   // 走過越多次綠色越深（踏實的路）
   map.addLayer({ id: 'freq', type: 'fill', source: 'freq',
     paint: { 'fill-color': '#5E8C3F', 'fill-opacity': 0.12 } });
-  // 已探索：淡綠色鉛筆排線
-  map.addLayer({ id: 'explored-hatch', type: 'fill', source: 'explored',
-    paint: { 'fill-pattern': 'explored-hatch', 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.55, 16, 0.35] } });
-  // 迷霧：先用紙把底圖蓋掉，再鋪灰色鉛筆排線
-  map.addLayer({ id: 'fog', type: 'fill', source: 'fog', paint: { 'fill-pattern': 'paper' } });
-  map.addLayer({ id: 'fog-hatch', type: 'fill', source: 'fog', paint: { 'fill-pattern': 'fog-hatch', 'fill-opacity': 0.8 } });
-  map.addLayer({ id: 'fog-edge', type: 'line', source: 'fog',
-    paint: { 'line-color': '#B5AE9F', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3, 18, 14], 'line-blur': ['interpolate', ['linear'], ['zoom'], 12, 2, 18, 8], 'line-opacity': 0.6 } });
+  // 迷霧：黑濛濛的霧把沒去過的地方蓋掉，邊緣暈開
+  map.addLayer({ id: 'fog', type: 'fill', source: 'fog', paint: { 'fill-pattern': 'mist', 'fill-opacity': 0.97 } });
+  map.addLayer({ id: 'fog-edge', type: 'line', source: 'fog', layout: { 'line-join': 'round', 'line-cap': 'round' }, // 尖角接頭加模糊會長刺，圓的才像霧散開
+    paint: { 'line-color': '#12151C', 'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 12, 18, 30], 'line-blur': ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 7, 18, 18] } });
   // 迷霧上只留極淡的海岸線與國界，讓你知道自己在哪
   map.addLayer({ id: 'hint-water', type: 'fill', source: 'omt', 'source-layer': 'water',
-    paint: { 'fill-color': '#A9CBDE', 'fill-opacity': 0.25 } });
+    paint: { 'fill-color': '#8FB0C6', 'fill-opacity': 0.16 } });
   map.addLayer({ id: 'hint-border', type: 'line', source: 'omt', 'source-layer': 'boundary',
     filter: ['all', ['==', ['get', 'admin_level'], 2], ['!=', ['get', 'maritime'], 1]],
-    paint: { 'line-color': INK_SOFT, 'line-opacity': 0.4, 'line-width': 0.8, 'line-dasharray': [3, 2] } });
-  map.addLayer({ id: 'explored-ink', type: 'line', source: 'explored',
-    paint: { 'line-color': INK, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2, 12, 1.4, 17, 1],
-      'line-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.75, 16, 0.2] } });
-  // 縮小看全國、全世界時，探索範圍太細看不到，改用墨線畫出走過的軌跡
+    paint: { 'line-color': '#8E95A5', 'line-opacity': 0.5, 'line-width': 0.8, 'line-dasharray': [3, 2] } });
+  // 走過的路：尋寶圖的紅色虛線，所有縮放都看得到
   map.addLayer({ id: 'track', type: 'line', source: 'track', layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': INK, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2.2, 12, 2],
-      'line-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.85, 13, 0] } });
+    paint: { 'line-color': '#A33B2E', 'line-opacity': 0.9, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2, 8, 1.6, 13, 2.6, 17, 4], 'line-dasharray': [2.5, 1.6] } });
   map.addLayer({ id: 'gaps', type: 'line', source: 'gaps',
     paint: { 'line-color': INK_SOFT, 'line-opacity': 0.45, 'line-width': 1.2, 'line-dasharray': [1, 2] } });
   map.addLayer({ id: 'flights', type: 'line', source: 'flights', layout: { 'line-cap': 'round' },
@@ -823,8 +994,11 @@ map.on('load', () => {
   map.addLayer({ id: 'fog-q', type: 'symbol', source: 'fogq',
     layout: { visibility: 'none', 'text-field': '?', 'text-font': FONT, 'text-size': ['*', 38, ['get', 's']], 'text-rotate': ['get', 'r'],
       'text-allow-overlap': true, 'text-ignore-placement': true },
-    paint: { 'text-color': '#6F6B61', 'text-opacity': 0.8 } });
+    paint: { 'text-color': '#B7BDC8', 'text-opacity': 0.5 } });
   map.on('moveend', updateQ);
+  addSheets();
+  revealNow = revealTier();
+  map.on('zoomend', () => { const t = revealTier(); if (t !== revealNow) { revealNow = t; render(true); } }); // 粗細揭開範圍切換時重算霧
   if (labelsOn) showLabels(); // 字型比地圖先好的話，剛加的「?」圖層也要打開
   render(true);
 });
@@ -883,9 +1057,9 @@ function updateQ() {
   map.getSource('fogq').setData({ type: 'FeatureCollection', features: feats });
 }
 const WORLD = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
-// 圖幅模式的揭開範圍：紀錄還是 res 12 的細格子，但霧散開的範圍放大。
+// 揭開範圍：紀錄還是 res 12 的細格子，但霧散開的範圍放大。
 // 拉近看：換算成 res 11 再往外擴兩圈（走過的路左右約 100 公尺）；縮小看：res 8 的格子（約 1 公里）走進去整格散開
-let revealSet = null, revealRes = CFG.res;
+let revealSet = null, revealRes = CFG.res, revealNow = 'fine';
 function revealTier() { return map.getZoom() < 11 ? 'coarse' : 'fine'; }
 function revealCells(ids) {
   const fine = revealTier() === 'fine', res = fine ? 11 : 8, set = new Set();
@@ -903,7 +1077,7 @@ function render(force) {
   if (!map.getSource('fog')) return;
   if (!engine.takeDirty() && !force) return;
   const s = engine.state(), ids = Object.keys(s.cells);
-  const rid = typeof STYLE !== 'undefined' && STYLE === 'sheet' ? revealCells(ids) : ids;
+  const rid = revealCells(ids);
   const polys = rid.length ? h3.cellsToMultiPolygon(rid, true) : [];
   const fog = [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon',
     coordinates: [orient(WORLD, true), ...polys.map(p => orient(p[0], false))] } }];
@@ -927,6 +1101,7 @@ function updateStats() {
   $('stats').innerHTML = '<b>' + a + '</b> km² · 地面 ' + kmText(s.km.walk + s.km.vehicle) + (s.flights.length ? ' · 航線 ' + s.flights.length + ' 段' : '');
 }
 
+/* 30-record.js */
 // --- 處理一個定位點（真實 GPS 與模擬共用同一條路） ---
 const MODE_LABEL = { walk: '步行', vehicle: '車／火車', flight: '飛行' };
 let follow = true, zoomIn = false, flyUntil = 0; // zoomIn：開始記錄後第一個點要拉近；flyUntil：定位鈕的動畫跑完前，跟隨先不動地圖
@@ -941,7 +1116,7 @@ function feed(f, quiet) {
     }
     if (r.mode === 'flight') { map.fitBounds(flightBounds(), { padding: 80, duration: 1200 }); toast('偵測到飛行，畫上一段航線'); }
     setStatus(MODE_LABEL[r.mode] + ' · ' + Math.round(r.kmh || 0) + ' km/h · 精度 ' + Math.round(f.acc) + 'm');
-    saveSoon(); renderSoon();
+    saveSoon(); renderSoon(); hook.fix.forEach(fn => { try { fn(f, r, quiet); } catch (e) { console.error(e); } });
   } else setStatus(r.why);
   return r;
 }
@@ -971,6 +1146,8 @@ function onFix(lat, lng, acc, t, spd) {
 }
 async function startRec() {
   if (recording) return;
+  await restored; // 舊紀錄讀完才開始記，不然先記的會被蓋掉
+  if (recording) return;
   if (simOn) toggleSim();
   engine.resetLast(); follow = true; zoomIn = true;
   if (NATIVE) {
@@ -999,13 +1176,13 @@ async function startRec() {
     }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
     lockScreen();
   }
-  recording = true;
+  recording = true; hook.rec.forEach(fn => fn(true));
   try { localStorage.setItem(REC_FLAG, '1'); } catch (e) {}
   setRecUI(true); setStatus('等待定位中…');
 }
 async function stopRec() {
   if (!recording) return;
-  recording = false;
+  recording = false; hook.rec.forEach(fn => fn(false));
   try { localStorage.removeItem(REC_FLAG); } catch (e) {}
   if (NATIVE) { if (bgWatcher) { try { await BG.removeWatcher({ id: bgWatcher }); } catch (e) {} } bgWatcher = null; }
   else {
@@ -1078,11 +1255,12 @@ map.on('click', e => {
   }, 30);
 });
 
+/* 35-data.js */
 // --- 資料：備份、匯入、清除 ---
 function refreshData() {
   const s = engine.state();
   $('dCells').textContent = Object.keys(s.cells).length.toLocaleString() + ' 個';
-  $('dPts').textContent = s.points.length.toLocaleString() + ' 個';
+  $('dPts').textContent = Object.values(s.days).reduce((a, d) => a + d.n, 0).toLocaleString() + ' 個';
   $('dFl').textContent = s.flights.length + ' 段';
   $('dataInfo').textContent = NATIVE
     ? '資料存在這支手機的洋蔥 app 裡，會跟著 iCloud 的手機備份走；刪掉 app 就沒了，記得定期匯出備份。'
@@ -1090,7 +1268,7 @@ function refreshData() {
   const c = $('btnClear'); c.dataset.arm = ''; c.querySelector('.lbl').textContent = '清除全部紀錄';
 }
 $('btnExport').onclick = async () => {
-  const json = JSON.stringify(engine.dump()), name = 'onion-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  const json = JSON.stringify(await exportAll()), name = 'onion-backup-' + new Date().toISOString().slice(0, 10) + '.json';
   if (NATIVE) {
     // WKWebView 裡 a.download 沒作用：先寫到暫存資料夾，再開 iOS 分享面板（可存到「檔案」、AirDrop、傳給自己）
     try {
@@ -1107,17 +1285,17 @@ $('btnExport').onclick = async () => {
 };
 $('fileImport').onchange = async e => {
   const file = e.target.files[0]; if (!file) return;
-  try { engine.load(JSON.parse(await file.text())); flushSave(); render(true); refreshData(); toast('已匯入備份'); }
+  try { await importAll(JSON.parse(await file.text())); render(true); refreshData(); document.dispatchEvent(new Event('onion:restored')); toast('已匯入備份'); }
   catch (err) { toast('這個檔案讀不了'); }
   e.target.value = '';
 };
 $('btnClear').onclick = () => {
   const b = $('btnClear');
   if (!b.dataset.arm) { b.dataset.arm = '1'; b.querySelector('.lbl').textContent = '再按一次，確定全部清掉'; return; }
-  engine.clear(); try { localStorage.removeItem(STORE); } catch (e) {}
-  if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
-  render(true); refreshData(); toast('已清除');
+  wipeAll().then(() => { document.dispatchEvent(new Event('onion:wiped')); render(true); refreshData(); toast('已清除'); });
 };
+
+/* 40-legend.js */
 // --- 手札頁面元素：鉛筆顆粒、標題日期、比例尺、圖例 ---
 (function grain() { // 整頁疊一層淡淡的顆粒，用 multiply 混合，像色鉛筆畫在粗紙上
   const n = 96, c = document.createElement('canvas'); c.width = c.height = n;
@@ -1127,8 +1305,8 @@ $('btnClear').onclick = () => {
 })();
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: 'metric' }), 'bottom-left');
 function buildLegend() {
-  const rows = [['已探索', 'explored-hatch', 'pattern'], ['未探索（迷霧）', 'fog-hatch', 'pattern'], ['森林', 'trees', 'pattern'], ['草地、公園', 'grass', 'pattern'],
-    ['湖泊、河流', 'water-hatch', 'pattern'], ['農田', 'farm', 'pattern'], ['主要道路', null, 'road'], ['高速公路', null, 'hwy'], ['走過的路', null, 'track'],
+  const rows = [['沒去過（迷霧）', null, 'mist'], ['走過的路', null, 'track'], ['森林', 'trees', 'pattern'], ['草地、公園', 'grass', 'pattern'],
+    ['湖泊、河流', 'water-hatch', 'pattern'], ['農田', 'farm', 'pattern'], ['主要道路', null, 'road'], ['高速公路', null, 'hwy'],
     ['村莊', 'village', 'icon'], ['城鎮', 'church', 'icon'], ['城市', 'castle', 'icon'], ['山頂', 'peak', 'icon']];
   $('legendRows').innerHTML = rows.map(([label, id, kind]) => {
     let sw;
@@ -1142,547 +1320,23 @@ $('btnLegend').onclick = () => { buildLegend(); $('legend').hidden = false; };
 $('btnLegendClose').onclick = () => { $('legend').hidden = true; };
 $('legend').onclick = e => { if (e.target === $('legend')) $('legend').hidden = true; };
 
-// ===== 手繪草稿模式（POC）：網址加 ?sketch=1 =====
-// MapLibre 只負責圖資、鏡頭、迷霧的洞與地名；路、水、植被、迷霧排線改用 Rough.js 畫在一層畫布上，
-// 畫布用 multiply 疊在地圖上，底下的地名與「?」照樣看得到。停下來才重畫，拖動時用 CSS 位移讓草稿跟著滑。
-// 草稿模式三種畫法：?sketch=1 色鉛筆排線（pencil）、?style=ink 羊皮紙鋼筆淡彩、?style=wash 水彩草原
-const STYLE = (location.search.match(/[?&]style=(ink|wash|pencil|sprite|sheet)/) || [])[1] || 'pencil'; // sprite：用 assets/sprites 的貼紙；sheet：先畫好的圖幅
-const SKETCH = (/[?&]sketch=1/.test(location.search) || STYLE !== 'pencil') && STYLE !== 'sheet' && typeof rough !== 'undefined';
-if (SKETCH) {
-  const SK = { tol: 5, rough: 1.3, bow: 1.4 }; // 簡化公差（螢幕像素）、抖動、彎曲：草稿要多潦草都在這裡調
-  const FANTASY = STYLE !== 'pencil';
-  const cv = document.createElement('canvas'); cv.id = 'sketch';
-  map.getContainer().insertAdjacentElement('afterend', cv);
-  const ctx = cv.getContext('2d'), rc = rough.canvas(cv);
-  let drawCenter = null, drawZoom = 0, needDraw = true, dpr = 1;
-  const HIDE = ['landcover-base', 'landcover-pattern', 'park-base', 'park-pattern', 'water', 'water-hatch', 'water-edge', 'waterway',
-    'building-hatch', 'building-line', 'path', 'road-ink', 'road-fill', 'rail', 'rail-ties', 'fog-hatch', 'explored-hatch', 'freq', 'explored-ink', 'track'];
-  // 奇幻畫法：山形圖示取代高程陰影，房子自己畫，迷霧只留白紙，邊界自己撕
-  if (FANTASY) HIDE.push('hillshade', 'landuse', 'fog-edge', 'hint-water', 'hint-border', 'gaps');
-  if (STYLE === 'sprite') for (const id of ['fog-q', 'peak', 'road-shield', 'water-name']) { HIDE.push(id); LABEL_LAYERS.splice(LABEL_LAYERS.indexOf(id), 1); } // 字型載好時別再把它們打開
-  // 貼紙：多米生的圖鑑表裁出來的透明 PNG，程式只管擺位
-  const SPRITES = {}, SPRITE_NAMES = ['mountain-high-1', 'mountain-high-2', 'mountain-1', 'hill-1', 'tree-broadleaf-1', 'tree-broadleaf-2',
-    'tree-conifer-1', 'tree-conifer-2', 'forest-clump-1', 'forest-clump-2', 'city', 'town', 'village', 'hamlet', 'ship', 'sea-serpent', 'whale', 'wave', 'question'];
-  if (STYLE === 'sprite') for (const n of SPRITE_NAMES) { const im = new Image(); im.onload = () => { SPRITES[n] = im; scheduleDraw(); }; im.src = 'assets/sprites/' + n + '.png'; }
-  function sprite(name, x, y, w, flip) { // 以底邊中點為錨，等比縮放
-    const im = SPRITES[name]; if (!im) return false;
-    const h = w * im.height / im.width;
-    ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
-    return true;
+
+/* 45-sheets.js */
+// ===== 畫好的底圖：疊在色鉛筆地圖上、霧的下面。拉太近時淡出，換回看得清街道的色鉛筆地圖 =====
+// 內建的圖幅由 tools/sheet/cut_tiles.py 產生，bounds 抄 tiles/<sheet>/meta.json
+const SHEETS = [
+  { id: 'taipei', tiles: 'tiles/taipei/{z}/{x}/{y}.webp', bounds: [121.289062, 24.846565, 121.772461, 25.324167], minzoom: 9, maxzoom: 13 }
+];
+const SHEET_FADE = ['interpolate', ['linear'], ['zoom'], 13.6, 1, 14.4, 0];
+const SHEET_TOP = 'freq'; // 底圖都插在這一層下面
+function addSheets() {
+  for (const s of SHEETS) {
+    map.addSource('sheet-' + s.id, { type: 'raster', tiles: [s.tiles], tileSize: 256, bounds: s.bounds, minzoom: s.minzoom, maxzoom: s.maxzoom });
+    map.addLayer({ id: 'sheet-' + s.id, type: 'raster', source: 'sheet-' + s.id, maxzoom: 14.5, paint: { 'raster-fade-duration': 0, 'raster-opacity': SHEET_FADE } }, SHEET_TOP);
   }
-  map.on('load', () => {
-    HIDE.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'none'));
-    if (FANTASY) map.setLayoutProperty('place', 'icon-image', 'none');
-  });
-  // Douglas–Peucker：把線上多餘的點丟掉，草稿不用那麼精準
-  function simplify(pts, tol) {
-    if (pts.length < 3) return pts;
-    const a = pts[0], b = pts[pts.length - 1], dx = b[0] - a[0], dy = b[1] - a[1], len2 = dx * dx + dy * dy || 1;
-    let maxD = 0, idx = 0;
-    for (let i = 1; i < pts.length - 1; i++) {
-      const t = Math.max(0, Math.min(1, ((pts[i][0] - a[0]) * dx + (pts[i][1] - a[1]) * dy) / len2));
-      const d = Math.hypot(pts[i][0] - (a[0] + t * dx), pts[i][1] - (a[1] + t * dy));
-      if (d > maxD) { maxD = d; idx = i; }
-    }
-    if (maxD <= tol) return [a, b];
-    return simplify(pts.slice(0, idx + 1), tol).slice(0, -1).concat(simplify(pts.slice(idx), tol));
-  }
-  const proj = ring => ring.map(c => { const p = map.project(c); return [p.x, p.y]; });
-  const lines = g => g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : [];
-  const rings = g => g.type === 'Polygon' ? [g.coordinates[0]] : g.type === 'MultiPolygon' ? g.coordinates.map(p => p[0]) : [];
-  const cls = list => ['match', ['get', 'class'], list, true, false];
-  const query = (layer, filter) => map.querySourceFeatures('omt', filter ? { sourceLayer: layer, filter } : { sourceLayer: layer });
-  function hatchPoly(pts, color, gap, angle, weight, seed) {
-    if (pts.length < 3) return;
-    rc.polygon(pts, { fill: color, fillStyle: 'hachure', hachureGap: gap, hachureAngle: angle, fillWeight: weight, stroke: 'none', roughness: SK.rough, seed });
-  }
-  function road(pts, outer, inner, fillColor, seed) { // 同一個 seed 畫兩次：外層墨線、內層顏色，抖動才會對齊
-    if (pts.length < 2) return;
-    const o = { roughness: SK.rough, bowing: SK.bow, seed };
-    rc.linearPath(pts, Object.assign({ stroke: '#2E2820', strokeWidth: outer }, o));
-    if (inner > 0) rc.linearPath(pts, Object.assign({ stroke: fillColor, strokeWidth: inner, disableMultiStroke: true }, o));
-  }
-  function exploredPath() { // 已探索區的 Path2D（含洞），用來裁切與挖迷霧
-    const ids = Object.keys(engine.state().cells); if (!ids.length) return null;
-    const path = new Path2D();
-    for (const poly of h3.cellsToMultiPolygon(ids, true)) for (const ring of poly) {
-      const pts = proj(ring); path.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);
-      path.closePath();
-    }
-    return path;
-  }
-  // ───────── 奇幻畫法共用：高程、世界座標格點、多邊形聯集 ─────────
-  const DEM = new Map(); // 'z/x/y' -> Uint8ClampedArray（terrarium 編碼）或 'loading'
-  let drawTimer = 0;
-  const scheduleDraw = () => { clearTimeout(drawTimer); drawTimer = setTimeout(() => { if (!map.isMoving()) drawSketch(); else needDraw = true; }, 150); };
-  function demTile(dz, x, y) {
-    const key = dz + '/' + x + '/' + y, t = DEM.get(key);
-    if (t) return t === 'loading' ? null : t;
-    DEM.set(key, 'loading');
-    fetch('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + key + '.png').then(r => r.blob()).then(b => createImageBitmap(b)).then(bm => {
-      const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.drawImage(bm, 0, 0);
-      DEM.set(key, g.getImageData(0, 0, 256, 256).data); scheduleDraw();
-    }).catch(() => DEM.delete(key));
-    return null;
-  }
-  function elevAt(lng, lat, dz) { // 公尺；圖磚還沒到回 null
-    const n = 2 ** dz, xf = (lng + 180) / 360 * n, la = lat * Math.PI / 180, yf = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n;
-    const tx = Math.floor(xf), ty = Math.floor(yf), d = demTile(dz, tx, ty); if (!d) return null;
-    const px = Math.min(255, Math.floor((xf - tx) * 256)), py = Math.min(255, Math.floor((yf - ty) * 256)), i = (py * 256 + px) * 4;
-    return d[i] * 256 + d[i + 1] + d[i + 2] / 256 - 32768;
-  }
-  const elevScreen = (x, y, dz) => { const c = map.unproject([x, y]); return elevAt(c.lng, c.lat, dz); };
-  function hash(i, j) { // 兩個整數 → 三個 0..1 的穩定亂數，樹與山平移時才不會跳
-    let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
-    const r = () => { h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
-    return { a: r(), b: r(), c: r() };
-  }
-  // MapLibre 的世界座標以 512 圖磚為準
-  const world = (lng, lat, Z) => { const n = 512 * 2 ** Z, s = Math.sin(lat * Math.PI / 180); return [(lng + 180) / 360 * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n]; };
-  function gridPoints(w, h, z, s, jit, fn) { // 以整數縮放層級的世界座標為格，由上往下一列列給點（畫重疊才對）
-    const Z = Math.round(z), scale = 2 ** (z - Z), tl = map.unproject([0, 0]), br = map.unproject([w, h]);
-    const a = world(tl.lng, tl.lat, Z), b = world(br.lng, br.lat, Z);
-    for (let j = Math.floor(a[1] / s) - 1; j <= b[1] / s + 1; j++) for (let i = Math.floor(a[0] / s) - 1; i <= b[0] / s + 1; i++) {
-      const r = hash(i, j);
-      fn(((i + 0.5 + (r.a - 0.5) * jit) * s - a[0]) * scale, ((j + 0.5 + (r.b - 0.5) * jit) * s - a[1]) * scale, r, s * scale, i, j);
-    }
-  }
-  const orient = (pts, ccw) => { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return (a > 0) === ccw ? pts : pts.slice().reverse(); };
-  function unionPath(feats) { // 外環一個方向、洞反方向，nonzero 填就是聯集（圖磚邊緣重疊也不會破洞）
-    const path = new Path2D(); let any = false;
-    const polys = g => g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
-    for (const f of feats) for (const poly of polys(f.geometry)) poly.forEach((ring, k) => {
-      const pts = orient(simplify(proj(ring), SK.tol), k === 0); if (pts.length < 3) return;
-      path.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]); path.closePath(); any = true;
-    });
-    return any ? path : null;
-  }
-  const inside = (path, x, y) => !!path && ctx.isPointInPath(path, x * dpr, y * dpr, 'nonzero');
-  function washFill(path, color, alpha, bleed) { // 水彩：同一塊填兩三次、各偏一點點，邊緣就暈開
-    ctx.save(); ctx.fillStyle = color;
-    for (let k = 0; k < 3; k++) { ctx.save(); ctx.translate((k - 1) * bleed, ((k * 7) % 3 - 1) * bleed); ctx.globalAlpha = alpha; ctx.fill(path, 'nonzero'); ctx.restore(); }
-    ctx.restore();
-  }
-  function closedRings() { // 已探索區每個環（螢幕座標），撕邊用
-    const ids = Object.keys(engine.state().cells); if (!ids.length) return [];
-    const out = []; for (const poly of h3.cellsToMultiPolygon(ids, true)) for (const ring of poly) out.push(proj(ring));
-    return out;
-  }
-  // ───────── 圖示：山、樹、房子、羅盤 ─────────
-  function mountain(x, y, w, hh, r, ink, seed) {
-    const px = x + (r.c - 0.5) * 0.35 * w, py = y - hh;
-    const pts = [[x - w / 2, y], [px, py], [x + w / 2, y]];
-    if (ink) { // 鋼筆：紙色填滿擋住後面，右側排線當陰影，一條山脊
-      rc.polygon(pts, { fill: PAPER, fillStyle: 'solid', stroke: INK, strokeWidth: 1.1, roughness: 1.1, seed });
-      rc.polygon([[px, py], [x + w / 2, y], [px + w * 0.1, y]], { fill: '#6B6052', fillStyle: 'hachure', hachureGap: 3.2, hachureAngle: 60, fillWeight: 0.6, stroke: 'none', roughness: 0.9, seed });
-      rc.line(px, py, px + w * 0.08, y, { stroke: INK, strokeWidth: 0.8, roughness: 1.2, seed });
-    } else { // 水彩：灰藍山體、右邊暗面、高山有雪
-      ctx.save(); ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(px, py); ctx.lineTo(pts[2][0], pts[2][1]); ctx.closePath();
-      ctx.fillStyle = '#B9BDBE'; ctx.fill(); ctx.clip();
-      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x + w / 2, y); ctx.lineTo(px + w * 0.06, y); ctx.closePath(); ctx.fillStyle = '#80868A'; ctx.fill();
-      if (hh > w * 0.75) { const t = 0.3; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + w * t * 0.55, py + hh * t); ctx.lineTo(px + w * t * 0.25, py + hh * t * 0.8); ctx.lineTo(px, py + hh * t * 1.1); ctx.lineTo(px - w * t * 0.3, py + hh * t * 0.85); ctx.lineTo(px - w * t * 0.55, py + hh * t); ctx.closePath(); ctx.fillStyle = '#F6F8F6'; ctx.fill(); }
-      ctx.restore();
-      rc.polygon(pts, { stroke: '#4B5054', strokeWidth: 0.9, roughness: 0.8, seed });
-    }
-  }
-  function hill(x, y, w, hh, ink, seed) {
-    const o = { stroke: ink ? INK_SOFT : '#6E7A66', strokeWidth: 1, roughness: 1.2, seed };
-    rc.curve([[x - w / 2, y], [x - w / 4, y - hh * 0.8], [x, y - hh], [x + w / 4, y - hh * 0.8], [x + w / 2, y]], o);
-    if (ink) rc.line(x + w * 0.05, y - hh * 0.9, x + w * 0.3, y - hh * 0.15, { stroke: INK_SOFT, strokeWidth: 0.6, roughness: 1, seed });
-  }
-  function pine(x, y, s, seed) { // 鋼筆針葉樹：三層
-    rc.polygon([[x, y - s * 1.9], [x - s * 0.7, y - s * 0.3], [x + s * 0.7, y - s * 0.3]], { fill: '#3E6A3A', fillStyle: 'hachure', hachureGap: 2.2, hachureAngle: 70, fillWeight: 0.7, stroke: INK, strokeWidth: 0.7, roughness: 0.9, seed });
-    rc.polygon([[x, y - s * 1.3], [x - s * 0.9, y], [x + s * 0.9, y]], { fill: '#3E6A3A', fillStyle: 'hachure', hachureGap: 2.2, hachureAngle: 70, fillWeight: 0.7, stroke: INK, strokeWidth: 0.7, roughness: 0.9, seed });
-    ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + s * 0.4); ctx.stroke(); ctx.restore();
-  }
-  function oak(x, y, s, seed) { // 鋼筆闊葉樹：圓冠加排線
-    rc.circle(x, y - s * 0.9, s * 1.6, { fill: '#6F9A4C', fillStyle: 'hachure', hachureGap: 2.4, hachureAngle: -40, fillWeight: 0.6, stroke: INK, strokeWidth: 0.7, roughness: 1.1, seed });
-    ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y - s * 0.3); ctx.lineTo(x, y + s * 0.4); ctx.stroke(); ctx.restore();
-  }
-  function canopy(x, y, s, r) { // 水彩闊葉樹：三球一冠、左上亮點、右下暗
-    ctx.save();
-    const blob = (dx, dy, rad, color) => { ctx.beginPath(); ctx.arc(x + dx, y + dy, rad, 0, 7); ctx.fillStyle = color; ctx.fill(); };
-    ctx.strokeStyle = '#2F5A2B'; ctx.lineWidth = 0.9;
-    ctx.beginPath(); ctx.arc(x - s * 0.45, y - s * 0.7, s * 0.6, 0, 7); ctx.arc(x + s * 0.45, y - s * 0.75, s * 0.62, 0, 7); ctx.arc(x, y - s * 1.15, s * 0.65, 0, 7); ctx.fillStyle = r.c > 0.5 ? '#6FA94A' : '#5E9B40'; ctx.fill(); ctx.stroke();
-    blob(s * 0.35, -s * 0.55, s * 0.45, 'rgba(46,90,40,0.45)');
-    blob(-s * 0.35, -s * 1.05, s * 0.3, 'rgba(205,232,150,0.8)');
-    ctx.strokeStyle = '#6B4A2B'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x, y - s * 0.4); ctx.lineTo(x, y + s * 0.35); ctx.stroke();
-    ctx.restore();
-  }
-  function fir(x, y, s) { // 水彩針葉樹
-    ctx.save(); ctx.beginPath(); ctx.moveTo(x, y - s * 2); ctx.lineTo(x - s * 0.8, y); ctx.lineTo(x + s * 0.8, y); ctx.closePath();
-    ctx.fillStyle = '#3F7A3C'; ctx.fill(); ctx.strokeStyle = '#2A4F28'; ctx.lineWidth = 0.8; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x, y - s * 2); ctx.lineTo(x + s * 0.8, y); ctx.lineTo(x + s * 0.1, y); ctx.closePath(); ctx.fillStyle = 'rgba(30,70,30,0.35)'; ctx.fill();
-    ctx.restore();
-  }
-  function house(x, y, s, ink, r, seed) {
-    const w = s * (1.2 + r.a * 0.6), hh = s * 0.8, roof = s * (0.6 + r.b * 0.4);
-    if (ink) {
-      rc.rectangle(x - w / 2, y - hh, w, hh, { fill: PAPER, fillStyle: 'solid', stroke: INK, strokeWidth: 0.9, roughness: 0.9, seed });
-      rc.polygon([[x - w / 2 - s * 0.15, y - hh], [x, y - hh - roof], [x + w / 2 + s * 0.15, y - hh]], { fill: '#7A5A3A', fillStyle: 'hachure', hachureGap: 2.2, hachureAngle: 45, fillWeight: 0.6, stroke: INK, strokeWidth: 0.9, roughness: 0.9, seed });
-      rc.rectangle(x - s * 0.15, y - hh * 0.55, s * 0.3, hh * 0.55, { stroke: INK, strokeWidth: 0.7, roughness: 0.8, seed });
-    } else {
-      ctx.save(); ctx.fillStyle = '#EBD9A8'; ctx.strokeStyle = '#5A3E22'; ctx.lineWidth = 0.9;
-      ctx.fillRect(x - w / 2, y - hh, w, hh); ctx.strokeRect(x - w / 2, y - hh, w, hh);
-      ctx.beginPath(); ctx.moveTo(x - w / 2 - s * 0.15, y - hh); ctx.lineTo(x, y - hh - roof); ctx.lineTo(x + w / 2 + s * 0.15, y - hh); ctx.closePath(); ctx.fillStyle = '#B5653A'; ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#5A3E22'; ctx.fillRect(x - s * 0.14, y - hh * 0.55, s * 0.28, hh * 0.55);
-      ctx.restore();
-    }
-  }
-  function tower(x, y, s, ink, seed) { // 城市多一座塔
-    if (ink) rc.rectangle(x - s * 0.5, y - s * 2.6, s, s * 2.6, { fill: PAPER, fillStyle: 'solid', stroke: INK, strokeWidth: 1, roughness: 0.9, seed });
-    else { ctx.save(); ctx.fillStyle = '#D9CBB0'; ctx.strokeStyle = '#5A3E22'; ctx.fillRect(x - s * 0.5, y - s * 2.6, s, s * 2.6); ctx.strokeRect(x - s * 0.5, y - s * 2.6, s, s * 2.6); ctx.restore(); }
-    rc.polygon([[x - s * 0.7, y - s * 2.6], [x, y - s * 3.4], [x + s * 0.7, y - s * 2.6]], { fill: ink ? '#7A5A3A' : '#8E3F2F', fillStyle: ink ? 'hachure' : 'solid', hachureGap: 2, fillWeight: 0.6, stroke: ink ? INK : '#5A3E22', strokeWidth: 0.9, roughness: 0.9, seed });
-  }
-  function compass(cx, cy, R, ink) {
-    ctx.save(); ctx.translate(cx, cy); ctx.lineWidth = 1; ctx.strokeStyle = ink ? INK : '#4B4036'; ctx.fillStyle = ctx.strokeStyle;
-    ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * 0.86, 0, 7); ctx.stroke();
-    for (let k = 0; k < 32; k++) { const a = k * Math.PI / 16, l = k % 4 ? R * 0.06 : R * 0.12; ctx.beginPath(); ctx.moveTo(Math.cos(a) * R * 0.86, Math.sin(a) * R * 0.86); ctx.lineTo(Math.cos(a) * (R * 0.86 - l), Math.sin(a) * (R * 0.86 - l)); ctx.stroke(); }
-    const star = (n, len, wid, rot) => { for (let k = 0; k < n; k++) { const a = rot + k * 2 * Math.PI / n, b = a + Math.PI / 2;
-      for (const side of [1, -1]) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len); ctx.lineTo(Math.cos(b) * wid * side, Math.sin(b) * wid * side); ctx.closePath();
-        ctx.fillStyle = side > 0 ? (ink ? INK : '#4B4036') : PAPER; ctx.fill(); ctx.stroke(); } } };
-    star(4, R * 0.5, R * 0.1, Math.PI / 4); star(4, R * 0.78, R * 0.12, -Math.PI / 2);
-    ctx.fillStyle = ink ? INK : '#4B4036'; ctx.font = (R * 0.42) + "px 'Luoyan', serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('N', 0, -R * 1.22); ctx.fillText('S', 0, R * 1.22); ctx.fillText('E', R * 1.22, 0); ctx.fillText('W', -R * 1.22, 0);
-    ctx.restore();
-  }
-  // ───────── 奇幻畫法主程式 ─────────
-  function drawFantasy(w, h, z, ex) {
-    const ink = STYLE === 'ink', lat = map.getCenter().lat;
-    const mpp = 40075016.686 * Math.cos(lat * Math.PI / 180) / (256 * 2 ** z); // 每個螢幕像素幾公尺
-    const Z = Math.round(z), dz = Math.max(7, Math.min(12, Z - 2));
-    let seed = 1;
-    const wood = unionPath(query('landcover', cls(['wood']))), park = unionPath(query('park')), water = unionPath(query('water'));
-    const farm = unionPath(query('landcover', cls(['farmland', 'grass'])));
-    const rings = closedRings();
-    // 紙的髒污與邊框（整張，不受迷霧裁切）
-    if (ink) {
-      ctx.save();
-      for (let k = 0; k < 6; k++) { const r = hash(k, 99), g = ctx.createRadialGradient(r.a * w, r.b * h, 0, r.a * w, r.b * h, 90 + r.c * 160); g.addColorStop(0, 'rgba(120,90,50,0.10)'); g.addColorStop(1, 'rgba(120,90,50,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); }
-      ctx.restore();
-      rc.rectangle(10, 10, w - 20, h - 20, { stroke: INK, strokeWidth: 1.6, roughness: 0.6, seed: 3 });
-      rc.rectangle(15, 15, w - 30, h - 30, { stroke: INK, strokeWidth: 0.7, roughness: 0.6, seed: 4 });
-    }
-    ctx.save(); if (ex) ctx.clip(ex, 'nonzero');
-    // 1. 地面的淡彩
-    if (ink) {
-      if (wood) washFill(wood, '#C9D8A8', 0.3, 1.5);
-      if (park) washFill(park, '#D6E0B4', 0.25, 1.5);
-    } else {
-      ctx.fillStyle = '#D3E39F'; ctx.fillRect(0, 0, w, h); // 整片草原
-      if (farm) washFill(farm, '#E6E2A0', 0.35, 2);
-      if (wood) washFill(wood, '#A9CB7C', 0.45, 2.5);
-      if (park) washFill(park, '#BFD98E', 0.4, 2);
-      if (z >= 11) gridPoints(w, h, z, 22, 1, (x, y, r) => { // 草：短斜線
-        if (r.c > 0.55 || inside(wood, x, y) || inside(water, x, y)) return;
-        ctx.strokeStyle = 'rgba(70,120,50,0.55)'; ctx.lineWidth = 0.9; ctx.beginPath();
-        for (let k = -1; k <= 1; k++) { ctx.moveTo(x + k * 3, y + 2); ctx.lineTo(x + k * 3 + 1.5, y - 3); } ctx.stroke();
-      });
-    }
-    // 2. 水
-    if (water) {
-      if (ink) {
-        washFill(water, '#BFD6E4', 0.35, 1.5);
-        ctx.save(); ctx.clip(water, 'nonzero'); ctx.strokeStyle = '#4F7FA5';
-        for (const [lw, a] of [[5, 0.3], [12, 0.16], [22, 0.08]]) { ctx.lineWidth = lw; ctx.globalAlpha = a; ctx.stroke(water); } // 岸邊一圈圈越遠越淡
-        ctx.restore();
-        ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 1.1; ctx.globalAlpha = 0.85; ctx.stroke(water); ctx.restore();
-        if (z >= 10) gridPoints(w, h, z, 36, 1, (x, y, r) => { // 海面的小波浪
-          if (r.c > 0.3 || !inside(water, x, y)) return;
-          rc.curve([[x - 7, y], [x - 3, y - 2.5], [x + 3, y + 2.5], [x + 7, y]], { stroke: '#3F6F95', strokeWidth: 0.9, roughness: 0.6, seed: seed++ });
-        });
-      } else {
-        washFill(water, '#8CC2DE', 0.5, 2.5);
-        ctx.save(); ctx.clip(water, 'nonzero'); ctx.strokeStyle = '#D9EEF8'; ctx.lineWidth = 3; ctx.globalAlpha = 0.6; ctx.stroke(water); ctx.restore();
-        ctx.save(); ctx.strokeStyle = '#4C86AD'; ctx.lineWidth = 1; ctx.globalAlpha = 0.8; ctx.stroke(water); ctx.restore();
-      }
-    }
-    for (const f of query('waterway', cls(z >= 13 ? ['river', 'stream'] : ['river']))) for (const l of lines(f.geometry)) {
-      const p = simplify(proj(l), SK.tol); if (p.length < 2) continue;
-      const big = f.properties.class === 'river';
-      if (ink) { rc.linearPath(p, { stroke: '#4F7FA5', strokeWidth: big ? 2.4 : 1.2, roughness: 1, bowing: SK.bow, seed }); rc.linearPath(p, { stroke: INK, strokeWidth: 0.5, roughness: 1, bowing: SK.bow, seed }); }
-      else { rc.linearPath(p, { stroke: '#4C86AD', strokeWidth: big ? 4.5 : 2.2, roughness: 0.8, bowing: SK.bow, seed }); rc.linearPath(p, { stroke: '#A9D5EC', strokeWidth: big ? 2.2 : 1, roughness: 0.8, bowing: SK.bow, seed }); }
-      seed++;
-    }
-    // 3. 山：讀高程，格點上比鄰居高出多少就畫多高的山；沒圖磚就先跳過，圖磚到了會重畫
-    const mSpacing = z >= 13 ? 54 : 30, peaks = [];
-    gridPoints(w, h, z, mSpacing, 0.8, (x, y, r, s) => {
-      if (x < -s || y < -s || x > w + s || y > h + s) return;
-      const e = elevScreen(x, y, dz); if (e == null || e <= 2) return;
-      let lo = e; for (const [dx, dy] of [[s, 0], [-s, 0], [0, s], [0, -s], [s * 0.7, s * 0.7], [-s * 0.7, -s * 0.7]]) { const n = elevScreen(x + dx, y + dy, dz); if (n != null && n < lo) lo = n; }
-      const slope = (e - lo) / (mpp * s); // 相對落差 / 水平距離
-      const t = Math.max(0, Math.min(1, Math.max(slope / 0.45, (e - 250) / 900))); // 越陡或越高，山畫越高
-      if (slope > 0.11 || e > 450) peaks.push({ x, y, s, r, kind: 'm', t, w: s * 1.7, h: s * (0.8 + 1.6 * t) });
-      else if ((slope > 0.05 || e > 180) && r.c < 0.6) peaks.push({ x, y, s, r, kind: 'h', t: Math.min(1, slope / 0.1) });
-    });
-    const mounts = peaks.filter(p => p.kind === 'm');
-    const onMountain = (x, y) => { // 樹不種在山的上半部，不然把山蓋掉
-      for (const p of mounts) { if (Math.abs(x - p.x) > p.w / 2 || y > p.y || y < p.y - p.h) continue; const k = (p.y - y) / p.h; if (Math.abs(x - p.x) < p.w / 2 * (1 - k) && k > 0.35) return true; }
-      return false;
-    };
-    window.SKDBG = { peaks: peaks.length, dem: [...DEM.keys()].join(' '), dz, mpp, xs: peaks.map(p => Math.round(p.x)) }; // 瀏覽器主控台看山有沒有算出來
-    for (const p of peaks) { // gridPoints 已是由上往下，前排蓋後排
-      if (p.kind === 'm') mountain(p.x, p.y, p.w, p.h, p.r, ink, seed++);
-      else hill(p.x, p.y, p.s * 1.3, p.s * (0.25 + 0.3 * p.t), ink, seed++);
-    }
-    // 4. 路：只畫幹道與主要道路
-    const roadFeats = query('transportation', cls(z >= 12.5 ? ['motorway', 'trunk', 'primary', 'secondary'] : ['motorway', 'trunk', 'primary']));
-    for (const f of roadFeats) for (const l of lines(f.geometry)) {
-      const p = simplify(proj(l), SK.tol); if (p.length < 2) continue;
-      if (ink) rc.linearPath(p, { stroke: '#6B4A2B', strokeWidth: 1.1, roughness: 1, bowing: SK.bow, strokeLineDash: [5, 4], seed: seed++ });
-      else { rc.linearPath(p, { stroke: '#A08354', strokeWidth: 4.2, roughness: 0.7, bowing: SK.bow, seed }); rc.linearPath(p, { stroke: '#EAD8A6', strokeWidth: 2.4, roughness: 0.7, bowing: SK.bow, seed, disableMultiStroke: true }); seed++; }
-    }
-    // 5. 樹：森林裡撒一棵棵；太多就拉大間距
-    if ((wood || park) && z >= 9) {
-      let spacing = ink ? 17 : 18, count = 0;
-      gridPoints(w, h, z, spacing, 0, (x, y) => { if (inside(wood, x, y)) count++; });
-      if (count > 1200) spacing *= Math.sqrt(count / 1200);
-      gridPoints(w, h, z, spacing, 0.9, (x, y, r, s) => {
-        if (x < -s || y < -s || x > w + s || y > h + s) return;
-        if (!inside(wood, x, y) && !(r.a < 0.3 && inside(park, x, y))) return; // 公園、保護區稀疏種幾棵
-        if (onMountain(x, y)) return;
-        const size = s * 0.5;
-        if (ink) (r.c < 0.65 ? pine : oak)(x, y, size, seed++);
-        else (r.c < 0.3 ? fir : (xx, yy, ss) => canopy(xx, yy, ss, r))(x, y, size);
-      });
-    }
-    // 6. 聚落：城市＝一圈房子加塔，城鎮四間，村兩間，里一間
-    // 台灣的 OSM 每個里都是 village，縮小時只畫市、鎮，拉近才畫村、里
-    const minZ = { city: 0, town: 10, village: 12.5, hamlet: 14 };
-    if (z >= 8) for (const f of query('place')) {
-      const c = f.properties.class, n = c === 'city' ? 7 : c === 'town' ? 4 : c === 'village' ? 2 : c === 'hamlet' ? 1 : 0; if (!n || z < minZ[c]) continue;
-      const p = map.project(f.geometry.coordinates), s = z >= 13 ? 8 : 6;
-      const rr = hash(Math.round(f.geometry.coordinates[0] * 1000), Math.round(f.geometry.coordinates[1] * 1000));
-      const spots = []; for (let k = 0; k < n; k++) { const a = rr.a * 6.28 + k * 6.28 / n, rad = n === 1 ? 0 : s * (1.6 + (k % 2) * 0.9); spots.push([p.x + Math.cos(a) * rad, p.y - s * 1.2 + Math.sin(a) * rad * 0.6, hash(k, n)]); }
-      spots.sort((a, b) => a[1] - b[1]);
-      for (const [x, y, r] of spots) house(x, y, s, ink, r, seed++);
-      if (c === 'city') tower(p.x, p.y - s * 1.2, s, ink, seed++);
-    }
-    // 7. 足跡：尋寶圖的紅色虛線航線
-    for (const l of trackLines(engine.state().points)) {
-      const p = simplify(l.map(c => { const q = map.project(c); return [q.x, q.y]; }), SK.tol * 1.5); if (p.length < 2) continue;
-      rc.linearPath(p, { stroke: '#A33B2E', strokeWidth: 1.6, roughness: 0.8, bowing: 0.6, strokeLineDash: [8, 5], seed: seed++ });
-    }
-    ctx.restore();
-    // 8. 探索邊界：手撕邊，內側一道焦痕
-    if (ex) {
-      ctx.save(); ctx.clip(ex, 'nonzero'); ctx.strokeStyle = ink ? '#6B5236' : '#7A6B4A'; ctx.lineWidth = 14; ctx.globalAlpha = 0.18; ctx.stroke(ex); ctx.lineWidth = 5; ctx.globalAlpha = 0.2; ctx.stroke(ex); ctx.restore();
-      for (const ring of rings) if (ring.length > 2) rc.linearPath(ring.concat([ring[0]]), { stroke: ink ? INK : '#5A4A33', strokeWidth: 1.3, roughness: 2.2, bowing: 0.8, seed: seed++ });
-    }
-    compass(w - 70, h - 90, 38, ink);
-  }
-  // ───────── 貼紙模式：像人排版。先讓重要的東西佔位，再放山、再放森林，彼此不重疊；東西少、留白多 ─────────
-  let placeClasses = '';
-  function drawSprite(w, h, z, ex) {
-    const lat = map.getCenter().lat, mpp = 40075016.686 * Math.cos(lat * Math.PI / 180) / (256 * 2 ** z);
-    const Z = Math.round(z), dz = Math.max(7, Math.min(12, Z - 2)), far = z < 13; // 縮小：一叢一叢、山成排；拉近：一棵棵、一間間
-    let seed = 1;
-    const wood = unionPath(query('landcover', cls(['wood']))), park = unionPath(query('park')), water = unionPath(query('water'));
-    const rings = closedRings();
-    // 地名跟著房子一起減量：縮小只留市鎮
-    const classes = z < 12.5 ? 'city,town' : z < 14 ? 'city,town,village' : 'city,town,village,hamlet';
-    if (classes !== placeClasses) { placeClasses = classes; map.setFilter('place', ['in', ['get', 'class'], ['literal', classes.split(',')]]); }
-    // 佔位：每張貼紙一個框，放之前先問有沒有人
-    const taken = [], items = [];
-    const free = (b, list) => !(list || taken).some(t => !(b[2] < t[0] || b[0] > t[2] || b[3] < t[1] || b[1] > t[3]));
-    const box = (name, x, y, wd, pad) => { const im = SPRITES[name], ht = im ? wd * im.height / im.width : wd * 0.7; return [x - wd / 2 - pad, y - ht - pad, x + wd / 2 + pad, y + pad]; };
-    const place = (name, x, y, wd, flip, pad) => { const b = box(name, x, y, wd, pad); if (!free(b)) return false; taken.push(b); items.push({ name, x, y, w: wd, flip }); return true; };
-    // 紙漬與邊框
-    ctx.save();
-    for (let k = 0; k < 6; k++) { const r = hash(k, 99), g = ctx.createRadialGradient(r.a * w, r.b * h, 0, r.a * w, r.b * h, 90 + r.c * 160); g.addColorStop(0, 'rgba(120,90,50,0.10)'); g.addColorStop(1, 'rgba(120,90,50,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); }
-    ctx.restore();
-    rc.rectangle(10, 10, w - 20, h - 20, { stroke: INK, strokeWidth: 1.6, roughness: 0.6, seed: 3 });
-    rc.rectangle(15, 15, w - 30, h - 30, { stroke: INK, strokeWidth: 0.7, roughness: 0.6, seed: 4 });
-    ctx.save(); if (ex) ctx.clip(ex, 'nonzero');
-    // 1. 森林一點點底色；水：淡藍、岸邊一圈圈、墨線、小波浪貼紙
-    // 森林底色縮小時不鋪（圖磚邊會露出方塊），拉近才淡淡一層
-    if (!far && wood) washFill(wood, '#C9D8A8', 0.1, 1.5);
-    if (!far && park) washFill(park, '#D6E0B4', 0.08, 1.5);
-    if (water) {
-      washFill(water, '#BFD6E4', 0.35, 1.5);
-      ctx.save(); ctx.clip(water, 'nonzero'); ctx.strokeStyle = '#4F7FA5';
-      for (const [lw, a] of [[5, 0.3], [12, 0.16], [22, 0.08]]) { ctx.lineWidth = lw; ctx.globalAlpha = a; ctx.stroke(water); }
-      ctx.restore();
-      ctx.save(); ctx.strokeStyle = INK_SOFT; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.8; ctx.stroke(water); ctx.restore();
-      if (z >= 10) gridPoints(w, h, z, 64, 1, (x, y, r) => { if (r.c < 0.3 && inside(water, x, y)) sprite('wave', x, y, 22, r.b > 0.5); });
-    }
-    // 河：縮小時大河本來就是水域多邊形，線狀的河全不畫；拉近才畫夠長的
-    if (!far) for (const f of query('waterway', cls(['river']))) for (const l of lines(f.geometry)) {
-      const p = simplify(proj(l), SK.tol); if (p.length < 2) continue;
-      let len = 0; for (let i = 1; i < p.length; i++) len += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
-      if (len < 120) continue;
-      rc.linearPath(p, { stroke: '#6C97BD', strokeWidth: 2, roughness: 0.8, bowing: SK.bow, seed: seed++ });
-    }
-    // 2. 路：縮小只有高速公路，拉近多幹道與主要道路，一條細虛線，先簡化得很粗
-    for (const f of query('transportation', cls(far ? ['motorway'] : ['motorway', 'trunk', 'primary']))) for (const l of lines(f.geometry)) {
-      const p = simplify(proj(l), SK.tol * 3); if (p.length < 2) continue;
-      rc.linearPath(p, { stroke: '#8A6A48', strokeWidth: 1, roughness: 0.6, bowing: 0.5, strokeLineDash: [6, 5], seed: seed++ });
-    }
-    // 3. 城鎮先佔位，大的先放，放不下就不放
-    const rank = { city: 0, town: 1, village: 2, hamlet: 3 }, minZ = { city: 0, town: 10, village: 12.5, hamlet: 14 }, size = { city: 96, town: 70, village: 64, hamlet: 42 };
-    const places = query('place').filter(f => rank[f.properties.class] != null && z >= minZ[f.properties.class]).sort((a, b) => rank[a.properties.class] - rank[b.properties.class]);
-    for (const f of places) {
-      const c = f.properties.class, p = map.project(f.geometry.coordinates), rr = hash(Math.round(f.geometry.coordinates[0] * 1000), Math.round(f.geometry.coordinates[1] * 1000));
-      place(c, p.x, p.y + 10, size[c] * (far ? 1 : 1.2), rr.b > 0.5, 14);
-    }
-    // 4. 山：粗格子，一格最多一座，整格的落差夠才放。山跟山可以疊成山脈，跟別的東西不疊
-    const G = far ? 50 : 120, ranges = [];
-    gridPoints(w, h, z, G, 0.5, (x, y, r, s) => {
-      if (x < -s || y < -s || x > w + s || y > h + s || r.c > 0.85) return;
-      let e = 0, n = 0, lo = Infinity, hi = -Infinity;
-      for (const [dx, dy] of [[0, 0], [-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) { const v = elevScreen(x + dx * s, y + dy * s, dz); if (v == null) continue; e += v; n++; lo = Math.min(lo, v); hi = Math.max(hi, v); }
-      if (!n) return; e /= n;
-      const slope = (hi - lo) / (mpp * s * 0.8);
-      if (e < 50 || (slope < 0.12 && e < 500)) return;
-      const t = Math.max(0, Math.min(1, Math.max(slope / 0.5, (e - 250) / 900)));
-      const name = t > 0.55 ? (r.c > 0.4 ? 'mountain-high-1' : 'mountain-high-2') : t > 0.25 ? 'mountain-1' : far ? 'hill-1' : null;
-      if (!name) return;
-      const wd = s * (far ? 1.6 + 0.8 * t : 1.3 + 0.6 * t), b = box(name, x, y, wd, 0), bs = [x - wd * 0.22, b[1] + (b[3] - b[1]) * 0.6, x + wd * 0.22, y];
-      if (!free(b) || !free(bs, ranges)) return;
-      ranges.push(bs); items.push({ name, x, y, w: wd, flip: r.b > 0.5, mount: true });
-    });
-    for (const it of items) if (it.mount) taken.push(box(it.name, it.x, it.y, it.w, 4)); // 山放完才擋樹，山之間不互擋
-    // 5. 森林：粗格子算覆蓋率，夠密的格子才散幾叢，叢與叢不疊、不蓋到城鎮和山
-    // 縮小時一格裡的叢可以互相疊成一整片林子（只跟城鎮、山不疊）；拉近時一棵棵不疊
-    const F = far ? 110 : 84, groves = [];
-    gridPoints(w, h, z, F, 0.3, (x, y, r, s, i, j) => {
-      if (x < -s || y < -s || x > w + s || y > h + s) return;
-      let cov = 0;
-      for (let k = 0; k < 9; k++) { const q = hash(i * 9 + k, j); const px = x + (q.a - 0.5) * s, py = y + (q.b - 0.5) * s; if (inside(wood, px, py)) cov += 1; else if (inside(park, px, py)) cov += 0.4; }
-      cov /= 9; if (cov < 0.35) return;
-      const n = Math.round(cov * (far ? 9 : 6)) + (r.c < 0.5 ? 1 : 0), hi = (elevScreen(x, y, dz) || 0) > 300;
-      for (let k = 0; k < n; k++) {
-        const q = hash(i * 7 + k + 101, j * 3 + 1), px = x + (q.a - 0.5) * s * 0.95, py = y + (q.b - 0.5) * s * 0.95;
-        if (!inside(wood, px, py) && !inside(park, px, py)) continue;
-        const v = q.c > 0.5 ? '1' : '2';
-        if (far) { // 叢疊叢，大小略有不同，才像一片林子不像一張張貼紙
-          const name = 'forest-clump-' + v, wd = s * (0.4 + q.b * 0.2), b = box(name, px, py, wd, 0), bs = [px - wd * 0.18, py - wd * 0.2, px + wd * 0.18, py];
-          if (!free(b) || !free(bs, groves)) continue;
-          groves.push(bs); items.push({ name, x: px, y: py, w: wd, flip: q.a > 0.5 });
-        } else {
-          place((hi ? q.c < 0.7 : q.c < 0.3) ? 'tree-conifer-' + v : 'tree-broadleaf-' + v, px, py, s * 0.32, q.a > 0.5, 2);
-        }
-      }
-    });
-    // 6. 海上點綴：探索過的大片水面放帆船、海怪、鯨魚
-    if (water && z >= 9) gridPoints(w, h, z, 230, 0.8, (x, y, r) => {
-      if (r.c > 0.5 || !inside(water, x, y) || !inside(water, x - 40, y) || !inside(water, x + 40, y) || !inside(water, x, y - 40)) return;
-      place(r.a < 0.4 ? 'ship' : r.a < 0.75 ? 'sea-serpent' : 'whale', x, y + 20, 56, r.b > 0.5, 10);
-    });
-    // 畫：由上往下，前排蓋後排
-    items.sort((a, b) => a.y - b.y);
-    for (const it of items) sprite(it.name, it.x, it.y, it.w, it.flip);
-    // 7. 足跡：尋寶圖的紅色虛線航線
-    for (const l of trackLines(engine.state().points)) {
-      const p = simplify(l.map(c => { const q = map.project(c); return [q.x, q.y]; }), SK.tol * 1.5); if (p.length < 2) continue;
-      rc.linearPath(p, { stroke: '#A33B2E', strokeWidth: 1.6, roughness: 0.8, bowing: 0.6, strokeLineDash: [8, 5], seed: seed++ });
-    }
-    ctx.restore();
-    // 8. 迷霧上的問號貼紙，角度各自歪
-    if (ex) gridPoints(w, h, z, 150, 1, (x, y, r) => {
-      if (r.c > 0.6 || inside(ex, x, y)) return;
-      ctx.save(); ctx.translate(x, y); ctx.rotate((r.a - 0.5) * 0.8); ctx.globalAlpha = 0.75; sprite('question', 0, 14, 20 + r.b * 10, false); ctx.restore();
-    });
-    // 9. 探索邊界：手撕邊，內側一道焦痕
-    if (ex) {
-      ctx.save(); ctx.clip(ex, 'nonzero'); ctx.strokeStyle = '#6B5236'; ctx.lineWidth = 14; ctx.globalAlpha = 0.18; ctx.stroke(ex); ctx.lineWidth = 5; ctx.globalAlpha = 0.2; ctx.stroke(ex); ctx.restore();
-      for (const ring of rings) if (ring.length > 2) rc.linearPath(ring.concat([ring[0]]), { stroke: INK, strokeWidth: 1.3, roughness: 2.2, bowing: 0.8, seed: seed++ });
-    }
-    compass(w - 70, h - 90, 38, true);
-    window.SKDBG = { items: items.length, mountains: ranges.length };
-  }
-  function drawSketch() {
-    const el = map.getContainer(), w = el.clientWidth, h = el.clientHeight; dpr = Math.min(2, devicePixelRatio || 1);
-    cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px'; cv.style.transform = '';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
-    drawCenter = map.getCenter(); drawZoom = map.getZoom();
-    const z = drawZoom, fogOn = !!map.getLayer('fog') && map.getLayoutProperty('fog', 'visibility') !== 'none';
-    const ex = fogOn ? exploredPath() : null;
-    if (STYLE === 'sprite') { drawSprite(w, h, z, ex); return; }
-    if (FANTASY) { drawFantasy(w, h, z, ex); return; }
-    let seed = 1;
-    ctx.save(); if (ex) ctx.clip(ex, 'evenodd');
-    // 植被、公園：綠色排線
-    for (const f of query('landcover', cls(['wood']))) for (const r of rings(f.geometry)) hatchPoly(simplify(proj(r), SK.tol), '#8FB862', 9, -45, 0.9, seed++);
-    for (const f of query('park')) for (const r of rings(f.geometry)) hatchPoly(simplify(proj(r), SK.tol), '#9CC070', 10, 45, 0.9, seed++);
-    // 水：藍色排線；河流：藍線
-    for (const f of query('water')) for (const r of rings(f.geometry)) hatchPoly(simplify(proj(r), SK.tol), '#5B93C4', 7, -30, 0.9, seed++);
-    for (const f of query('waterway', cls(['river']))) for (const l of lines(f.geometry)) { const p = simplify(proj(l), SK.tol); if (p.length > 1) rc.linearPath(p, { stroke: '#4F8DC2', strokeWidth: 2.2, roughness: SK.rough, bowing: SK.bow, seed: seed++ }); }
-    // 鐵路
-    for (const f of query('transportation', cls(['rail']))) for (const l of lines(f.geometry)) { const p = simplify(proj(l), SK.tol); if (p.length > 1) rc.linearPath(p, { stroke: '#2E2820', strokeWidth: 1.4, roughness: SK.rough, seed: seed++ }); }
-    // 道路：次要 → 主要 → 幹道，外墨內色。縮得越小畫得越少
-    const big = z >= 14;
-    if (z >= 14) for (const f of query('transportation', cls(['tertiary']))) for (const l of lines(f.geometry)) road(simplify(proj(l), SK.tol), 4, 2, '#F8ECB8', seed++);
-    if (z >= 12.5) for (const f of query('transportation', cls(['secondary']))) for (const l of lines(f.geometry)) road(simplify(proj(l), SK.tol), big ? 5 : 2.8, big ? 2.6 : 1.3, '#F6E39A', seed++);
-    for (const f of query('transportation', cls(['primary']))) for (const l of lines(f.geometry)) road(simplify(proj(l), SK.tol), big ? 7 : 4, big ? 4 : 2.2, '#F2CF5B', seed++);
-    for (const f of query('transportation', cls(['motorway', 'trunk']))) for (const l of lines(f.geometry)) road(simplify(proj(l), SK.tol), big ? 8 : 4.6, big ? 4.6 : 2.6, '#CFC9BC', seed++);
-    ctx.restore();
-    if (ex) {
-      // 迷霧：全螢幕灰色排線，把已探索區挖掉；已探索區鋪綠色排線，邊界一條淡墨線
-      rc.rectangle(-20, -20, w + 40, h + 40, { fill: '#9A948A', fillStyle: 'hachure', hachureGap: 11, fillWeight: 0.7, stroke: 'none', roughness: 1.2, disableMultiStrokeFill: true, seed: 7 });
-      ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = '#000'; ctx.fill(ex, 'evenodd'); ctx.restore();
-      ctx.save(); ctx.clip(ex, 'evenodd');
-      rc.rectangle(-20, -20, w + 40, h + 40, { fill: '#7FAA55', fillStyle: 'hachure', hachureGap: 8, hachureAngle: -41, fillWeight: 1, stroke: 'none', roughness: 1.4, disableMultiStrokeFill: true, seed: 11 });
-      ctx.restore();
-      ctx.save(); ctx.strokeStyle = '#5C5244'; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.7; ctx.stroke(ex); ctx.restore();
-    }
-  }
-  map.on('move', () => {
-    needDraw = true; if (!drawCenter) return;
-    const el = map.getContainer(), p = map.project(drawCenter), s = Math.pow(2, map.getZoom() - drawZoom);
-    cv.style.transformOrigin = (el.clientWidth / 2) + 'px ' + (el.clientHeight / 2) + 'px';
-    cv.style.transform = 'translate(' + (p.x - el.clientWidth / 2) + 'px,' + (p.y - el.clientHeight / 2) + 'px) scale(' + s + ')';
-  });
-  map.on('sourcedata', e => { if ((e.sourceId === 'omt' || e.sourceId === 'fog') && e.isSourceLoaded) needDraw = true; });
-  map.on('idle', () => { if (needDraw) { needDraw = false; drawSketch(); } });
-  window.drawSketch = drawSketch; window.SK = SK; window.sketchCanvas = cv;
 }
 
-// ===== 圖幅模式（?style=sheet）：底圖是電腦上先畫好、切成圖磚的圖幅；app 只蓋霧、畫軌跡、放定位點 =====
-// 圖磚由 tools/sheet/cut_tiles.py 產生，bounds 抄 tiles/<sheet>/meta.json
-// 網址加 &sheet=taipei-b 可以換成程式拼貼版（路 B）比較
-const SHEET_VARIANT = (location.search.match(/[?&]sheet=([\w-]+)/) || [])[1] || 'taipei';
-const SHEETS = [
-  { id: 'taipei', tiles: 'tiles/' + SHEET_VARIANT + '/{z}/{x}/{y}.webp', bounds: [121.289062, 24.846565, 121.772461, 25.324167], minzoom: 9, maxzoom: 13 }
-];
-function mistImage() { // 黑濛濛的霧：幾個整數頻率的波疊起來，四邊自然接得上，鋪成 pattern 不會有縫
-  const n = 256, c = document.createElement('canvas'); c.width = c.height = n;
-  const g = c.getContext('2d'), id = g.createImageData(n, n), d = id.data, waves = [];
-  for (let k = 0; k < 9; k++) waves.push({ fx: 1 + (k * 7) % 5, fy: 1 + (k * 3) % 5, ph: k * 1.7, amp: 1 / (1 + k * 0.6) });
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    let v = 0;
-    for (const w of waves) v += w.amp * Math.sin(2 * Math.PI * (w.fx * x / n + w.fy * y / n) + w.ph + 1.6 * Math.sin(2 * Math.PI * (w.fy * x / n - w.fx * y / n)));
-    const t = 0.5 + 0.5 * Math.tanh(v * 0.5), r = (Math.random() - 0.5) * 9, i = (y * n + x) * 4;
-    d[i] = 26 + t * 34 + r; d[i + 1] = 30 + t * 36 + r; d[i + 2] = 40 + t * 44 + r; d[i + 3] = 255;
-  }
-  return { width: n, height: n, data: new Uint8Array(d.buffer) };
-}
-if (STYLE === 'sheet') {
-  for (const id of ['water-name', 'road-name', 'road-shield', 'peak', 'place']) LABEL_LAYERS.splice(LABEL_LAYERS.indexOf(id), 1); // 地名已經寫在圖幅上
-  map.setMaxZoom(14.5); // 區域圖幅只畫到 z13，再拉近只是放大；步行圖幅做好前先擋在這
-  let tier = null;
-  map.on('zoomend', () => { const t = revealTier(); if (tier !== null && t !== tier) render(true); tier = t; }); // 粗細揭開範圍切換時重算霧
-  map.on('load', () => { tier = revealTier(); });
-  map.on('load', () => {
-    for (const l of style.layers) if (l.id !== 'bg' && map.getLayer(l.id)) map.setLayoutProperty(l.id, 'visibility', 'none'); // 向量底圖全藏
-    for (const id of ['hint-water', 'hint-border', 'explored-hatch', 'freq', 'explored-ink', 'fog-hatch', 'gaps']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
-    if (map.getLayer('place')) { map.setLayoutProperty('place', 'visibility', 'visible'); map.setPaintProperty('place', 'text-opacity', 0); } // 地名不畫，但圖磚要載：製圖的標題靠它找城市與區
-    for (const s of SHEETS) {
-      map.addSource('sheet-' + s.id, { type: 'raster', tiles: [s.tiles], tileSize: 256, bounds: s.bounds, minzoom: s.minzoom, maxzoom: s.maxzoom });
-      map.addLayer({ id: 'sheet-' + s.id, type: 'raster', source: 'sheet-' + s.id, paint: { 'raster-fade-duration': 0 } }, 'freq'); // 放在霧的下面
-    }
-    map.addImage('mist', mistImage());
-    map.setPaintProperty('fog', 'fill-pattern', 'mist'); map.setPaintProperty('fog', 'fill-opacity', 0.97);
-    map.setPaintProperty('fog-edge', 'line-color', '#12151C'); map.setPaintProperty('fog-edge', 'line-opacity', 0.8);
-    map.setLayoutProperty('fog-edge', 'line-join', 'round'); map.setLayoutProperty('fog-edge', 'line-cap', 'round'); // 尖角接頭加模糊會長刺，圓的才像霧散開
-    map.setPaintProperty('fog-edge', 'line-width', ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 12]); map.setPaintProperty('fog-edge', 'line-blur', ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 7]);
-    map.setPaintProperty('fog-q', 'text-color', '#B7BDC8'); map.setPaintProperty('fog-q', 'text-opacity', 0.5);
-    // 軌跡：尋寶圖的紅色虛線，所有縮放都看得到
-    map.setPaintProperty('track', 'line-color', '#A33B2E'); map.setPaintProperty('track', 'line-opacity', 0.9);
-    map.setPaintProperty('track', 'line-width', ['interpolate', ['linear'], ['zoom'], 8, 1.6, 13, 2.6]); map.setPaintProperty('track', 'line-dasharray', [2.5, 1.6]);
-  });
-}
+/* 50-card.js */
 // ===== 製圖：把現在看到的迷霧地圖截下來，放進多米用 AI 產的框，壓上固定位置的 UI 層；可換框、可分享 =====
 // 框在 assets/frames/（離線卡片 tools/daycard 用同一批）。UI 層的位置跟 daycard.py 的 UI_* 是同一組數字：不管哪款框都一樣
 const CARD_W = 1080, CARD_H = 1620, CARD_UI = { l: 110, t: 200, r: 970, b: 1420 };
@@ -1728,14 +1382,13 @@ function loadFrame(id) { // 框縮到卡片大小、找出中間透明的窗、�
   });
 }
 
-function snapMap() { // WebGL 畫布要在 render 那一刻讀，不然是空的；草稿模式的手繪層用 multiply 疊回去
+function snapMap() { // WebGL 畫布要在 render 那一刻讀，不然是空的
   return new Promise(ok => {
     let done = false;
     const grab = () => {
       if (done) return; done = true;
       const src = map.getCanvas(), c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
       const g = c.getContext('2d'); g.drawImage(src, 0, 0);
-      if (window.sketchCanvas) { g.globalCompositeOperation = 'multiply'; g.drawImage(window.sketchCanvas, 0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over'; }
       ok(c);
     };
     map.once('render', grab); map.triggerRepaint();
@@ -1774,7 +1427,8 @@ function exploredIn(w, s, e, n) { // 範圍內探索過的面積（格子中心�
   return { explored: a, area: (e - w) * 111.32 * Math.cos((s + n) / 2 * Math.PI / 180) * (n - s) * 110.57 };
 }
 
-function daysWalked(P = engine.state().points) {
+function daysWalked(P) {
+  if (!P) return Object.keys(engine.state().days).length;
   const days = new Set();
   for (const p of P) { const t = p[0] < 1e12 ? p[0] * 1000 : p[0]; days.add(new Date(t).toDateString()); }
   return days.size;
@@ -1796,7 +1450,7 @@ function profileOf(s = engine.state()) { // s 可以是任何一個引擎的 sta
   rg = Math.sqrt(rg / (n || 1));
   const cells = Object.values(s.cells), once = cells.filter(c => c[0] <= 1).length, thrice = cells.filter(c => c[0] >= 3).length;
   return { n, ground, walk: s.km.walk, vehicle: s.km.vehicle, flights: s.flights.length, night: night / (n || 1), early: early / (n || 1),
-    rg, days: daysWalked(P), vdays: daysWalked(P.filter(p => p[4] === 'v')), once: once / (cells.length || 1), thrice: thrice / (cells.length || 1) };
+    rg, days: Object.keys(s.days).length, vdays: daysWalked(P.filter(p => p[4] === 'v')), once: once / (cells.length || 1), thrice: thrice / (cells.length || 1) };
 }
 const pc = x => Math.round(x * 100) + '%';
 const TITLES = [
@@ -1814,6 +1468,8 @@ const TITLES = [
 ];
 function titleOf(s) { const p = profileOf(s), t = TITLES.find(t => t.when(p)); return { name: t.name, why: t.why(p) }; }
 
+
+/* 55-admin.js */
 // --- 行政區探索度：內政部的鄉鎮市區界線（tools/admin/build_admin.py 轉的），製圖時才載 ---
 let adminP = null;
 function loadAdmin() {
@@ -1854,6 +1510,8 @@ function townAtOne(t, lng, lat) {
 }
 function fmtPct(p) { return p >= 10 ? p.toFixed(0) + '%' : p >= 1 ? p.toFixed(1) + '%' : p >= 0.01 ? p.toFixed(2) + '%' : p > 0 ? '不到 0.01%' : '0%'; }
 
+
+/* 58-cardui.js */
 function handRect(g, x, y, w, h, jit, seed) { // 手抖的方框：每邊切幾段、每段偏一點；固定 seed，換框重畫時抖法一樣
   let k = seed;
   const rnd = () => ((k = (k * 16807) % 2147483647) / 2147483647 - 0.5) * 2 * jit;
@@ -1980,25 +1638,15 @@ $('btnCardShare').onclick = async () => {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 };
 
+
+/* 60-steps.js */
 // ===== 足跡：每天一列。從軌跡點算，跟引擎記里程的規則一樣（間隔太久、跳太遠的兩點不連線） =====
 const WEEKDAY = '日一二三四五六';
-function dayLog(P = engine.state().points) {
-  const days = new Map(); let prev = null;
-  for (const p of P) {
-    const t = p[0] < 1e12 ? p[0] * 1000 : p[0], d = new Date(t), key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
-    let e = days.get(key);
-    if (!e) { e = { date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), t0: t, t1: t, walk: 0, veh: 0, fl: 0, w: 180, s: 90, e: -180, n: -90 }; days.set(key, e); }
-    if (prev && prev.key !== key) prev = null;
-    if (p[4] === 'f') e.fl++;
-    else if (prev) {
-      const km = h3.greatCircleDistance([prev.lat, prev.lng], [p[1], p[2]], 'km'), dt = (t - prev.t) / 1000;
-      if (dt <= (p[4] === 'v' ? CFG.interpVehSec : CFG.interpWalkSec) && km <= CFG.interpMaxKm) e[p[4] === 'v' ? 'veh' : 'walk'] += km;
-    }
-    e.t0 = Math.min(e.t0, t); e.t1 = Math.max(e.t1, t);
-    e.w = Math.min(e.w, p[2]); e.e = Math.max(e.e, p[2]); e.s = Math.min(e.s, p[1]); e.n = Math.max(e.n, p[1]);
-    prev = { key, t, lat: p[1], lng: p[2] };
-  }
-  return [...days.values()].sort((a, b) => b.date - a.date);
+function dayLog() { // 新的在前。key 是 'YYYY-MM-DD'，拿去 loadDay(key) 讀那天的點
+  return Object.entries(engine.state().days).map(([key, d]) => {
+    const [y, m, dd] = key.split('-').map(Number);
+    return { key, date: new Date(y, m - 1, dd), t0: d.t0, t1: d.t1, walk: d.walk, veh: d.veh, fl: d.fl, w: d.box[0], s: d.box[1], e: d.box[2], n: d.box[3] };
+  }).sort((a, b) => b.date - a.date);
 }
 function weekStart(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; }
 function dayGroup(d) {
@@ -2009,7 +1657,6 @@ function dayGroup(d) {
 }
 const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 function kmText(km) { return km >= 10 ? Math.round(km) + ' km' : km >= 1 ? km.toFixed(1) + ' km' : Math.round(km * 1000) + ' m'; } // 不到一公里用公尺，免得走了半天還寫 0 km
-const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 let stepDays = [];
 function renderSteps() {
   const st = engine.state(), el = $('stepsBody');
@@ -2028,6 +1675,7 @@ function renderSteps() {
     '<div><b>' + st.flights.length + '<small> 段</small></b><span>航線</span></div></div>' +
     '<div class="section"><h2>稱號</h2><div class="group"><div class="row"><div class="lines">' +
     '<span class="ttl">' + esc(t.name) + '</span><span class="meta">' + esc(t.why) + '</span></div></div></div></div>';
+  h += '<div id="mountStamps"></div><div id="mountPlaces"></div>';
   let group = null;
   stepDays.forEach((d, i) => {
     const g = dayGroup(d.date);
@@ -2041,6 +1689,7 @@ function renderSteps() {
       (parts.join(' · ') || '在原地附近') + '</span></div><svg class="chev"><use href="#i-chev"/></svg></button>';
   });
   el.innerHTML = h + '</div></div><p class="foot">點一天，地圖會飛到那天走過的範圍。</p>';
+  document.dispatchEvent(new Event('onion:steps')); // 其他模組（印章、地點）在這裡把自己的區塊補進去
 }
 $('stepsBody').onclick = e => {
   const b = e.target.closest('[data-day]'); if (!b) return;
@@ -2048,6 +1697,8 @@ $('stepsBody').onclick = e => {
   map.fitBounds([[d.w, d.s], [d.e, d.n]], { padding: { top: 90, bottom: 260, left: 40, right: 80 }, maxZoom: 16, duration: 900 });
 };
 
+
+/* 90-tabs.js */
 // ===== 分頁：地圖一直在最底下活著（製圖要截它），其他三頁蓋在上面 =====
 const PAGES = { steps: 'pgSteps', card: 'cardView', settings: 'pgSettings' };
 let tab = 'map';
@@ -2062,11 +1713,16 @@ function go(next) {
   else if (next === 'card') enterCard();
   if (next !== 'map') $(PAGES[next]).scrollTop = 0;
   else map.resize();
+  hook.tab.forEach(fn => fn(next));
 }
 document.querySelectorAll('#tabbar .tab').forEach(b => b.onclick = () => go(b.dataset.tab));
 document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
 
+
+/* 99-boot.js */
 updateStats();
+Promise.all([restored, mapReady]).then(() => hook.ready.forEach(fn => { try { fn(); } catch (e) { console.error(e); } }));
+
 </script>
 </body>
 </html>

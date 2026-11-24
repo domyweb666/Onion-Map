@@ -1,0 +1,179 @@
+  /* ===== 介面：Domy Design（代號在 vendor/domy-design/tokens.json，build.js 轉成 var(--d-*)）=====
+     規矩：介面只准用 var(--d-*)，不寫色碼、字級、間距、圓角。地圖本身的畫風、卡片畫布不受這條管。 */
+  /* 手寫字型：辰宇落雁體（OFL），地圖上的地名用，介面不用 */
+  @font-face{font-family:'Luoyan';src:url('fonts/ChenYuluoyan.woff2') format('woff2');font-display:swap}
+  :root{
+    --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+    --tab-icon:22px; /* domy-ignore: DomyTabBar 的 TAB_ICON */
+    --tab-clear:calc(var(--safe-b) + var(--d-size-tab-bar-bottom) + var(--d-size-tab-bar) + var(--d-space-4));
+    --rec-btn:calc(var(--d-size-button) + var(--d-space-3));
+    --rec-h:calc(var(--rec-btn) + var(--d-space-3) * 2);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--d-canvas);color:var(--d-text-primary);font:var(--d-body);overflow:hidden;
+    -webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0;margin:0}
+  .ic{width:var(--tab-icon);height:var(--tab-icon);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .press{transition:transform var(--d-press-ms),opacity var(--d-press-ms)}
+  .press:active{transform:scale(var(--d-press-scale))}
+  @media (prefers-reduced-motion:reduce){.press:active{transform:none;opacity:var(--d-pressed-opacity)}}
+  [hidden]{display:none!important}
+
+  /* ----- 地圖（畫風照舊，這幾層是地圖的一部分） ----- */
+  #map{position:fixed;inset:0;background:#F3ECDB} /* domy-ignore: 地圖紙色，跟樣式表的 PAPER 同一個 */
+  #vignette{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 70px 20px rgba(120,95,60,.14)} /* domy-ignore: 地圖畫風 */
+  #grain{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.45;background-repeat:repeat}
+  .me{width:18px;height:18px;border-radius:50%;background:var(--d-accent);border:3px solid var(--d-surface);
+    animation:pulse 1.8s infinite} /* domy-ignore: 定位點大小 */
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(145,107,27,.55)}100%{box-shadow:0 0 0 18px rgba(145,107,27,0)}} /* domy-ignore: 脈衝用 accent 的透明版 */
+  .maplibregl-ctrl-bottom-left{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));left:var(--d-size-screen-margin)}
+  .maplibregl-ctrl-bottom-right{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));right:var(--d-size-screen-margin)}
+  .maplibregl-ctrl-bottom-left .maplibregl-ctrl,.maplibregl-ctrl-bottom-right .maplibregl-ctrl{margin:0!important}
+  .maplibregl-ctrl-scale{font:var(--d-caption);color:var(--d-text-secondary);background:var(--d-surface)!important;
+    border:2px solid var(--d-text-secondary)!important;border-top:none!important;padding:0 var(--d-space-1)}
+  .maplibregl-ctrl-attrib{background:var(--d-surface)!important;color:var(--d-text-secondary);font:var(--d-caption)}
+  .maplibregl-ctrl-attrib a{color:var(--d-text-secondary)}
+
+  /* 狀態列底下墊一層畫布色：分頁捲動時內容不會鑽到瀏海底下；地圖頁只墊淡淡一層，深色模式的白色時間才看得到 */
+  body::before{content:'';position:fixed;z-index:12;top:0;left:0;right:0;height:calc(var(--safe-t) + var(--d-space-3));pointer-events:none;
+    background:linear-gradient(var(--d-canvas) var(--safe-t),transparent)}
+  body[data-tab=map]::before{z-index:4;opacity:.7;background:linear-gradient(var(--d-canvas),transparent)} /* domy-ignore: 地圖上的遮罩濃度 */
+
+  /* ----- 地圖頁的控制 ----- */
+  #mapTop{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));left:var(--d-size-screen-margin);
+    right:calc(var(--d-size-screen-margin) + var(--d-size-icon-button) + var(--d-space-3));pointer-events:none}
+  #stats{display:inline-flex;align-items:baseline;gap:var(--d-space-1);max-width:100%;pointer-events:auto;
+    min-height:var(--d-size-icon-button);padding:var(--d-space-3) var(--d-space-4);border-radius:var(--d-radius-pill);
+    background:var(--d-surface);box-shadow:var(--d-elev-1);font:var(--d-subheadline);color:var(--d-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #stats b{font:var(--d-headline);color:var(--d-text-primary)}
+  #mapSide{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2));right:var(--d-size-screen-margin);
+    display:flex;flex-direction:column;gap:var(--d-space-3)}
+  .ibtn{width:var(--d-size-icon-button);height:var(--d-size-icon-button);border-radius:var(--d-radius-pill);background:var(--d-surface);
+    box-shadow:var(--d-elev-1);color:var(--d-accent);display:grid;place-items:center}
+  .ibtn.on{background:var(--d-soft);color:var(--d-strong)}
+  #simbar{position:fixed;z-index:5;top:calc(var(--safe-t) + var(--d-space-2) + var(--d-size-icon-button) + var(--d-space-3));
+    left:var(--d-size-screen-margin);right:calc(var(--d-size-screen-margin) + var(--d-size-icon-button) + var(--d-space-3));
+    max-width:420px;padding:var(--d-space-2);border-radius:var(--d-radius-xl);background:var(--d-surface);box-shadow:var(--d-elev-1)} /* domy-ignore: 寬螢幕上限 */
+  .seg{display:flex;gap:var(--d-space-1)}
+  .seg button{flex:1;height:var(--d-size-picker-height);border-radius:var(--d-radius-pill);font:var(--d-callout);color:var(--d-text-primary)}
+  .seg button.on{background:var(--d-soft);color:var(--d-strong)}
+  #simhint{font:var(--d-footnote);color:var(--d-text-secondary);margin:var(--d-space-2) var(--d-space-2) var(--d-space-1)}
+  /* 記錄列：核心動作。待機＝亮金底＋實心圓；記錄中＝產品色底＋方塊，形狀跟著變，不只靠顏色 */
+  #recBar{position:fixed;z-index:5;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:var(--tab-clear);
+    max-width:520px;margin:0 auto;min-height:var(--rec-h);display:flex;align-items:center;gap:var(--d-space-4);
+    padding:var(--d-space-3) var(--d-space-3) var(--d-space-3) var(--d-space-5);border-radius:var(--d-radius-2xl);
+    background:var(--d-surface);box-shadow:var(--d-elev-2)} /* domy-ignore: 寬螢幕上限 */
+  #recText{flex:1;min-width:0;display:flex;flex-direction:column;gap:calc(var(--d-space-1) / 2)}
+  #recTitle{font:var(--d-headline)}
+  #status{font:var(--d-footnote);color:var(--d-text-secondary);max-height:2lh;overflow:hidden}
+  #btnSettings{align-self:flex-start;font:var(--d-callout);color:var(--d-strong);min-height:var(--d-size-touch)}
+  #btnRec{flex:none;width:var(--rec-btn);height:var(--rec-btn);border-radius:var(--d-radius-pill);display:grid;place-items:center;
+    background:var(--d-bright);color:var(--d-on-bright);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-soft)}
+  #btnRec.rec{background:var(--d-accent);color:var(--d-on-accent);box-shadow:0 0 0 var(--d-size-hero-ring-width) var(--d-accent)}
+  #btnRec .ic{fill:currentColor;stroke:none}
+  #btnRec .stop{display:none}
+  #btnRec.rec .stop{display:block} #btnRec.rec .go{display:none}
+
+  /* ----- 懸浮分頁列（DomyTabBar） ----- */
+  #tabbar{position:fixed;z-index:20;left:0;right:0;bottom:calc(var(--safe-b) + var(--d-size-tab-bar-bottom));display:flex;justify-content:center;pointer-events:none}
+  #tabbar .bar{pointer-events:auto;width:var(--d-size-tab-bar-width);max-width:calc(100% - var(--d-size-screen-margin) * 2);height:var(--d-size-tab-bar);
+    border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-2);
+    padding:calc(var(--d-space-1) * 1.5);display:flex;gap:var(--d-space-1)}
+  .tab{flex:1;min-width:0;border-radius:var(--d-radius-pill);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:calc(var(--d-space-1) / 2);font:var(--d-caption);color:var(--d-text-primary)}
+  .tab[aria-selected=true]{background:var(--d-soft);color:var(--d-strong);font-weight:600}
+
+  /* ----- 分頁（DomyScreen／Section／Row） ----- */
+  .page{position:fixed;inset:0;z-index:10;background:var(--d-canvas);overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:calc(var(--safe-t) + var(--d-space-2)) var(--d-size-screen-margin) var(--tab-clear)}
+  .inner{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
+  .stack{display:flex;flex-direction:column;gap:var(--d-space-6)}
+  .page h1{margin:var(--d-space-4) 0 0;font:var(--d-large-title)}
+  .section{display:flex;flex-direction:column;gap:var(--d-space-2)}
+  .section>h2{margin:0;padding:0 var(--d-space-1);font:var(--d-title3)}
+  .group{background:var(--d-surface);border-radius:var(--d-radius-xl);overflow:hidden}
+  .group>*{position:relative}
+  .group>*+*::before{content:'';position:absolute;top:0;left:var(--d-space-4);right:var(--d-space-4);height:var(--d-size-hairline);background:var(--d-separator)}
+  .foot{margin:0;padding:0 var(--d-space-4);font:var(--d-footnote);color:var(--d-text-secondary)}
+  .row{min-height:var(--d-size-row);display:flex;align-items:center;gap:var(--d-space-3);padding:var(--d-space-2) var(--d-space-4);
+    width:100%;text-align:left;font:var(--d-body);color:var(--d-text-primary)}
+  button.row,label.row{cursor:pointer}
+  button.row:active,label.row:active{background:var(--d-surface-muted)}
+  .row .lbl{flex:1;min-width:0}
+  .row .val{color:var(--d-text-secondary);text-align:right}
+  .row.destructive .lbl{color:var(--d-destructive)}
+  .row .lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--d-space-1);padding:var(--d-space-1) 0}
+  .row .meta{font:var(--d-footnote);color:var(--d-text-secondary)}
+  .row .ttl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .chev{width:9px;height:15px;flex:none;fill:none;stroke:var(--d-text-tertiary);stroke-width:2;stroke-linecap:round;stroke-linejoin:round} /* domy-ignore: icons.tsx 的 CHEVRON */
+  .switch{flex:none;position:relative;width:var(--d-size-switch-width);height:var(--d-size-switch-height);border-radius:var(--d-radius-pill);
+    background:var(--d-surface-muted);transition:background var(--d-transition-ms)}
+  .switch::after{content:'';position:absolute;top:2px;left:2px;width:calc(var(--d-size-switch-height) - 4px);height:calc(var(--d-size-switch-height) - 4px);
+    border-radius:var(--d-radius-pill);background:var(--d-surface);box-shadow:var(--d-elev-1);transition:transform var(--d-transition-ms)} /* domy-ignore: 開關圓點留 2px 邊 */
+  .switch[aria-checked=true]{background:var(--d-accent)}
+  .switch[aria-checked=true]::after{transform:translateX(calc(var(--d-size-switch-width) - var(--d-size-switch-height)))}
+  /* 統計（DomyStatGrid） */
+  .statgrid{background:var(--d-tint);border:var(--d-size-hairline) solid var(--d-soft);border-radius:var(--d-radius-xl);padding:var(--d-space-5);
+    display:flex;flex-wrap:wrap;row-gap:var(--d-space-4)}
+  .statgrid>div{width:50%;padding-right:var(--d-space-2);display:flex;flex-direction:column}
+  .statgrid b{font:var(--d-title1);color:var(--d-text-primary)}
+  .statgrid b small{font:var(--d-headline)}
+  .statgrid span{font:var(--d-subheadline);color:var(--d-text-secondary)}
+  /* 空狀態（DomyEmptyState） */
+  .empty{display:flex;flex-direction:column;align-items:center;gap:var(--d-space-3);padding:var(--d-space-8) var(--d-space-6);text-align:center}
+  .empty .badge{width:var(--d-size-empty-icon);height:var(--d-size-empty-icon);border-radius:var(--d-radius-pill);background:var(--d-soft);color:var(--d-accent);display:grid;place-items:center}
+  .empty h3{margin:0;font:var(--d-title3)}
+  .empty p{margin:0;font:var(--d-subheadline);color:var(--d-text-secondary)}
+  .empty .btn{margin-top:var(--d-space-1)}
+  /* 按鈕（DomyButton）：一個畫面最多一顆 primary */
+  .btn{height:var(--d-size-button);border-radius:var(--d-radius-pill);padding:0 var(--d-space-6);font:var(--d-headline);
+    display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+  .btn.primary{background:var(--d-accent);color:var(--d-on-accent)}
+  .btn.secondary{background:var(--d-surface-muted);color:var(--d-text-primary)}
+  .btn.plain{background:transparent;color:var(--d-strong)}
+  .btn.compact{height:var(--d-size-button-compact);padding:0 var(--d-space-4);font:var(--d-callout)}
+  .btn.full{width:100%}
+  .btn:disabled{background:var(--d-surface-muted);color:var(--d-text-disabled)}
+  .actions{display:flex;flex-direction:column;gap:var(--d-space-2)}
+
+  /* ----- 製圖頁 ----- */
+  .cardPrev{background:var(--d-surface);border-radius:var(--d-radius-xl);padding:var(--d-space-3);box-shadow:var(--d-elev-1)}
+  #cardCanvas{display:block;width:100%;height:auto;max-height:46vh;object-fit:contain;border-radius:var(--d-radius-sm)} /* domy-ignore: 預覽高度留空間給選框 */
+  #frameStrip{display:flex;gap:var(--d-space-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 calc(var(--d-size-screen-margin) * -1);
+    padding:var(--d-space-1) var(--d-size-screen-margin)}
+  #frameStrip .fr{flex:none;display:flex;flex-direction:column;align-items:center;gap:var(--d-space-1);padding:var(--d-space-2) var(--d-space-3);
+    border-radius:var(--d-radius-lg);background:var(--d-surface);font:var(--d-caption);color:var(--d-text-primary)}
+  #frameStrip .fr img{width:52px;height:78px;object-fit:contain;pointer-events:none} /* domy-ignore: 框的縮圖照 2:3 */
+  #frameStrip .fr.on{background:var(--d-soft);color:var(--d-strong);font-weight:600;box-shadow:inset 0 0 0 2px var(--d-accent)} /* domy-ignore: 選取框線 */
+
+  /* ----- 圖例：底部抽屜 ----- */
+  #legend{position:fixed;inset:0;z-index:25;background:rgba(var(--d-shadow-rgb),.4);display:flex;align-items:flex-end;justify-content:center} /* domy-ignore: 遮罩透明度 */
+  #legendSheet{width:100%;max-width:560px;background:var(--d-canvas);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
+    padding:var(--d-space-5) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-5));display:flex;flex-direction:column;gap:var(--d-space-4)} /* domy-ignore: 寬螢幕上限 */
+  #legendSheet h2{margin:0;font:var(--d-title2)}
+  #legendRows{display:grid!important;grid-template-columns:1fr 1fr;gap:var(--d-space-3) var(--d-space-4);padding:var(--d-space-4)}
+  #legendRows div{display:flex;align-items:center;gap:var(--d-space-3);font:var(--d-subheadline)}
+  /* 圖例色票是地圖畫風的縮小版，照地圖的顏色畫 */
+  #legendRows i{display:block;flex:none;width:46px;height:26px;border-radius:var(--d-radius-sm);border:1px solid rgba(46,40,32,.3);background-color:#F3ECDB} /* domy-ignore: 地圖畫風 */
+  #legendRows i.road{background:linear-gradient(#F3ECDB 0 30%,#2E2820 30% 37%,#F2CF5B 37% 63%,#2E2820 63% 70%,#F3ECDB 70%)} /* domy-ignore: 地圖畫風 */
+  #legendRows i.hwy{background:linear-gradient(#F3ECDB 0 30%,#2E2820 30% 37%,#CFC9BC 37% 63%,#2E2820 63% 70%,#F3ECDB 70%)} /* domy-ignore: 地圖畫風 */
+  #legendRows i.track{background:repeating-linear-gradient(90deg,#A33B2E 0 8px,transparent 8px 13px) center/100% 4px no-repeat #F3ECDB} /* domy-ignore: 地圖畫風 */
+  #legendRows i.mist{background:#232833} /* domy-ignore: 地圖畫風 */
+
+  #toast{position:fixed;z-index:30;left:50%;bottom:calc(var(--tab-clear) + var(--d-space-2));transform:translateX(-50%);
+    background:var(--d-text-primary);color:var(--d-surface);padding:var(--d-space-2) var(--d-space-4);border-radius:var(--d-radius-pill);
+    font:var(--d-subheadline);box-shadow:var(--d-elev-2);opacity:0;transition:opacity var(--d-transition-ms);pointer-events:none;
+    max-width:calc(100% - var(--d-size-screen-margin) * 2);text-align:center}
+  body[data-tab=map] #toast{bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3))}
+  #toast.show{opacity:1}
+
+  /* ----- 共用底部抽屜 ----- */
+  #sheetHost{position:fixed;inset:0;z-index:26;background:rgba(var(--d-shadow-rgb),.4);display:flex;align-items:flex-end;justify-content:center} /* domy-ignore: 遮罩透明度 */
+  #sheetBody{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--d-canvas);border-radius:var(--d-radius-2xl) var(--d-radius-2xl) 0 0;
+    padding:var(--d-space-6) var(--d-size-screen-margin) calc(var(--safe-b) + var(--d-space-6));display:flex;flex-direction:column;gap:var(--d-space-6)} /* domy-ignore: 寬螢幕上限 */
+  #sheetBody h2{margin:0;font:var(--d-title2)}
+  #sheetBody p{margin:0}
+  /* ----- 地圖頁的提問卡（在記錄列上方） ----- */
+  #mapAsk{position:fixed;z-index:6;left:var(--d-size-screen-margin);right:var(--d-size-screen-margin);bottom:calc(var(--tab-clear) + var(--rec-h) + var(--d-space-3));
+    max-width:520px;margin:0 auto;padding:var(--d-space-4) var(--d-space-5);border-radius:var(--d-radius-2xl);background:var(--d-surface);box-shadow:var(--d-elev-2)} /* domy-ignore: 寬螢幕上限 */
+  body:not([data-tab=map]) #mapAsk{display:none}
