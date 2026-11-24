@@ -89,7 +89,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>洋蔥要知道你在哪裡，才能把你走過的地方畫到地圖上。走過的紀錄只存在這支手機。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>選「永遠允許」，手機收進口袋、螢幕關掉時洋蔥才能繼續畫地圖。走過的紀錄只存在這支手機；請電腦畫圖時，只會把一張沒有路線的地圖底圖送到你自己的電腦。</string>
+	<string>選「永遠允許」，手機收進口袋、螢幕關掉時洋蔥才能繼續畫地圖。走過的紀錄只存在這支手機；請電腦畫圖時，只會把一張沒有路線的地圖底圖送到你自己的電腦，交給你的 ChatGPT 畫。</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
