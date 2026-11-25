@@ -374,11 +374,13 @@ async function dcDraw(cv, rec, frameId, size) { // 一張成品，畫在 cv 上
   for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? '#F6EEDB' : '#2B241C'; g.fillRect(bx + bl * i / 4, byy, bl / 4, 11); }
   g.lineWidth = 1.6; g.strokeStyle = '#2B241C'; g.strokeRect(bx, byy, bl, 11);
   g.font = '700 21px ' + CARD_KAI; const lab = L >= 1000 ? L / 1000 + ' km' : L + ' m'; dcHalo(g, '0', bx - 5, byy - 9, '#2B241C', 6); dcHalo(g, lab, U.r - g.measureText(lab).width, byy - 9, '#2B241C', 6);
-  const boards = boxes.slice(), fG = '700 16px ' + CARD_SERIF; let sig = 'ONION MAP 洋蔥地圖　© OpenStreetMap'; boxes.push([bx - 12, byy - 34, U.r + 10, byy + 16]);
+  const boards = boxes.slice(), fG = '700 16px ' + CARD_SERIF; let sig; boxes.push([bx - 12, byy - 34, U.r + 10, byy + 16]);
   if (A) boxes.push([A[0] - 14, A[1] - 38, A[0] + 30, A[1] + 4]); if (Z) boxes.push([Z[0] - 20, Z[1] - 26, Z[0] + 20, Z[1] + 14]);
-  g.font = fG; let gw, gx, gy; // 下緣放不下整句（城堡的 4:5）就用短的
-  for (const t of [sig, '洋蔥地圖 © OpenStreetMap']) { sig = t; gw = Math.ceil(g.measureText(t).width); [gx, gy] = dcSigAt(fr, boxes, gw, 18); if (gy > U.b) break; }
-  dcHalo(g, sig, gx, gy - 3, '#4A3218', 5); boxes.push([gx - 6, gy - 20, gx + gw + 6, gy + 4]);
+  g.font = fG; let gw, gx, gy; // 下緣放不下整句（城堡的 4:5）就用短的，再不行折兩行
+  for (const t of ['ONION MAP 洋蔥地圖　' + MAP_CREDIT, '洋蔥地圖 ' + MAP_CREDIT, '洋蔥地圖 © OpenMapTiles\n© OpenStreetMap']) {
+    sig = t.split('\n'); gw = Math.ceil(Math.max(...sig.map(q => g.measureText(q).width))); [gx, gy] = dcSigAt(fr, boxes, gw, 18 * sig.length); if (gy > U.b) break;
+  }
+  sig.forEach((q, i) => dcHalo(g, q, gx + (gw - g.measureText(q).width) / 2, gy - 3 - 18 * (sig.length - 1 - i), '#4A3218', 5)); boxes.push([gx - 6, gy - 2 - 18 * sig.length, gx + gw + 6, gy + 4]);
   // 停留點與地標。落在板子底下的就不點（行程表裡有）
   const hit = (q, m) => boxes.some(o => !(q[2] + m < o[0] || q[0] - m > o[2] || q[3] + m < o[1] || q[1] - m > o[3]));
   const inWin = (x, y, m) => x > l + m && x < r - m && y > t + m && y < b - m;

@@ -93,7 +93,7 @@ function offMake(env) {
     await ready;
     if (!planet.json) { try { await loadPlanet(); } catch (e) { missed(); } }
     else if (env.now() - planetAt > 6 * 3600e3) loadPlanet().catch(() => {});
-    const j = planet.json || { tilejson: '3.0.0', minzoom: 0, maxzoom: OFF.maxZ, vector_layers: [], attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' };
+    const j = planet.json || { tilejson: '3.0.0', minzoom: 0, maxzoom: OFF.maxZ, vector_layers: [], attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank">© OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' };
     return Object.assign({}, j, { tiles: ['onion://v/{z}/{x}/{y}'] });
   }
 

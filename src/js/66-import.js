@@ -347,7 +347,7 @@ const importer = (() => {
     const b = body('<div class="impText"><h2>匯入足跡或備份</h2><p>選一個檔案，走過的路就會加進來。已經有紀錄的日子不會動。</p></div>' +
       '<div class="section"><div class="group">' +
       '<div class="row"><span class="lines"><span class="ttl">Google 時間軸（iPhone）</span><span class="meta">Google 地圖 › 你的頭像 › 設定 › 個人內容 › 匯出時間軸資料</span></span></div>' +
-      '<div class="row"><span class="lines"><span class="ttl">Google 時間軸（Android）</span><span class="meta">手機設定 › 位置 › 定位服務 › 時間軸 › 匯出時間軸資料</span></span></div>' +
+      '<div class="row"><span class="lines"><span class="ttl">Google 時間軸（其他手機）</span><span class="meta">手機設定 › 位置 › 定位服務 › 時間軸 › 匯出時間軸資料</span></span></div>' +
       '<div class="row"><span class="lines"><span class="ttl">跑步、登山、單車 app</span><span class="meta">在那個 app 裡匯出成 GPX 檔</span></span></div>' +
       '<div class="row"><span class="lines"><span class="ttl">洋蔥的備份</span><span class="meta">會換掉手機裡現在的紀錄，換之前會先問你</span></span></div>' +
       '</div></div>' +

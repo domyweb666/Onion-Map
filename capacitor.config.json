@@ -7,6 +7,7 @@
     "backgroundColor": "#E6D5B2",
     "scrollEnabled": false,
     "allowsLinkPreview": false,
-    "preferredContentMode": "mobile"
+    "preferredContentMode": "mobile",
+    "appendUserAgent": "OnionMap/1.0 (org.domyweb.onion)"
   }
 }

@@ -1,0 +1,15 @@
+  /* ----- 授權（抽屜）：清單與全文。返回和關閉黏在最上面，全文很長也按得到 ----- */
+  #sheetBody:has(>#licSheet){padding-top:0} /* 上面留白改由 .licBar 自己留，不然捲動時字會從留白那一條露出來 */
+  #licSheet{display:flex;flex-direction:column;gap:var(--d-space-6);min-width:0}
+  .licBar{position:sticky;top:0;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:var(--d-space-3);background:var(--d-canvas);
+    margin:0 calc(var(--d-size-screen-margin) * -1) calc(var(--d-space-4) * -1);padding:var(--d-space-3) var(--d-size-screen-margin) var(--d-space-1)}
+  .licBtn{display:inline-flex;align-items:center;gap:var(--d-space-2);min-width:var(--d-size-touch);min-height:var(--d-size-touch);font:var(--d-callout);color:var(--d-strong)}
+  .licBtn .chev{transform:scaleX(-1);stroke:currentColor}
+  .licBtn[data-close]{justify-content:flex-end;margin-left:auto}
+  .licBtn:active{opacity:var(--d-pressed-opacity)}
+  #licT{outline:none;overflow-wrap:anywhere}
+  #licSheet .section>h3{margin:0;padding:0 var(--d-space-1);font:var(--d-title3);overflow-wrap:anywhere}
+  #licSheet .row .lbl{overflow-wrap:anywhere}
+  .licAbout{font:var(--d-body);color:var(--d-text-secondary)}
+  .licText{padding:var(--d-space-4);border-radius:var(--d-radius-xl);background:var(--d-surface);font:var(--d-footnote);color:var(--d-text-primary);
+    white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}

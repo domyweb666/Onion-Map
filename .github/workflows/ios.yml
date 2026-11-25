@@ -49,10 +49,15 @@ jobs:
 
   build-check:
     name: 編譯檢查（不簽署）
-    runs-on: macos-latest
+    runs-on: macos-26 # 固定機器，Xcode 才不會哪天自己換掉
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: 選 Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -101,10 +106,15 @@ jobs:
 
   build-simulator:
     name: 模擬器版 .app（limrun／Xcode 模擬器用）
-    runs-on: macos-latest
+    runs-on: macos-26 # 固定機器，Xcode 才不會哪天自己換掉
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: 選 Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -154,12 +164,17 @@ jobs:
   testflight:
     name: 簽署並上傳 TestFlight
     if: github.event_name == 'workflow_dispatch' && inputs.testflight
-    runs-on: macos-latest
+    runs-on: macos-26 # 固定機器，Xcode 才不會哪天自己換掉
     timeout-minutes: 60
     env:
       KEYCHAIN_PASSWORD: ci-temp-keychain
     steps:
       - uses: actions/checkout@v4
+      - name: 選 Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
 
       # 先看東西齊不齊、金鑰能不能用，免得編完才說不行。只印缺哪個名字與形狀，不印內容
       - name: 檢查 secret 與 API 金鑰

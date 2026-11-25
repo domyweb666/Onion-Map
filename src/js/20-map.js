@@ -26,7 +26,8 @@ const style = {
   glyphs: 'fonts/glyphs/{fontstack}/{range}.pbf',
   sources: {
     omt: { type: 'vector', url: 'onion://planet',
-      attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' },
+      // OpenFreeMap 規定的寫法，跟 18-offline.js 的備用那段一樣。這裡寫了，MapLibre 就不用 TileJSON 那段，所以不會出現兩次
+      attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank">© OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' },
     dem: { type: 'raster-dem', tiles: ['onion://dem/{z}/{x}/{y}'],
       encoding: 'terrarium', tileSize: 256, maxzoom: 12,
       attribution: '地形 <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Terrain Tiles</a>' }
@@ -117,7 +118,7 @@ const style = {
 function lastPoint() { const p = engine.state().points; return p[p.length - 1] || null; }
 const map = new maplibregl.Map({
   container: 'map', style, center: [121.0, 23.7], zoom: 6.5,
-  attributionControl: { compact: true }, pitchWithRotate: false, dragRotate: false,
+  attributionControl: { compact: true }, locale: { 'AttributionControl.ToggleAttribution': '地圖資料出處' }, pitchWithRotate: false, dragRotate: false,
   localIdeographFontFamily: "'Luoyan', 'PingFang TC', 'Noto Sans TC', sans-serif" // 中文字在本機用手寫字型畫，不必下載整套中文 glyph
 });
 map.touchZoomRotate.disableRotation();
@@ -131,8 +132,36 @@ const fontReady = (document.fonts && document.fonts.load) ? document.fonts.load(
 Promise.race([fontReady, new Promise(r => setTimeout(r, 4000))]).then(() => {
   if (map.isStyleLoaded()) showLabels(); else map.once('load', showLabels);
 });
+// --- 地圖出處：先展開給人看，滑動／縮放／點地圖之後或看滿 5 秒就收起來，之後點 ⓘ 隨時能再展開（OSM 出處規定，互動地圖那段）---
+(() => {
+  const at = map.getContainer().querySelector('.maplibregl-ctrl-attrib'); if (!at) return;
+  const SHOW = 'maplibregl-compact-show';
+  let left = 5000, last = 0, ready = false, done = false;
+  mapReady.then(() => { ready = true; });
+  // 真的看得到：在地圖頁、畫面亮著、OSM 那段已經出現，而且沒有被別的東西蓋住
+  const seen = () => {
+    if (document.hidden || document.body.dataset.tab !== 'map' || !at.classList.contains(SHOW) || $('toast').classList.contains('show')) return false;
+    const a = at.querySelector('a[href*="openstreetmap.org"]'); if (!a) return false;
+    const r = a.getClientRects()[0], el = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!el && at.contains(el);
+  };
+  // MapLibre 一拖地圖就會自己收。還沒讓人看到之前收掉的，畫面更新前就打開回來
+  const keep = new MutationObserver(() => { if (!at.classList.contains(SHOW) && at.classList.contains('maplibregl-compact')) at.classList.add(SHOW); });
+  keep.observe(at, { attributes: true, attributeFilter: ['class'] });
+  const stop = () => { done = true; clearInterval(timer); keep.disconnect(); };
+  const fold = () => { stop(); at.classList.remove(SHOW); at.removeAttribute('open'); };
+  const timer = setInterval(() => {
+    const t = performance.now();
+    if (!ready || !seen()) { last = 0; return; }
+    if (last) left -= Math.min(t - last, 500);
+    last = t;
+    if (left <= 0) fold();
+  }, 250);
+  const touched = e => { if (e.originalEvent && (done || seen())) fold(); }; // 程式自己移動地圖沒有 originalEvent
+  map.on('movestart', touched); map.on('click', touched);
+  at.addEventListener('click', e => { if (e.target.closest('summary')) stop(); }, true); // 自己按 ⓘ 收的，別再打開
+})();
 // 讀回上次的紀錄（iOS 是讀檔，所以是非同步的），讀到就把地圖移到最後一個點
-map.once('load', () => { const at = document.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show'); });
 const restored = loadSaved().then(ok => {
   if (!ok) return;
   render(true);

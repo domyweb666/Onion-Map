@@ -16,6 +16,7 @@ function cartouche(g, x, y, w, h, seed) { // 字底下的紙片：半透明紙�
 }
 function haloText(g, text, x, y) { g.lineWidth = 5; g.strokeStyle = 'rgba(28,24,18,.85)'; g.strokeText(text, x, y); g.fillStyle = '#F6EEDB'; g.fillText(text, x, y); }
 
+const MAP_CREDIT = '© OpenMapTiles Data from OpenStreetMap'; // 畫出來給人分享的圖也要標，OpenFreeMap 規定的寫法（它自己的名字可以省）
 function drawCardUI(g, o) {
   const U = CARD_UI, pad = 32;
   g.textBaseline = 'alphabetic';
@@ -49,6 +50,10 @@ function drawCardUI(g, o) {
   // 底邊署名
   g.font = '400 20px ' + CARD_SERIF; g.fillStyle = 'rgba(74,47,24,.85)'; const sig = 'ONION MAP · 洋蔥地圖';
   g.fillText(sig, (CARD_W - g.measureText(sig).width) / 2, CARD_H - 22);
+  // 地圖出處：放在地圖裡最下緣，避開框和板子
+  g.font = '700 16px ' + CARD_SERIF; const cw = Math.ceil(g.measureText(MAP_CREDIT).width);
+  const [cx, cy] = dcSigAt(o.fr, [[U.l, U.t, U.l + bw, U.t + bh], [sx2, sy2, U.r, U.b], [bx - 24, by - 36, U.r + 10, by + 16]], cw, 18);
+  haloText(g, MAP_CREDIT, cx, cy - 3);
 }
 
 async function drawCard() {
@@ -79,7 +84,7 @@ async function drawCard() {
     line3 = areaText + '　地面 ' + Math.round(st.km.walk + st.km.vehicle) + ' km';
   }
   drawCardUI(g, {
-    title, label, pct, line3, badge: titleOf(),
+    fr, title, label, pct, line3, badge: titleOf(),
     sub: d.getFullYear() + '.' + pad2(d.getMonth() + 1) + '.' + pad2(d.getDate()) + '　走過 ' + daysWalked() + ' 天',
     mpp: v.mpp / (dpr * s)
   });

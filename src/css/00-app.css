@@ -31,9 +31,19 @@
   .maplibregl-ctrl-bottom-left .maplibregl-ctrl,.maplibregl-ctrl-bottom-right .maplibregl-ctrl{margin:0!important}
   .maplibregl-ctrl-scale{font:var(--d-caption);color:var(--d-text-secondary);background:var(--d-surface)!important;
     border:2px solid var(--d-text-secondary)!important;border-top:none!important;padding:0 var(--d-space-1)}
-  .maplibregl-ctrl-attrib{background:var(--d-surface)!important;color:var(--d-text-secondary);font:var(--d-caption)}
-  .maplibregl-ctrl-attrib a{color:var(--d-text-secondary)}
+  .maplibregl-ctrl-bottom-right{max-width:calc(100% - var(--d-size-screen-margin) * 2)} /* 出處展開時左右都留邊，放不下就折行 */
+  .maplibregl-ctrl-attrib.maplibregl-compact{background:var(--d-surface);color:var(--d-text-secondary);font:var(--d-caption);border-radius:var(--d-radius-md)}
+  .maplibregl-ctrl-attrib.maplibregl-compact-show{box-shadow:var(--d-elev-1);
+    padding:var(--d-space-2) calc((24px + var(--d-size-touch)) / 2) var(--d-space-2) var(--d-space-3)} /* domy-ignore: 右邊讓出 24 的鈕與它 44 的點按區 */
+  .maplibregl-ctrl-attrib-inner{overflow-wrap:anywhere}
+  .maplibregl-ctrl-attrib a{color:var(--d-text-secondary);text-decoration:underline}
+  .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button{top:auto;bottom:0;background:none} /* 鈕固定在右下角，展開收起都在同一個位置 */
+  /* 圖案照 MapLibre 的，改用遮罩上色，深色模式才看得到 */
+  .maplibregl-ctrl-attrib-button::before{content:'';position:absolute;inset:0;background:var(--d-text-secondary);
+    -webkit-mask:var(--attrib-ic) center/100% no-repeat;mask:var(--attrib-ic) center/100% no-repeat;
+    --attrib-ic:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill-rule='evenodd' viewBox='0 0 20 20'%3E%3Cpath d='M4 10a6 6 0 1 0 12 0 6 6 0 1 0-12 0m5-3a1 1 0 1 0 2 0 1 1 0 1 0-2 0m0 3a1 1 0 1 1 2 0v3a1 1 0 1 1-2 0'/%3E%3C/svg%3E")}
   .maplibregl-ctrl-attrib-button::after{content:'';position:absolute;inset:calc((24px - var(--d-size-touch)) / 2)} /* domy-ignore: 地圖出處鈕是 24，點得到 44 */
+  @media (max-width:700px){.maplibregl-control-container:has(.maplibregl-compact-show) .maplibregl-ctrl-scale{visibility:hidden}} /* domy-ignore: 窄螢幕展開時會壓到比例尺，先藏起來 */
 
   /* 狀態列底下墊一層畫布色：分頁捲動時內容不會鑽到瀏海底下；地圖頁只墊淡淡一層，深色模式的白色時間才看得到 */
   body::before{content:'';position:fixed;z-index:12;top:0;left:0;right:0;height:calc(var(--safe-t) + var(--d-space-3));pointer-events:none;

@@ -122,10 +122,18 @@ async function importAll(d) { // 還原備份（v1、v2 都吃）：整個換掉
   try { localStorage.removeItem(STORE); localStorage.removeItem('digua.v1'); } catch (e) {}
   if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
 }
+async function wipeExports() { // 匯出備份、分享圖片時寫在暫存資料夾的檔案（onion-*.json、onion-*.png），系統不一定會自己清
+  if (!NATIVE) return;
+  try {
+    const { files } = await FS.readdir({ path: '', directory: 'CACHE' });
+    for (const f of files) if (f.type !== 'directory' && /^onion-.+[.](json|png)$/.test(f.name)) await FS.deleteFile({ path: f.name, directory: 'CACHE' }).catch(() => {});
+  } catch (e) {}
+}
 async function wipeFiles() {
   clearTimeout(saveTimer); saveTimer = null; if (saving) await saving;
-  for (const p of ['days/', 'cells/', 'cards/', 'base/']) for (const k of await kv.list(p)) await kv.del(k);
+  for (const p of ['days/', 'cells/', 'cards/', 'base/', 'broken/']) for (const k of await kv.list(p)) await kv.del(k); // broken/ 是讀壞時另存的原文，裡面也有路線
   for (const k of await kv.list('')) await kv.del(k);
+  await wipeExports();
   try { localStorage.removeItem(STORE); localStorage.removeItem('digua.v1'); } catch (e) {}
   if (NATIVE) FS.deleteFile({ path: DATA_FILE, directory: 'DOCUMENTS' }).catch(() => {});
 }

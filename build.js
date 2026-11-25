@@ -45,6 +45,11 @@ const domyCSS = (() => {
 if (!h.includes('/*@@DOMY_CSS@@*/')) throw new Error('src/index.src.html 裡找不到佔位符 /*@@DOMY_CSS@@*/');
 h = h.split('/*@@DOMY_CSS@@*/').join(domyCSS);
 h = h.split('@@DOMY_VER@@').join(JSON.parse(fs.readFileSync('vendor/domy-design/tokens.json', 'utf8')).version);
+// 授權頁的內容（清單與全文，內容在 vendor/licenses/index.js）。放最後才換，授權內文就不會被當成佔位符
+const LIC = '/*@@LICENSES@@*/', lic = require('./vendor/licenses').toJSON();
+if (h.split(LIC).length !== 2) throw new Error('src/index.src.html 裡的佔位符 ' + LIC + ' 要剛好一個');
+h = h.split(LIC).join(lic);
+console.log('授權', Buffer.byteLength(lic), 'bytes');
 fs.writeFileSync('index.html', h);
 fs.mkdirSync('www', { recursive: true });
 fs.writeFileSync('www/index.html', h);
