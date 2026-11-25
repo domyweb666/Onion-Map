@@ -36,11 +36,20 @@
 - [x] K 卡頓　[x] L 匯入整併　[x] G 相框　[x] F 整合驗證　[x] H 配對畫圖實走　[x] J 文件
 - [ ] I 雲端編譯三個 job 全綠；更新 tools/limrun/test.mjs 到現在的介面並走一遍（日卡、即時動態、設定頁抽屜、深色、重開），測完刪機器｜tools/limrun/test.mjs、有問題才改 src
 
+## 🚀 TestFlight（2026-11-25 下午，步驟在 docs/上架指南.md）
+
+- 已有 6 個 secret：APPLE_TEAM_ID、ASC_KEY_ID、ASC_ISSUER_ID、ASC_PRIVATE_KEY、兩個 profile。兩個 profile 驗過：bundle id、App Group、Apple Distribution 憑證都對，2027-10-31 到期
+- 差多米放 IOS_P12_BASE64、IOS_P12_PASSWORD（私鑰與密碼，AI 不經手）。要用到期日 2027-10-31 那張憑證的 .p12
+- ios.yml 的 testflight job 開頭會檢查 8 個 secret；金鑰改讀 ASC_PRIVATE_KEY。這個 job 還沒跑過
+- 本機 commit 還沒 push。放齊後先問多米，再 push paint-cli、觸發 `gh workflow run ios.yml -R domyweb666/Onion-Map --ref paint-cli -f testflight=true`
+- App Store Connect 有沒有建 App 紀錄還沒確認
+- 設定 › 關於的「支援」「隱私權政策」連到 domyweb.org/tools/onion/，網頁還沒上線，多米說先不放
+
 ## 🙋 要多米給或決定
 
 - 真實軌跡：從手機匯出 Google 時間軸或洋蔥備份，放 repo 外面
 - 雲端後端部署：Cloudflare 帳號、OpenAI 金鑰與花費上限、每天幾張
-- TestFlight 前置：App Group `group.org.domyweb.onion`、bundle id `org.domyweb.onion.widget`、兩個 profile；repo 現在 0 個 secret
+- TestFlight 前置：App Group `group.org.domyweb.onion`、bundle id `org.domyweb.onion.widget`、兩個 profile（都辦好了，見上面 TestFlight）
 - 印章 23 個要不要刪
 - 手機實掃 QR、真 AI 底圖一張（會用額度）還沒試
 - 待確認的小決定：地圖頁統計牌拿掉航線段數（375 寬放不下）、足跡先列 60 天、匯入的日子不問停留點、國外地名照舊、已畫好的舊卡老地名要重畫才換
