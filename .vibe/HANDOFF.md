@@ -1,49 +1,50 @@
-# Handoff：分支 paint-cli，程式與整合驗證做完，剩雲端模擬器走一遍
+# Handoff：TestFlight 第一次上傳，簽章打包都過，卡在 API 金鑰格式
 
-> 產出時間：2026-11-25 02:25
-> repo 是公開的。不要把真實軌跡、電腦裡的檔名、帳號寫進 git
+> 產出時間：2026-11-25 15:23
+> 分支 paint-cli。repo 是公開的。不要把真實軌跡、電腦裡的檔名與路徑、帳號、金鑰資訊寫進 git
 
-## 多米這次要的
+## ✅ 這次完成了什麼
 
-1. 地圖畫風走 CLI：手機掃電腦上的 QR 配對，電腦用 Codex CLI 叫 ChatGPT 畫，圖傳回手機
-2. 一次做完：一日地圖卡進 app（含小後端）、IG 4:5、真實軌跡試一張、頭尾剪 300 公尺預設開、地點命名與停留主動問、匯入 GPX 與 Google 時間軸、離線地圖、印章、Widget、Live Activity、拆四種退役畫法
+- 寫了 docs/上架指南.md（含 TestFlight、送審前要補的清單、審查備註草稿）
+- 設定 › 關於加「支援」「隱私權政策」；Info.plist 加「加入照片」說明；.gitignore 擋金鑰；兩個網頁的稿在 docs/網站頁/
+- 兩個 profile 驗過（bundle id、App Group、憑證都對，2027-10-31 到期），8 個 secret 都在
+- ios.yml 上傳 job 開頭檢查 8 個 secret，金鑰改讀 ASC_PRIVATE_KEY
+- 推到 e4b61a3，觸發 run 45567246943（build 16）：JS 測試、編譯檢查、模擬器版、匯入憑證、裝 profile、Archive、匯出 IPA 全過，只有最後「上傳到 TestFlight」紅
 
-沒要做：TestFlight、飛機誤判撤銷（多米沒點）
+## 🚧 還沒做完
 
-## ✅ 已完成（都在 paint-cli）
-
-- 前一個會話：拆模組、日卡、AI 底圖、配對、電腦版與雲端版畫圖服務、地點、印章、匯入、離線、小工具、即時動態
-- dffffff 大量足跡不卡頓（6 萬格：z8 636→26ms、z14 約 1.5 秒→0.1 秒）；匯入與備份併成「匯入足跡或備份」；還原備份先驗格式、先寫新的再刪舊的、手繪地圖與日卡留著；相框葉子不再變黑；README、建置說明、npm test
-- d1fde37 CI 改走 npm run test:app，沒 Pillow 就略過
-- c0cbf7b 整合驗證修正：十萬格還原 23 秒→3 秒、足跡與選一天分段列、44 點按區、畫圖不重畫同一張、密碼換過顯示重新配對、日卡地名只取現行行政區並避開框
-- ccd5666 抽屜內容長時被壓扁裁掉（選一天捲不到底）修好
-- 瀏覽器整條走過：ONION_FAKE=1 配對、送畫、收圖、四框兩比例、各種失敗路徑；備份、清除、還原在真 IndexedDB 驗過
-
-## 📌 關鍵決策
-
-- 電腦版與雲端版同一套 API，提示詞放服務端；送出去的底稿沒有路線、沒有字
-- 底圖是黑霧加色鉛筆地圖，台北圖幅與 AI 底圖疊在上面，z13.6 起淡出
-- 板子位置固定不動；路線用放大範圍避開板子
-- ChatGPT Go 畫一張約 3%，每次畫之前都先問一句
-- 霧與走過的次數只算視野外擴半屏；z<11 合併成小於 1.5 像素的上層格
+- 上傳錯誤原文：`Failed to load AuthKey file. (-39) ... does not contain a valid authentication key.`
+- secret 裡有 BEGIN PRIVATE KEY（開頭的檢查過了），所以是格式壞掉。推測是貼上時換行不見、變成一行（準則 2-24、12-4 記過一樣的事），沒有看過內容，待證實
+- build 16 沒有傳上去，TestFlight 上還沒有任何版本
 
 ## ⏭️ 下一步從哪繼續
 
-看 `gh run list --branch paint-cli` 與 tools/limrun/shots/，把 I 做完
+1. 改 .github/workflows/ios.yml 的「上傳到 TestFlight」：寫檔前把 ASC_PRIVATE_KEY 重排成標準 PEM（拿掉頭尾兩行與所有空白，每 64 字換行，再補頭尾），用 `openssl pkey -noout` 驗，不過就退到 ASC_KEY_P8_BASE64（多米後來也放了這個 secret）解 base64 再驗，都不過才報錯。只印形狀（行數、位元組數），不印內容。結尾 `if: always()` 刪金鑰檔。可參考人蔘修煉的 ios/ci/restore_asc_key.sh
+2. 把這個驗證也搬到 job 最前面（「檢查 8 個 secret」那步），免得編完才知道
+3. commit、push paint-cli、`gh workflow run ios.yml -R domyweb666/Onion-Map --ref paint-cli -f testflight=true`。多米 2026-11-25 說「上傳」，這次上傳的授權還在，修好重跑不用再問
+4. 備案：請多米自己用指令從 .p8 檔重放 ASC_PRIVATE_KEY，換行就不會掉，再 `gh run rerun 45567246943 --failed`。金鑰內容 AI 不經手
+5. 還可能卡的：App Store Connect 沒建 App（No suitable application records）、ASC_KEY_ID 對到別把金鑰（401）
+6. 上傳過了：照 docs/上架指南.md 第五節請多米建內部測試群組，第六節真機驗
+
+## 📌 關鍵決策
+
+- 兩個網頁（domyweb.org/tools/onion/）多米說還沒做好、先不放，他開口才上線。上線前 app 那兩列點了是 404
+- 手動簽章（做法乙）；.p12 與密碼多米自己放，AI 不經手
+- domyweb 的 GitHub Actions 預算用完，推 main 不會自動部署；要上線時先查線上是哪一版，`tool-sites-v2` 還沒併
+- 給多米待選的四件事在 docs/上架指南.md 第一節（藏 AI 畫圖、只做 iPhone、名稱、地區），多米還沒回
+
+## 📂 下個會話最重要的檔案
+
+- .github/workflows/ios.yml（testflight job）
+- docs/上架指南.md（第四、七、十節）
+- docs/模組約定.md（要改 src 才讀）
 
 ## 🧩 剩下的工作
 
-- [x] K 卡頓　[x] L 匯入整併　[x] G 相框　[x] F 整合驗證　[x] H 配對畫圖實走　[x] J 文件
-- [ ] I 雲端編譯三個 job 全綠；更新 tools/limrun/test.mjs 到現在的介面並走一遍（日卡、即時動態、設定頁抽屜、深色、重開），測完刪機器｜tools/limrun/test.mjs、有問題才改 src
+- [ ] A：修金鑰還原並重跑上傳｜TestFlight 出現 1.0 的 build｜.github/workflows/ios.yml｜無
+- [ ] B：上架指南第七節「送審前」各項｜逐項完成並驗｜看那張表｜多米先點頭、第一節四件事先定
 
-## 🚀 TestFlight（2026-11-25 下午，步驟在 docs/上架指南.md）
-
-- 已有 6 個 secret：APPLE_TEAM_ID、ASC_KEY_ID、ASC_ISSUER_ID、ASC_PRIVATE_KEY、兩個 profile。兩個 profile 驗過：bundle id、App Group、Apple Distribution 憑證都對，2027-10-31 到期
-- 差多米放 IOS_P12_BASE64、IOS_P12_PASSWORD（私鑰與密碼，AI 不經手）。要用到期日 2027-10-31 那張憑證的 .p12
-- ios.yml 的 testflight job 開頭會檢查 8 個 secret；金鑰改讀 ASC_PRIVATE_KEY。這個 job 還沒跑過
-- 本機 commit 還沒 push。放齊後先問多米，再 push paint-cli、觸發 `gh workflow run ios.yml -R domyweb666/Onion-Map --ref paint-cli -f testflight=true`
-- App Store Connect 有沒有建 App 紀錄還沒確認
-- 設定 › 關於的「支援」「隱私權政策」連到 domyweb.org/tools/onion/，網頁還沒上線，多米說先不放
+## 上一份交接還沒結的
 
 ## 🙋 要多米給或決定
 
@@ -67,5 +68,7 @@ daycard/2026-11-07/card_1080.png、draft.png 的改動與 sheets/taipei/painted_
 
 ## 🗑️ 雜訊
 
-- Bash 工具不要用 `python -`；gh、git push 後面接 `</dev/null`；雙反斜線會被折成一個，含正則的改用 Edit
-- 127.0.0.1:8787 與 localhost:8787 是不同來源，測假資料用 127.0.0.1，別動 localhost 的資料
+- Bash 的 heredoc 會把雙反斜線折成一個，Python 腳本裡的 printf 反斜線會壞；比對字串避開反斜線
+- Bash 工具不要用 `python -`；gh、git push 後面接 `</dev/null`
+- 測假資料用 127.0.0.1:8787，別動 localhost 的資料
+- ASC_KEY_P8_BASE64 是多出來的 secret，留著當備案
