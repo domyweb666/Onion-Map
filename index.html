@@ -955,7 +955,7 @@ async function wipeFiles() {
 async function wipeAll() { engine.clear(); engine.clean(); await wipeFiles(); store.locked = false; }
 
 /* 18-offline.js */
-// --- 離線地圖：看過的、附近的、下載過的圖磚都留在手機裡，沒網路也畫得出來 ---
+// --- 離線地圖：看過的、下載過的圖磚都留在手機裡，沒網路也畫得出來 ---
 // 地圖來源寫成 onion://planet、onion://v/{z}/{x}/{y}、onion://dem/{z}/{x}/{y}，這裡負責先查手機、沒有才上網抓
 /*OFFLINE_CORE_START*/
 const OFF = {
@@ -963,9 +963,9 @@ const OFF = {
   dem: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
   cap: 400 * 1048576,      // 總量上限
   minBrowse: 60 * 1048576, // 下載的縣市佔再多，看過的圖磚至少留這麼多
-  maxZ: 14, demMaxZ: 12,   // 向量圖磚最細到 z14；高程自動與下載只抓到 z12
-  nearKm: 10, nearMinZ: 10, moveKm: 3, areaMinZ: 8,
-  jobs: 2, gapMs: 100,     // OpenFreeMap 是免費的公益服務，慢慢抓
+  maxZ: 14, demMaxZ: 12,   // 向量圖磚最細到 z14；高程下載只抓到 z12
+  areaMinZ: 8,
+  jobs: 2, gapMs: 100,     // OpenFreeMap 是免費的公益服務，慢慢抓。條款只准使用者自己按的離線下載，不要自動補圖磚
   staleMs: 30 * 864e5,     // 存了這麼久、而且地圖出了新版，才順手換新
   timeoutMs: 15000,
   blank: 'iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEWAAABGTyZaAAAAH0lEQVR42u3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAvg0hAAABYOSdlwAAAABJRU5ErkJggg==', // 海拔 0 的高程圖磚
@@ -973,17 +973,6 @@ const OFF = {
   mb: { 臺東縣: 19, 屏東縣: 19, 雲林縣: 17, 彰化縣: 19, 苗栗縣: 18, 新竹縣: 17, 嘉義縣: 22, 高雄市: 36, 宜蘭縣: 14, 連江縣: 2, 金門縣: 4, 臺中市: 28, 澎湖縣: 4, 南投縣: 23, 花蓮縣: 31, 基隆市: 6, 臺北市: 28, 新北市: 42, 臺南市: 42, 桃園市: 28, 嘉義市: 4, 新竹市: 8 }
 };
 const offXY = (lng, lat, z) => { const n = 2 ** z, r = lat * Math.PI / 180, c = v => Math.max(0, Math.min(n - 1, Math.floor(v))); return [c((lng + 180) / 360 * n), c((1 - Math.asinh(Math.tan(r)) / Math.PI) / 2 * n)]; };
-// 附近的圖磚：粗的先、近的先
-function offNear(lng, lat) {
-  const out = [], dy = OFF.nearKm / 111.2, dx = dy / Math.max(0.1, Math.cos(lat * Math.PI / 180));
-  for (let z = OFF.nearMinZ; z <= OFF.maxZ; z++) {
-    const [x0, y0] = offXY(lng - dx, lat + dy, z), [x1, y1] = offXY(lng + dx, lat - dy, z), [cx, cy] = offXY(lng, lat, z), ring = [];
-    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) ring.push([Math.hypot(x - cx, y - cy), x, y]);
-    ring.sort((a, b) => a[0] - b[0]);
-    for (const [, x, y] of ring) { out.push('v/' + z + '/' + x + '/' + y); if (z <= OFF.demMaxZ) out.push('d/' + z + '/' + x + '/' + y); }
-  }
-  return out;
-}
 // 一個縣市碰得到的圖磚。towns＝55-admin.js 那種 {b, rings:[[外圈, 洞…]]}，圈是攤平的 [經,緯,經,緯…]
 function offCounty(towns, inRing) {
   const z = OFF.maxZ, hit = new Set(), add = (lng, lat) => { const [x, y] = offXY(lng, lat, z); hit.add(x * 65536 + y); };
@@ -1241,20 +1230,7 @@ const offline = (() => {
     map.on('error', e => { if (/onion-offline/.test(String(e && e.error && e.error.message))) { if (map._update) map._update(); } else console.error(e && e.error || e); });
   });
 
-  // --- 自動補附近：有 Wi-Fi（看不出來就當有網路）、知道人在哪，就把 10 公里內補齊 ---
-  let lastAt = null, auto = null, down = null;
-  const wifi = () => { const c = navigator.connection; return navigator.onLine !== false && !(c && (c.saveData || (c.type && c.type !== 'wifi' && c.type !== 'ethernet' && c.type !== 'unknown' && c.type !== 'other'))); };
-  function around(lng, lat) {
-    if (auto || down || !wifi()) return;
-    if (lastAt && Math.hypot((lng - lastAt[0]) * Math.cos(lat * Math.PI / 180), lat - lastAt[1]) * 111.2 < OFF.moveKm) return;
-    const ac = auto = new AbortController(), at = [lng, lat];
-    core.ensure(offNear(lng, lat), { signal: ac.signal }).then(r => { if (!r.ok && ac.signal.aborted) return; lastAt = at; if (!r.ok) setTimeout(() => { if (lastAt === at) lastAt = null; }, 600000); }) // 網路不好就過十分鐘再試
-      .catch(() => {}).finally(() => { auto = null; paint(); });
-  }
-  hook.fix.push(f => around(f.lng, f.lat));
-  hook.ready.push(() => setTimeout(() => { // 開 app：用最後一個紀錄點當位置，等畫面忙完再開始
-    const p = engine.state().points, q = p[p.length - 1]; if (q) around(q[2], q[1]);
-  }, 6000));
+  let down = null;
   document.addEventListener('onion:wiped', () => core.clearSeen().then(paint)); // 看過哪裡也算紀錄，一起清；自己下載的縣市留著
 
   // --- 設定頁 ---
@@ -1276,7 +1252,7 @@ const offline = (() => {
     el.innerHTML = '<div class="section"><h2>離線地圖</h2><div class="group">' + top +
       got.map(id => '<div class="row"><span class="lines"><span class="ttl">已下載：' + esc(id) + '</span><span class="meta">' + mb(a[id].n || 0) + '</span></span>' + btn('del:' + id, armed === id ? '確定刪除' : '刪除', 'bad') + '</div>').join('') +
       '<div class="row"><span class="lbl">占用空間</span><span class="val" id="offUse">' + mb(core.bytes()) + '</span></div></div>' +
-      '<p class="foot">看過的地方和你附近，沒網路也看得到。要去收訊不好的地方，先把地圖移過去，再回來下載那個縣市。</p></div>';
+      '<p class="foot">看過的地方，沒網路也看得到。要去收訊不好的地方，先把地圖移過去，再回來下載那個縣市。</p></div>';
   }
   const pctText = () => pct + '%，隨時可以停，下次接著抓';
   async function get() {
@@ -1284,7 +1260,6 @@ const offline = (() => {
     const h = here, est = (OFF.mb[h.id] || 30) * 1048576;
     if (navigator.onLine === false) return toast('現在沒有網路');
     if (core.pinned() + est > OFF.cap) return toast('下載的地圖快滿了，先刪掉一個縣市', 4000);
-    if (auto) auto.abort();
     const ac = new AbortController(); down = { id: h.id, ac }; pct = 0; paint();
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
     const towns = h.adm.towns.filter(t => t.c === h.c), r = await core.download(h.id, offCounty(towns, inRing), { signal: ac.signal,
@@ -1301,7 +1276,7 @@ const offline = (() => {
   });
   hook.tab.push(t => { if (t === 'settings') { armed = ''; paint(); locate(); } });
   hook.ready.push(() => core.ready.then(paint));
-  return { core, around, reload, get downloading() { return down && down.id; } };
+  return { core, reload, get downloading() { return down && down.id; } };
 })();
 
 /* 20-map.js */

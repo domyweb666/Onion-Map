@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const s = fs.readFileSync(new URL('../src/js/18-offline.js', import.meta.url), 'utf8');
-const { OFF, offXY, offNear, offCounty, offMake } = new Function(s.slice(s.indexOf('/*OFFLINE_CORE_START*/'), s.indexOf('/*OFFLINE_CORE_END*/')) + ';return {OFF,offXY,offNear,offCounty,offMake}')();
+const { OFF, offXY, offCounty, offMake } = new Function(s.slice(s.indexOf('/*OFFLINE_CORE_START*/'), s.indexOf('/*OFFLINE_CORE_END*/')) + ';return {OFF,offXY,offCounty,offMake}')();
 
 const memStore = (box = { tile: new Map(), idx: new Map(), conf: {} }) => ({
   box, fail: false,
@@ -144,11 +144,6 @@ test('刪除縣市：共用的圖磚留給另一個縣市', async () => {
   await w.get('onion://v/5/1/1'); await w.core.clearSeen(); assert.ok(!w.core.has('v/5/1/1')); assert.ok(w.core.has('v/14/3/1'));
 });
 
-test('附近 10 公里：z10 到 z14、高程只到 z12、數量小、近的先', () => {
-  const k = offNear(121.5, 25.05), z14 = k.filter(x => x.startsWith('v/14')), [cx, cy] = offXY(121.5, 25.05, 14);
-  assert.ok(z14.length >= 100 && z14.length <= 144, String(z14.length)); assert.equal(z14[0], `v/14/${cx}/${cy}`); assert.ok(k.length < 250, String(k.length));
-  assert.ok(!k.some(x => /^d\/1[34]/.test(x))); assert.ok(!k.some(x => /^v\/[89]\//.test(x)));
-});
 function inRing(a, x, y) { let c = false; for (let i = 0, j = a.length - 2; i < a.length; j = i, i += 2) { const yi = a[i + 1], yj = a[j + 1]; if ((yi > y) !== (yj > y) && x < (a[j] - a[i]) * (y - yi) / (yj - yi) + a[i]) c = !c; } return c; }
 test('縣市的圖磚：蓋滿多邊形，外框的空角不抓；臺北市張數合理；每個縣市都有預估大小', () => {
   const d = JSON.parse(fs.readFileSync(new URL('../assets/admin/tw-admin.json', import.meta.url), 'utf8'));
