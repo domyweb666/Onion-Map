@@ -11,7 +11,7 @@
 #                APPLE_TEAM_ID              開發者帳號的 Team ID（10 碼）
 #                ASC_KEY_ID                 App Store Connect API key 的 Key ID
 #                ASC_ISSUER_ID              App Store Connect API key 的 Issuer ID
-#                ASC_API_KEY_P8             API key 的 .p8 檔內容（整段文字）
+#                ASC_PRIVATE_KEY            API key 的 .p8 檔內容（整段文字，含 BEGIN、END 兩行）
 #              兩個 bundle id 都要在 developer.apple.com 打開 App Groups，選 group.org.domyweb.onion，再重做 profile
 name: iOS
 
@@ -158,6 +158,27 @@ jobs:
     env:
       KEYCHAIN_PASSWORD: ci-temp-keychain
     steps:
+      # 先看東西齊不齊，免得編了十分鐘才說缺一個。只印缺哪個名字，不印內容
+      - name: 檢查 8 個 secret
+        env:
+          IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+          IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+          IOS_WIDGET_PROFILE_BASE64: ${{ secrets.IOS_WIDGET_PROFILE_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          missing=0
+          for name in IOS_P12_BASE64 IOS_P12_PASSWORD IOS_PROFILE_BASE64 IOS_WIDGET_PROFILE_BASE64 APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::少了 secret $name（docs/上架指南.md 第三節）"; missing=1; fi
+          done
+          if [ -n "$ASC_PRIVATE_KEY" ] && ! printf '%s' "$ASC_PRIVATE_KEY" | grep -q "BEGIN PRIVATE KEY"; then
+            echo "::error::ASC_PRIVATE_KEY 不像 .p8 的原文，要整個檔案貼進去，含 BEGIN、END 兩行"; missing=1
+          fi
+          exit $missing
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -272,10 +293,10 @@ jobs:
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
           mkdir -p "$HOME/private_keys"
-          printf '%s\n' "$ASC_API_KEY_P8" > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s\n' "$ASC_PRIVATE_KEY" > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
           IPA=$(ls build/ipa/*.ipa | head -1)
           xcrun altool --upload-app -t ios -f "$IPA" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
 

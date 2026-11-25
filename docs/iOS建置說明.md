@@ -137,7 +137,7 @@ AltServer 跟手機在同一個 Wi-Fi 時會自動續簽。這條路不能給別
    | `APPLE_TEAM_ID` | developer.apple.com › Membership details 的 Team ID（10 碼） |
    | `ASC_KEY_ID` | App Store Connect API key 的 Key ID |
    | `ASC_ISSUER_ID` | 同頁面的 Issuer ID |
-   | `ASC_API_KEY_P8` | .p8 檔整段文字（含 BEGIN／END 那兩行） |
+   | `ASC_PRIVATE_KEY` | .p8 檔整段文字（含 BEGIN／END 那兩行） |
 
 5. 觸發。`main` 還沒有這個 workflow 檔，Actions 頁不會出現 Run workflow 按鈕，先用指令：
 
