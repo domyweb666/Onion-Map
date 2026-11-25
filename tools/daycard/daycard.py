@@ -43,7 +43,7 @@ SCHEMES = {
     'clear': {'title': ['SourceHanSerifTC-Heavy.otf', 'SourceHanSerifTC-Bold.otf', 'NotoSerifTC-VF.ttf', 'msjhbd.ttc'], 'place': ['SourceHanSerifTC-Bold.otf', 'NotoSerifTC-VF.ttf', 'msjhbd.ttc'],
               'label': ['SourceHanSansTC-Bold.otf', 'NotoSansTC-VF.ttf', 'msjhbd.ttc'], 'text': ['SourceHanSansTC-Medium.otf', 'NotoSansTC-VF.ttf', 'msjh.ttc']},
     'kai': {'title': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'place': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'label': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'text': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf']},
-    'hand': {'title': ['ChenYuluoyan.woff2'], 'place': ['ChenYuluoyan.woff2'], 'label': ['ChenYuluoyan.woff2'], 'text': ['ChenYuluoyan.woff2']},
+    'hand': {'title': ['OnionHand.woff2'], 'place': ['OnionHand.woff2'], 'label': ['OnionHand.woff2'], 'text': ['OnionHand.woff2']},
     # rpg＝2026-11-08 介面重設計定案：標題與區名用思源宋體粗（木刻章回感），地名與內文用霞鶩文楷
     'rpg': {'title': ['NotoSerifTC-VF.ttf', 'SourceHanSerifTC-Heavy.otf', 'msjhbd.ttc'], 'place': ['NotoSerifTC-VF.ttf', 'SourceHanSerifTC-Bold.otf', 'msjhbd.ttc'],
             'label': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf'], 'text': ['LXGWWenKai-Regular.ttf', 'kaiu.ttf']},

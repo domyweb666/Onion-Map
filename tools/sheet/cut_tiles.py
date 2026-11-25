@@ -13,7 +13,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
-FONT = ROOT / 'fonts' / 'ChenYuluoyan.woff2'
+FONT = ROOT / 'fonts' / 'OnionHand.woff2'
 PAPER, INK = (243, 236, 219), (46, 40, 32)
 
 

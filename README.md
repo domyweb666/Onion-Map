@@ -84,4 +84,4 @@ iOS app 用 Capacitor 包同一份程式，build 完跑 `npx cap sync ios` 同�
 - 地圖：© OpenStreetMap contributors，圖磚由 OpenFreeMap 提供
 - 地形陰影：AWS Open Data 的 Terrain Tiles
 - 行政區界線：內政部「鄉鎮市區界線」，取自 taiwan-atlas
-- 手寫字型：辰宇落雁體（SIL Open Font License 1.1），字型檔與授權在 `fonts/`。中文字由 MapLibre 在裝置上用這套字型畫，英數與標點用 `fonts/glyphs/` 裡自產的 glyph
+- 手寫字型：瘦身過的辰宇落雁體（SIL Open Font License 1.1），授權不准改過的版本沿用原名，所以改叫 Onion Hand，字型檔與授權在 `fonts/`。中文字由 MapLibre 在裝置上用這套字型畫，英數與標點用 `fonts/glyphs/` 裡自產的 glyph

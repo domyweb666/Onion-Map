@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url), L = require('../vendor/licenses');
 const at = p => new URL('../' + p, import.meta.url), text = p => fs.readFileSync(at(p), 'utf8').replace(/\r\n/g, '\n');
@@ -68,8 +69,16 @@ test('index.html 裡的授權跟現在的檔案一樣，辰宇落雁體的 OFL �
   assert.ok(!html.includes('@@LICENSES@@'));
   const got = JSON.parse(m[1]);
   assert.deepEqual(got, data, '授權內容改過，先跑 npm run build');
-  const ofl = text('fonts/ChenYuluoyan-OFL.txt').trim();
+  const ofl = text('fonts/OnionHand-OFL.txt').trim();
   assert.ok(got.texts.includes(ofl)); assert.ok(ofl.includes('SIL OPEN FONT LICENSE Version 1.1') && ofl.includes('OTHER DEALINGS IN THE'));
+});
+
+test('改過的字型不沿用保留的名字（OFL 第 3 條）', () => {
+  const dir = new URL('../fonts/', import.meta.url);
+  for (const f of fs.readdirSync(dir, { recursive: true })) {
+    assert.ok(!/luoyan|落雁/i.test(f), f);
+    if (f.endsWith('.pbf')) assert.ok(!/luoyan/i.test(fs.readFileSync(new URL(f.split(path.sep).join('/'), dir), 'latin1')), f);
+  }
 });
 
 test('index.html 沒有被授權內文弄壞', () => {

@@ -1,7 +1,7 @@
   /* ===== 介面：Domy Design（代號在 vendor/domy-design/tokens.json，build.js 轉成 var(--d-*)）=====
      規矩：介面只准用 var(--d-*)，不寫色碼、字級、間距、圓角。地圖本身的畫風、卡片畫布不受這條管。 */
-  /* 手寫字型：辰宇落雁體（OFL），地圖上的地名用，介面不用 */
-  @font-face{font-family:'Luoyan';src:url('fonts/ChenYuluoyan.woff2') format('woff2');font-display:swap}
+  /* 手寫字型：瘦身過的辰宇落雁體（OFL，改過的版本不能沿用原名，所以叫 Onion Hand），地圖上的地名用，介面不用 */
+  @font-face{font-family:'OnionHand';src:url('fonts/OnionHand.woff2') format('woff2');font-display:swap}
   :root{
     --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
     --tab-icon:22px; /* domy-ignore: DomyTabBar 的 TAB_ICON */

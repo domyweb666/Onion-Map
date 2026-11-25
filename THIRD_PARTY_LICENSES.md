@@ -17,7 +17,7 @@
 
 | 名稱 | 授權 | 說明 | 來源 |
 |---|---|---|---|
-| 辰宇落雁體 | SIL OFL 1.1 | 地圖和地圖卡上的手寫字。 | https://github.com/Chenyu-otf/chenyuluoyan_thin |
+| 辰宇落雁體 | SIL OFL 1.1 | 地圖和地圖卡上的手寫字。app 裡是瘦身過的版本，照授權規定改了檔名。 | https://github.com/Chenyu-otf/chenyuluoyan_thin |
 | Noto Sans | SIL OFL 1.1 | 外國文字的地名用這套。 | https://github.com/openmaptiles/fonts |
 
 ## 程式

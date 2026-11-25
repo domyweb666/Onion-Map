@@ -23,7 +23,7 @@ import mapbox_vector_tile
 ROOT = Path(__file__).resolve().parents[2]
 CACHE = ROOT / 'tools' / 'sheet' / 'cache'
 SPRITES = ROOT / 'assets' / 'sprites'
-FONT = ROOT / 'fonts' / 'ChenYuluoyan.woff2'
+FONT = ROOT / 'fonts' / 'OnionHand.woff2'
 TILE_URL = 'https://tiles.openfreemap.org/planet/20261101_080013_pt/{z}/{x}/{y}.pbf'
 DEM_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
 UA = {'User-Agent': 'onion-map-sheet-renderer/0.1'}

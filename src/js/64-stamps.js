@@ -245,7 +245,7 @@ function stampImage(id, size) { // 回傳 canvas（size×size 像素，底是透
     g.fill();
   };
   ring(45, 4.6, 0.9); ring(38.5, 1.3, 0.6);
-  const font = "'Luoyan','PingFang TC','Noto Sans TC',sans-serif";
+  const font = "'OnionHand','PingFang TC','Noto Sans TC',sans-serif";
   g.textAlign = 'center'; g.textBaseline = 'middle';
   const text = (s, y, px) => { g.font = px + 'px ' + font; g.lineWidth = px * 0.06; g.fillText(s, 0, y); g.strokeText(s, 0, y); };
   if (def.big) { text(def.big, -7, def.big.length > 2 ? 40 : 52); text(def.small, 21, def.small.length > 2 ? 15 : 20); }
@@ -261,7 +261,7 @@ function stampImage(id, size) { // 回傳 canvas（size×size 像素，底是透
   }
   for (let i = 0; i < 260; i++) { g.fillStyle = 'rgba(0,0,0,' + (0.25 + rnd() * 0.6).toFixed(2) + ')'; g.beginPath(); g.arc((rnd() - 0.5) * 100, (rnd() - 0.5) * 100, 0.2 + rnd() * rnd() * 0.9, 0, 6.3); g.fill(); }
   // 章面裡的字要等手寫字型載好才留著用
-  if (!document.fonts || document.fonts.check("18px 'Luoyan'")) stampCache.set(key, c);
+  if (!document.fonts || document.fonts.check("18px 'OnionHand'")) stampCache.set(key, c);
   return c;
 }
 function stampsOfDay(key) { // 那天拿到的，早的在前

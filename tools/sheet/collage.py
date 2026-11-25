@@ -13,7 +13,7 @@ from scipy import ndimage as ndi
 ROOT = Path(__file__).resolve().parents[2]
 TEX = ROOT / 'assets' / 'textures'
 SPRITES = ROOT / 'assets' / 'sprites'
-FONT = ROOT / 'fonts' / 'ChenYuluoyan.woff2'
+FONT = ROOT / 'fonts' / 'OnionHand.woff2'
 PAPER, INK = (243, 236, 219), (46, 40, 32)
 rng = np.random.default_rng(11)
 

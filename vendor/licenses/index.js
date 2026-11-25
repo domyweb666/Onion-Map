@@ -62,7 +62,7 @@ const groups = () => [
     { name: 'taiwan-atlas 2021.9.20', lic: 'MIT', about: '鄉鎮市區界線是從它整理好的檔案轉的。', urls: ['https://github.com/dkaoster/taiwan-atlas'], parts: [['', here('taiwan-atlas-2021.9.20.txt')]] }
   ] },
   { t: '字型', items: [
-    { name: '辰宇落雁體', lic: 'SIL OFL 1.1', about: '地圖和地圖卡上的手寫字。', urls: ['https://github.com/Chenyu-otf/chenyuluoyan_thin'], parts: [['', read('fonts/ChenYuluoyan-OFL.txt')]] },
+    { name: '辰宇落雁體', lic: 'SIL OFL 1.1', about: '地圖和地圖卡上的手寫字。app 裡是瘦身過的版本，照授權規定改了檔名。', urls: ['https://github.com/Chenyu-otf/chenyuluoyan_thin'], parts: [['', read('fonts/OnionHand-OFL.txt')]] },
     { name: 'Noto Sans', lic: 'SIL OFL 1.1', about: '外國文字的地名用這套。', urls: ['https://github.com/openmaptiles/fonts'], parts: [['', here('noto-sans-OFL.txt')]] }
   ] },
   { t: '程式', items: [

@@ -4,7 +4,7 @@
     box-shadow:0 2px 6px rgba(0,0,0,.35)} /* domy-ignore: 地圖畫風 */
   .plMk i .ic{width:18px;height:18px} /* domy-ignore: 地圖畫風 */
   .plMk span{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:-5px;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    font:17px/22px 'Luoyan',var(--d-font);color:#2E2820;background:rgba(243,236,219,.92);padding:0 7px;border-radius:9px;pointer-events:none} /* domy-ignore: 地圖畫風 */
+    font:17px/22px 'OnionHand',var(--d-font);color:#2E2820;background:rgba(243,236,219,.92);padding:0 7px;border-radius:9px;pointer-events:none} /* domy-ignore: 地圖畫風 */
   .plMid .plMk span,.plFar .plMk span{display:none}
   .plMid .plMk i{width:26px;height:26px} /* domy-ignore: 地圖畫風 */
   .plMid .plMk i .ic{width:15px;height:15px} /* domy-ignore: 地圖畫風 */
@@ -12,7 +12,7 @@
   .plFar .plMk i{width:8px;height:8px;border-width:1.5px;box-shadow:none} /* domy-ignore: 地圖畫風 */
   .plFar .plMk i .ic{display:none}
   .plAskPin{width:34px;height:34px;border-radius:50% 46% 52% 48%;border:2px solid #2E2820;background:#F3ECDB;color:#2E2820;display:grid;place-items:center;
-    font:24px/1 'Luoyan',var(--d-font);pointer-events:none;z-index:3;animation:plPin 1.6s infinite} /* domy-ignore: 地圖畫風 */
+    font:24px/1 'OnionHand',var(--d-font);pointer-events:none;z-index:3;animation:plPin 1.6s infinite} /* domy-ignore: 地圖畫風 */
   @keyframes plPin{0%{box-shadow:0 0 0 0 rgba(243,236,219,.8)}100%{box-shadow:0 0 0 16px rgba(243,236,219,0)}} /* domy-ignore: 地圖畫風 */
   @media (prefers-reduced-motion:reduce){.plAskPin{animation:none}}
 

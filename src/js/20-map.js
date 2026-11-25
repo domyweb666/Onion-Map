@@ -1,6 +1,6 @@
 // --- 地圖樣式：色鉛筆手札（只有探索過的地方看得到）。畫好的圖幅與 AI 畫的底圖疊在它上面，見 45-sheets.js ---
 const INK = '#2E2820', INK_SOFT = '#5C5244', PAPER = '#F3ECDB';
-const FONT = ['Luoyan']; // 英數與標點從 fonts/glyphs/ 取；中文字由 MapLibre 用本機手寫字型畫（localIdeographFontFamily）
+const FONT = ['OnionHand']; // 英數與標點從 fonts/glyphs/ 取；中文字由 MapLibre 用本機手寫字型畫（localIdeographFontFamily）
 const NAME = ['coalesce', ['get', 'name:zh-Hant'], ['get', 'name:zh'], ['get', 'name']];
 // 道路＝外層墨線＋內層紙色，看起來像鋼筆畫的雙線；縮小時內層歸零，變回單線。
 // 寬度順序：[幹道, 主要, 次要／三級, 小巷, 服務道路]，寬度 0 就是不畫（小巷 z12 以下、服務道路 z13 以下不畫）
@@ -119,7 +119,7 @@ function lastPoint() { const p = engine.state().points; return p[p.length - 1] |
 const map = new maplibregl.Map({
   container: 'map', style, center: [121.0, 23.7], zoom: 6.5,
   attributionControl: { compact: true }, locale: { 'AttributionControl.ToggleAttribution': '地圖資料出處' }, pitchWithRotate: false, dragRotate: false,
-  localIdeographFontFamily: "'Luoyan', 'PingFang TC', 'Noto Sans TC', sans-serif" // 中文字在本機用手寫字型畫，不必下載整套中文 glyph
+  localIdeographFontFamily: "'OnionHand', 'PingFang TC', 'Noto Sans TC', sans-serif" // 中文字在本機用手寫字型畫，不必下載整套中文 glyph
 });
 map.touchZoomRotate.disableRotation();
 const mapReady = new Promise(ok => map.once('load', ok));
@@ -128,7 +128,7 @@ map.on('styleimagemissing', e => { const mk = IMAGES[e.id]; if (mk && !map.hasIm
 // 手寫字型載好（最多等 4 秒）再顯示地名，不然 MapLibre 會先用系統字型把字畫進快取
 let labelsOn = false;
 function showLabels() { labelsOn = true; LABEL_LAYERS.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'visible')); }
-const fontReady = (document.fonts && document.fonts.load) ? document.fonts.load("24px 'Luoyan'").catch(() => {}) : Promise.resolve();
+const fontReady = (document.fonts && document.fonts.load) ? document.fonts.load("24px 'OnionHand'").catch(() => {}) : Promise.resolve();
 Promise.race([fontReady, new Promise(r => setTimeout(r, 4000))]).then(() => {
   if (map.isStyleLoaded()) showLabels(); else map.once('load', showLabels);
 });
