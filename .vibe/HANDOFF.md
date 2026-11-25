@@ -1,25 +1,26 @@
-# Handoff：TestFlight 1.0（19）已上傳，等 Apple 處理與多米真機
+# Handoff：送審前七項補完（還沒出新版），等多米真機與決定
 
-> 產出時間：2026-11-25 15:40
+> 產出時間：2026-11-25 17:06
 > 分支 paint-cli。repo 是公開的。不要把真實軌跡、電腦裡的檔名與路徑、帳號、金鑰資訊寫進 git
 
 ## ✅ 這次完成了什麼
 
-- 金鑰修好：`ASC_PRIVATE_KEY` 被擠成一行（內容完整），`ios/ci/asc_key.mjs` 還原成標準 PEM，還原不了會退到 `ASC_KEY_P8_BASE64`。測試在 tests/asc-key.test.mjs
-- 上傳 job 開頭先驗金鑰、問 App Store Connect 有沒有這個 App，跑完刪金鑰檔
-- run 45568611894：上傳 job 全綠，Apple 回 UPLOAD SUCCEEDED，build 19
-- docs/上架指南.md 跟上
+- TestFlight 1.0（19）15:33 上傳成功（金鑰還原在 ios/ci/asc_key.mjs），裡面沒有下面這些
+- 上架指南第七節第 4、5、6、7、11、12、13 項（commit 4723cc3）：User-Agent、地圖出處、授權頁、固定 Xcode 26、匯入頁、清除紀錄
+- 順手：分享的圖補地圖出處。`MAP_CREDIT` 在 58-cardui.js；一日卡放不下時折兩行；「走過的地方」那張放在地圖最下緣
+- 驗證：test:app 132 項全過；瀏覽器 375 寬淺色深色、四款框兩種尺寸、授權 18 項、清除紀錄都看過
 
 ## 🚧 還沒做完
 
-- 沒看過 App Store Connect 的處理結果（有沒有寄信說缺東西、出口合規有沒有跳），要多米看
-- 內部測試群組還沒建，真機還沒測
+- 真機沒驗：User-Agent 有沒有真的帶出去、iOS 暫存資料夾的匯出檔有沒有清掉、授權頁的 VoiceOver
+- 多米還沒回：上架指南第一節四件事、第七節表後面兩件（自動補附近圖磚、落雁體的字型名）
 
 ## ⏭️ 下一步從哪繼續
 
-1. 多米照 docs/上架指南.md 第五節建內部測試群組、裝起來，第六節 15 條逐條回
-2. 有問題的修完，再 `gh workflow run ios.yml -R domyweb666/Onion-Map --ref paint-cli -f testflight=true` 出下一版。多米那句「上傳」用在 build 19，下一版要再問
-3. 多米回了上架指南第一節四件事、點頭第七節之後，做工作包 B
+1. 看 paint-cli 最後一次 CI 有沒有綠（run 45582217913）
+2. 多米回了就做第七節第 8、9 項和那兩件，第 14 項（準則對照）等他挑
+3. 多米說可以再出下一版：`gh workflow run ios.yml -R domyweb666/Onion-Map --ref paint-cli -f testflight=true`
+4. 多米真機回報的問題修完一起出
 
 ## 📌 關鍵決策
 
@@ -37,8 +38,9 @@
 
 ## 🧩 剩下的工作
 
-- [x] A：修金鑰還原並重跑上傳｜Apple 收下 1.0（19）｜.github/workflows/ios.yml、ios/ci/asc_key.mjs｜無
-- [ ] B：上架指南第七節「送審前」各項｜逐項完成並驗｜看那張表｜多米先點頭、第一節四件事先定
+- [x] A：修金鑰還原並重跑上傳
+- [x] B1：第七節第 4、5、6、7、11、12、13 項
+- [ ] B2：第七節第 8、9 項與兩件待決定的｜逐項完成並驗｜看那張表｜等多米
 - [ ] C：多米真機回報的問題｜逐條修完再出一版｜看回報｜等多米
 
 ## 上一份交接還沒結的
