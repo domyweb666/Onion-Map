@@ -1,11 +1,11 @@
 # Handoff：多米先真機測幾天，還沒要上架
 
-> 產出時間：2026-11-25 18:14
+> 產出時間：2026-11-25 18:31
 > 分支 paint-cli。repo 是公開的。不要把真實軌跡、電腦裡的檔名與路徑、帳號、金鑰資訊寫進 git
 
 ## ✅ 這次完成了什麼
 
-- TestFlight 1.0（19）15:33 上傳成功（金鑰還原在 ios/ci/asc_key.mjs），裡面沒有下面這些
+- TestFlight 1.0（23）18:30 上傳成功（c6f749b），下面這些都在裡面。前一版 19 沒有
 - 上架指南第七節第 4、5、6、7、11、12、13 項（commit 4723cc3）：User-Agent、地圖出處、授權頁、固定 Xcode 26、匯入頁、清除紀錄
 - 拿掉自動補附近 10 公里的圖磚（多米同意，OpenFreeMap 條款），只留看過的與自己按的縣市下載。別加回來
 - 落雁體改名 Onion Hand（OFL 不准改過的字型沿用原名）：fonts/OnionHand.woff2、fonts/glyphs/OnionHand、CSS 名 OnionHand。字形逐一比過沒變，測試會擋原名
@@ -20,7 +20,7 @@
 ## ⏭️ 下一步從哪繼續
 
 1. 等多米真機回報（照 docs/上架指南.md 第六節），修問題。上架的事先停，不要催第一節四件事，也不要動第七節第 8、9 項（請 ChatGPT 畫、iPad 都先留著）
-2. 出新版要多米先說好：`gh workflow run ios.yml -R domyweb666/Onion-Map --ref paint-cli -f testflight=true`。build 19 沒有 15:33 之後的改動
+2. 出新版要多米先說好：`gh workflow run ios.yml -R domyweb666/Onion-Map --ref paint-cli -f testflight=true`。多米那句「出新版」用在 build 23，下一版要再問
 
 ## 📌 關鍵決策
 
